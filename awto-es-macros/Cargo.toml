@@ -1,0 +1,18 @@
+[package]
+name = "awto-es-macros"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+heck = "0.3"
+proc-macro2 = "1.0"
+quote = "1.0"
+syn = { version = "1.0", features = [
+  "full",
+  "extra-traits",
+  "parsing",
+  "printing",
+] }
