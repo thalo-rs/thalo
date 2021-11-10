@@ -1,21 +1,27 @@
+use std::{
+    fmt::Write,
+    ops::{Bound, Range, RangeBounds},
+};
+
 use async_trait::async_trait;
 use bb8_postgres::{
     bb8::Pool,
     tokio_postgres::{
         tls::{MakeTlsConnect, TlsConnect},
+        types::ToSql,
         Socket,
     },
     PostgresConnectionManager,
 };
 
 use crate::{
-    Aggregate, AggregateEvent, AggregateStateMutator, Error, Event, Identity, InternalError,
-    Repository,
+    Aggregate, AggregateEvent, AggregateEventOwned, AggregateStateMutator, Error, Event,
+    EventStore, Identity, InternalError,
 };
 
 /// EventStore for postgres database
 #[derive(Clone, Debug)]
-pub struct EventStore<Tls>
+pub struct PgEventStore<Tls>
 where
     Tls: MakeTlsConnect<Socket> + Clone + Send + Sync + 'static,
     <Tls as MakeTlsConnect<Socket>>::Stream: Send + Sync,
@@ -25,7 +31,7 @@ where
     pool: Pool<PostgresConnectionManager<Tls>>,
 }
 
-impl<Tls> EventStore<Tls>
+impl<Tls> PgEventStore<Tls>
 where
     Tls: MakeTlsConnect<Socket> + Clone + Send + Sync + 'static,
     <Tls as MakeTlsConnect<Socket>>::Stream: Send + Sync,
@@ -44,7 +50,7 @@ where
 }
 
 #[async_trait]
-impl<Tls> Repository for EventStore<Tls>
+impl<Tls> EventStore for PgEventStore<Tls>
 where
     Tls: MakeTlsConnect<Socket> + Clone + Send + Sync + 'static,
     <Tls as MakeTlsConnect<Socket>>::Stream: Send + Sync,
@@ -72,7 +78,7 @@ where
         Ok(())
     }
 
-    async fn save_events(&self, events: &[AggregateEvent]) -> Result<(), Error> {
+    async fn save_events(&self, events: &[AggregateEvent]) -> Result<Option<i64>, Error> {
         let mut conn = self
             .pool
             .get()
@@ -86,6 +92,7 @@ where
             .await
             .internal_error("could not start transaction")?;
 
+        let mut last_event_sequence: Option<i64> = None;
         for event in events {
             // Get the max sequence for the given aggregate type and id
             let row = t
@@ -101,27 +108,31 @@ where
             let next = current.unwrap_or(-1) + 1;
 
             // Insert event with incremented sequence
-            t.execute(
-                "
-                INSERT INTO events (aggregate_type, aggregate_id, sequence, event_type, event_data)
-                VALUES ($1, $2, $3, $4, $5)
-                ",
-                &[
-                    &event.aggregate_type,
-                    &event.aggregate_id,
-                    &next,
-                    &event.event_type,
-                    &event.event_data,
-                ],
-            )
-            .await
-            .internal_error("could not insert event")?;
+            last_event_sequence = Some(
+                t.query_one(
+                    "
+                    INSERT INTO events (aggregate_type, aggregate_id, sequence, event_type, event_data)
+                    VALUES ($1, $2, $3, $4, $5)
+                    RETURNING sequence
+                    ",
+                    &[
+                        &event.aggregate_type,
+                        &event.aggregate_id,
+                        &next,
+                        &event.event_type,
+                        &event.event_data,
+                    ],
+                )
+                .await
+                .internal_error("could not insert event")?
+                .get(0),
+            );
         }
         t.commit()
             .await
             .internal_error("could not commit transaction to insert events")?;
 
-        Ok(())
+        Ok(last_event_sequence)
     }
 
     async fn load_aggregate<A: Aggregate>(
@@ -164,5 +175,66 @@ where
         }
 
         Ok(aggregate)
+    }
+
+    async fn get_events(
+        &self,
+        aggregate_type: &str,
+        aggregate_id: &str,
+        range: Range<i64>,
+    ) -> Result<Vec<AggregateEventOwned>, Error> {
+        let conn = self
+            .pool
+            .get()
+            .await
+            .internal_error("could not get connection from pool")?;
+
+        let mut query = "
+            SELECT id, sequence, event_type, event_data
+            FROM events
+            WHERE aggregate_type = $1 AND aggregate_id = $2
+            "
+        .to_string();
+        let mut params: Vec<&(dyn ToSql + Sync)> = vec![&aggregate_type, &aggregate_id];
+        match range.start_bound() {
+            Bound::Included(from) => {
+                write!(query, " AND sequence >= ${} ", params.len() + 1).unwrap();
+                params.push(from);
+            }
+            Bound::Excluded(from) => {
+                write!(query, " AND sequence > ${} ", params.len() + 1).unwrap();
+                params.push(from);
+            }
+            Bound::Unbounded => {}
+        }
+        match range.end_bound() {
+            Bound::Included(to) => {
+                write!(query, " AND sequence <= ${} ", params.len() + 1).unwrap();
+                params.push(to);
+            }
+            Bound::Excluded(to) => {
+                write!(query, " AND sequence < ${} ", params.len() + 1).unwrap();
+                params.push(to);
+            }
+            Bound::Unbounded => {}
+        }
+        write!(query, "ORDER BY sequence ASC").unwrap();
+
+        let rows = conn
+            .query(&query, &params)
+            .await
+            .internal_error("could not get events in range")?;
+
+        Ok(rows
+            .into_iter()
+            .map(|row| AggregateEventOwned {
+                id: row.get(0),
+                aggregate_type: aggregate_type.to_string(),
+                aggregate_id: aggregate_id.to_string(),
+                sequence: row.get(1),
+                event_type: row.get(2),
+                event_data: row.get(3),
+            })
+            .collect())
     }
 }

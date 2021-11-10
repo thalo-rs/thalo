@@ -30,6 +30,7 @@ pub enum ErrorKind {
     DeserializeError,
     InternalError,
     Other,
+    ResourceNotFound,
     SerializeError,
     ValidationError,
 }
@@ -42,6 +43,7 @@ impl ErrorKind {
             DeserializeError => "deserialize error",
             InternalError => "internal error",
             Other => "other error",
+            ResourceNotFound => "resource not found",
             SerializeError => "serialize error",
             ValidationError => "validation error",
         }
