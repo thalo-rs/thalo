@@ -37,6 +37,27 @@ where
             repository,
         }
     }
+
+    async fn handle_view(
+        &mut self,
+        event: BankAccountEvent,
+        event_sequence: i64,
+        mut view: BankAccountView,
+    ) -> Result<(), Error> {
+        use BankAccountEvent::*;
+        match event {
+            AccountOpened { .. } => {}
+            FundsDeposited { amount } => {
+                view.balance += amount;
+                self.repository.save(&view, event_sequence).await?;
+            }
+            FundsWithdrawn { amount } => {
+                view.balance -= amount;
+                self.repository.save(&view, event_sequence).await?;
+            }
+        }
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -57,14 +78,13 @@ where
         event_sequence: i64,
     ) -> Result<(), Error> {
         use BankAccountEvent::*;
-
         match event {
             AccountOpened { initial_balance } => {
                 let view = BankAccountView::new(id, initial_balance);
                 self.repository.save(&view, event_sequence).await?;
             }
-            FundsDeposited { amount } => {
-                let (mut view, last_event_sequence) =
+            _ => {
+                let (view, last_event_sequence) =
                     self.repository.load(&id).await?.ok_or_else(|| {
                         Error::new(ErrorKind::ResourceNotFound, "bank account not found")
                     })?;
@@ -77,7 +97,6 @@ where
                             last_event_sequence + 1..event_sequence + 1,
                         )
                         .await?;
-                    println!("Missing some events... {:#?}", missing_events);
 
                     for missing_event in missing_events {
                         let event = serde_json::from_value(missing_event.event_data)
@@ -85,36 +104,8 @@ where
                         self.handle(id.clone(), event, missing_event.sequence)
                             .await?;
                     }
-                } else {
-                    view.balance += amount;
-                    self.repository.save(&view, event_sequence).await?;
-                }
-            }
-            FundsWithdrawn { amount } => {
-                let (mut view, last_event_sequence) =
-                    self.repository.load(&id).await?.ok_or_else(|| {
-                        Error::new(ErrorKind::ResourceNotFound, "bank account not found")
-                    })?;
-                if last_event_sequence < event_sequence - 1 {
-                    let missing_events = self
-                        .event_store
-                        .get_events(
-                            BankAccount::aggregate_type(),
-                            &id,
-                            last_event_sequence + 1..event_sequence + 1,
-                        )
-                        .await?;
-                    println!("Missing some events... {:#?}", missing_events);
-
-                    for missing_event in missing_events {
-                        let event = serde_json::from_value(missing_event.event_data)
-                            .internal_error("corrupt event")?;
-                        self.handle(id.clone(), event, missing_event.sequence)
-                            .await?;
-                    }
-                } else {
-                    view.balance -= amount;
-                    self.repository.save(&view, event_sequence).await?;
+                } else if last_event_sequence < event_sequence {
+                    self.handle_view(event, event_sequence, view).await?;
                 }
             }
         }
