@@ -3,7 +3,7 @@ use awto_es::{
     Error,
 };
 
-#[derive(Identity, AggregateType, Debug, Default)]
+#[derive(Identity, AggregateType, Clone, Debug, Default)]
 pub struct BankAccount {
     #[identity]
     account_number: String,

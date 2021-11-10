@@ -44,7 +44,9 @@ dependencies = [
 name = "bank"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "awto-es",
+ "bb8-postgres",
  "serde",
  "serde_json",
  "tokio",
