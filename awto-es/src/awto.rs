@@ -65,7 +65,7 @@ where
             workers.push(worker(ctx)?.boxed());
         }
 
-        tokio::spawn(async move { while workers.next().await.is_some() {} });
+        actix::spawn(async move { while workers.next().await.is_some() {} });
 
         signal::ctrl_c().await.ok();
 
