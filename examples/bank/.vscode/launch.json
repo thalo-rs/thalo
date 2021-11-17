@@ -1,0 +1,40 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug executable 'bank'",
+      "cargo": {
+        "args": ["build", "--bin=bank", "--package=bank"],
+        "filter": {
+          "name": "bank",
+          "kind": "bin"
+        }
+      },
+      "env": {
+        "DATABASE_URL": "postgres://bank:8Wu87y5jlq7A@127.0.0.1:5435/bank",
+        "REDPANDA_HOST": "127.0.0.1:9092"
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug unit tests in executable 'bank'",
+      "cargo": {
+        "args": ["test", "--no-run", "--bin=bank", "--package=bank"],
+        "filter": {
+          "name": "bank",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}

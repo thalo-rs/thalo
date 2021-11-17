@@ -14,17 +14,14 @@ impl Identity {
         } = self;
 
         let field_ident = identity_field.ident.as_ref().unwrap();
-        let ty = &identity_field.ty;
 
         Ok(quote!(
             impl ::awto_es::Identity for #ident {
-                type Identity = #ty;
-
-                fn identity(&self) -> &Self::Identity {
+                fn identity(&self) -> &str {
                     &self.#field_ident
                 }
 
-                fn new_with_id(id: Self::Identity) -> Self {
+                fn new_with_id(id: String) -> Self {
                     Self {
                         #field_ident: id,
                         ..Default::default()

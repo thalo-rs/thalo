@@ -1,113 +1,104 @@
-use std::{error, io::stdin};
+use std::error;
 
-use awto_es::{
-    postgres::{tls::NoTls, PgEventStore},
-    Aggregate, AggregateEvent, AggregateStateMutator, Event, EventHandler, EventStore, Identity,
-    Repository,
-};
-use command::BankAccount;
+use awto_es::postgres::{tls::NoTls, PgEventStore};
+use serde::Deserialize;
+use tracing::error;
+use tracing_subscriber::fmt::format::Format;
 
 use crate::{
-    command::BankAccountEvent,
+    command::BankAccount,
     query::{BankAccountProjector, BankAccountViewRepository},
 };
 
 mod command;
 mod query;
 
-#[tokio::main]
+#[derive(Deserialize, Debug)]
+struct Config {
+    rust_log: Option<String>,
+    database_url: String,
+    redpanda_host: String,
+}
+
+#[actix::main]
 async fn main() -> Result<(), Box<dyn error::Error>> {
-    let conn = "postgres://postgres:mysecretpassword@0.0.0.0:5433/postgres";
-    let tls = NoTls;
+    // Load environment variables
+    let cfg = envy::from_env::<Config>()?;
 
-    let bank_account_repository = BankAccountViewRepository::connect(conn, tls).await?;
-    let event_store = PgEventStore::connect(conn, tls).await?;
-    let bank_account_projector =
-        BankAccountProjector::new(event_store.clone(), bank_account_repository);
-    let agg: BankAccount = event_store.load_aggregate("jimmy".to_string()).await?;
-    println!("{:#?}", agg);
+    // Initialise trace logging
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            cfg.rust_log
+                .as_deref()
+                .unwrap_or("warn,awto_es=trace,bank=trace"),
+        )
+        .event_format(Format::default().pretty().with_source_location(false))
+        .init();
 
-    let mut app = App {
-        event_store,
-        agg,
-        proj: bank_account_projector,
-    };
+    // Create event store
+    let event_store = PgEventStore::new_from_stringlike(&cfg.database_url, NoTls).await?;
 
-    // let events = app.agg.deposit_funds(6.0)?;
-    // app.submit_events("jimmy".to_string(), events).await?;
+    // Create repository
+    let repository = BankAccountViewRepository::connect(&cfg.database_url, NoTls).await?;
 
-    // let events = app.agg.open_account(0.0)?;
-    // app.submit_events("jimmy".to_string(), events).await?;
+    // Build and run app
+    awto_es::build(event_store.clone(), &cfg.redpanda_host)
+        .on_error(|err| {
+            error!("{}", err);
+        })
+        .aggregate::<BankAccount>(500)
+        .projection(BankAccountProjector::new(event_store, repository))
+        .run()
+        .await?;
 
-    // let mut line = String::new();
-    // stdin().read_line(&mut line)?;
+    // Create kafka config and admin client
+    // let mut consumer_config = ClientConfig::new();
+    // consumer_config
+    //     .set("group.id", env!("CARGO_PKG_NAME"))
+    //     .set("bootstrap.servers", cfg.redpanda_host.clone())
+    //     .set("allow.auto.create.topics", "true")
+    //     .set("enable.auto.commit", "true")
+    //     .set("api.version.request", "true")
+    //     .set("broker.version.fallback", "2.4.0")
+    //     .set_log_level(RDKafkaLogLevel::Debug);
+    // let mut producer_config = ClientConfig::new();
+    // producer_config
+    //     .set("bootstrap.servers", cfg.redpanda_host)
+    //     .set("api.version.request", "true")
+    //     .set("broker.version.fallback", "2.4.0")
+    //     .set_log_level(RDKafkaLogLevel::Debug);
 
-    // let events = app.agg.deposit_funds(500.0)?;
-    // app.submit_events("jimmy".to_string(), events).await?;
+    // Create event store
+    // let event_store = PgEventStore::new_from_stringlike(&cfg.database_url, NoTls).await?;
 
-    // let mut line = String::new();
-    // stdin().read_line(&mut line)?;
+    // Create workers unordered
+    // let mut workers = FuturesUnordered::new();
 
-    // let events = app.agg.withdraw_funds(200.0)?;
-    // app.submit_events("jimmy".to_string(), events).await?;
+    // Spawn command handler
+    // workers.push(
+    //     command_handler(
+    //         event_store.clone(),
+    //         consumer_config.create().expect("Consumer creation failed"),
+    //         producer_config.create().expect("Consumer creation failed"),
+    //     )
+    //     .boxed(),
+    // );
 
-    // let mut line = String::new();
-    // stdin().read_line(&mut line)?;
+    // Spawn event handler
+    // let repository = BankAccountViewRepository::connect(&cfg.database_url, NoTls)
+    //     .await
+    //     .expect("could not connect to bank account view repository");
+    // workers.push(
+    //     event_handler(
+    //         event_store,
+    //         repository,
+    //         consumer_config.create().expect("Consumer creation failed"),
+    //     )
+    //     .boxed(),
+    // );
 
-    // let events = app.agg.withdraw_funds(600.0)?;
-    // app.submit_events("jimmy".to_string(), events).await?;
-
-    // event_store
-    //     .commit(agg.deposit_funds(500.0)?, &mut agg)
-    //     .await?;
-    // println!("{:#?}", agg);
-
-    // event_store
-    //     .commit(agg.withdraw_funds(200.0)?, &mut agg)
-    //     .await?;
-    // println!("{:#?}", agg);
-
-    // event_store
-    //     .commit(agg.withdraw_funds(600.0)?, &mut agg)
-    //     .await?;
-    // println!("{:#?}", agg);
+    // Consume workers
+    // while workers.next().await.is_some() {}
 
     Ok(())
-}
-
-struct App<ES, Agg, Proj>
-where
-    ES: EventStore,
-    Agg: Aggregate,
-    Proj: EventHandler,
-{
-    pub event_store: ES,
-    pub agg: Agg,
-    pub proj: Proj,
-}
-
-impl<ES, Agg, Proj, Event> App<ES, Agg, Proj>
-where
-    ES: EventStore,
-    Agg: Aggregate<Event = Event> + AggregateStateMutator<Event = Event>,
-    <Agg as Identity>::Identity: AsRef<str>,
-    Proj: EventHandler<Event = Event>,
-    <Proj as awto_es::EventHandler>::Id: Clone,
-    Event: awto_es::Event,
-{
-    async fn submit_events(
-        &mut self,
-        id: <Proj as awto_es::EventHandler>::Id,
-        events: Vec<Event>,
-    ) -> Result<(), Box<dyn error::Error>> {
-        for event in events {
-            let agg_event = event.aggregate_event(Identity::identity(&self.agg).as_ref())?;
-            let last_event_sequence = self.event_store.save_events(&[agg_event]).await?.unwrap();
-            self.agg.apply(event.clone());
-            self.proj
-                .handle(id.clone(), event, last_event_sequence)
-                .await?;
-        }
-        Ok(())
-    }
 }

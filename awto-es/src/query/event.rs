@@ -17,13 +17,13 @@ pub trait Event: serde::de::DeserializeOwned + serde::ser::Serialize + Clone + S
 /// have not yet been processed yet.
 #[async_trait]
 pub trait EventHandler {
-    type Id;
-    type Event;
+    type Event: Event;
 
     async fn handle(
         &mut self,
-        id: Self::Id,
+        id: String,
         event: Self::Event,
+        event_id: i64,
         event_sequence: i64,
     ) -> Result<(), Error>;
 }

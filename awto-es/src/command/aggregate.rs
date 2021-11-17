@@ -1,22 +1,18 @@
-use bb8_postgres::tokio_postgres::types::ToSql;
-
 use crate::{Command, Error, Event};
 
 pub trait Identity {
-    type Identity: ToSql + Send + Sync;
-
     /// Identifier
-    fn identity(&self) -> &Self::Identity;
+    fn identity(&self) -> &str;
 
     /// Initialise with identity
-    fn new_with_id(id: Self::Identity) -> Self;
+    fn new_with_id(id: String) -> Self;
 }
 
 pub trait AggregateType {
     fn aggregate_type() -> &'static str;
 }
 
-pub trait AggregateCommand {
+pub trait AggregateCommandHandler {
     type Command: Command;
     type Event: Event;
 
@@ -24,7 +20,7 @@ pub trait AggregateCommand {
     fn execute(&self, command: Self::Command) -> Result<Vec<Self::Event>, Error>;
 }
 
-pub trait AggregateStateMutator {
+pub trait AggregateEventHandler {
     type Event: Event;
 
     /// State mutators
@@ -32,7 +28,14 @@ pub trait AggregateStateMutator {
 }
 
 pub trait Aggregate:
-    Identity + AggregateType + AggregateCommand + AggregateStateMutator + Send + Sync
+    Identity
+    + AggregateType
+    + AggregateCommandHandler<
+        Command = <Self as Aggregate>::Command,
+        Event = <Self as Aggregate>::Event,
+    > + AggregateEventHandler<Event = <Self as Aggregate>::Event>
+    + Send
+    + Sync
 {
     type Command: Command;
     type Event: Event;
@@ -59,8 +62,8 @@ impl<T, C, E> Aggregate for T
 where
     T: Identity
         + AggregateType
-        + AggregateCommand<Command = C, Event = E>
-        + AggregateStateMutator<Event = E>
+        + AggregateCommandHandler<Command = C, Event = E>
+        + AggregateEventHandler<Event = E>
         + Send
         + Sync,
     C: Command,

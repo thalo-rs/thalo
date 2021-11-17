@@ -44,11 +44,19 @@ impl BankAccount {
 
     /// Deposit funds
     pub fn deposit_funds(&self, amount: f64) -> Result<Vec<BankAccountEvent>, Error> {
+        if !self.opened {
+            return Err(Error::validation_error("account does not exist"));
+        }
+
         Ok(vec![BankAccountEvent::FundsDeposited { amount }])
     }
 
     /// Withdraw funds
     pub fn withdraw_funds(&self, amount: f64) -> Result<Vec<BankAccountEvent>, Error> {
+        if !self.opened {
+            return Err(Error::validation_error("account does not exist"));
+        }
+
         let new_balance = self.balance - amount;
         if new_balance < 0.0 {
             return Err(Error::validation_error("insufficient funds for withdrawal"));

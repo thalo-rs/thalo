@@ -1,11 +1,7 @@
 use async_trait::async_trait;
-use awto_es::{Error, InternalError, Repository};
+use awto_es::{postgres::tls::NoTls, Error, InternalError, Repository};
 use bb8_postgres::{
     bb8::{Pool, PooledConnection},
-    tokio_postgres::{
-        tls::{MakeTlsConnect, TlsConnect},
-        Socket,
-    },
     PostgresConnectionManager,
 };
 
@@ -23,26 +19,15 @@ impl BankAccountView {
     }
 }
 
-pub struct BankAccountViewRepository<Tls>
-where
-    Tls: MakeTlsConnect<Socket> + Clone + Send + Sync + 'static,
-    <Tls as MakeTlsConnect<Socket>>::Stream: Send + Sync,
-    <Tls as MakeTlsConnect<Socket>>::TlsConnect: Send,
-    <<Tls as MakeTlsConnect<Socket>>::TlsConnect as TlsConnect<Socket>>::Future: Send,
-{
-    pool: Pool<PostgresConnectionManager<Tls>>,
+#[derive(Clone)]
+pub struct BankAccountViewRepository {
+    pool: Pool<PostgresConnectionManager<NoTls>>,
 }
 
-impl<Tls> BankAccountViewRepository<Tls>
-where
-    Tls: MakeTlsConnect<Socket> + Clone + Send + Sync + 'static,
-    <Tls as MakeTlsConnect<Socket>>::Stream: Send + Sync,
-    <Tls as MakeTlsConnect<Socket>>::TlsConnect: Send,
-    <<Tls as MakeTlsConnect<Socket>>::TlsConnect as TlsConnect<Socket>>::Future: Send,
-{
+impl BankAccountViewRepository {
     pub async fn connect(
         conn: &str,
-        tls: Tls,
+        tls: NoTls,
     ) -> Result<Self, bb8_postgres::tokio_postgres::Error> {
         let manager = PostgresConnectionManager::new_from_stringlike(conn, tls)?;
         let pool = Pool::builder().build(manager).await.unwrap();
@@ -52,7 +37,7 @@ where
 
     async fn get_conn(
         &self,
-    ) -> Result<PooledConnection<'_, PostgresConnectionManager<Tls>>, Error> {
+    ) -> Result<PooledConnection<'_, PostgresConnectionManager<NoTls>>, Error> {
         self.pool
             .get()
             .await
@@ -61,25 +46,29 @@ where
 }
 
 #[async_trait]
-impl<Tls> Repository<BankAccountView, String> for BankAccountViewRepository<Tls>
-where
-    Tls: MakeTlsConnect<Socket> + Clone + Send + Sync + 'static,
-    <Tls as MakeTlsConnect<Socket>>::Stream: Send + Sync,
-    <Tls as MakeTlsConnect<Socket>>::TlsConnect: Send,
-    <<Tls as MakeTlsConnect<Socket>>::TlsConnect as TlsConnect<Socket>>::Future: Send,
-{
+impl Repository<BankAccountView> for BankAccountViewRepository {
     /// Insert or update view
-    async fn save(&self, view: &BankAccountView, event_sequence: i64) -> Result<(), Error> {
+    async fn save(
+        &self,
+        view: &BankAccountView,
+        event_id: i64,
+        event_sequence: i64,
+    ) -> Result<(), Error> {
         let conn = self.get_conn().await?;
 
         conn.execute(
             "
-            INSERT INTO bank_account (account_number, last_event_sequence, balance) 
-            VALUES ($1, $2, $3)
+            INSERT INTO bank_account (account_number, last_event_id, last_event_sequence, balance) 
+            VALUES ($1, $2, $3, $4)
             ON CONFLICT (account_number) DO UPDATE 
-            SET last_event_sequence = $2, balance = $3;
+            SET last_event_id = $2, last_event_sequence = $3, balance = $4;
             ",
-            &[&view.account_number, &event_sequence, &view.balance],
+            &[
+                &view.account_number,
+                &event_id,
+                &event_sequence,
+                &view.balance,
+            ],
         )
         .await
         .internal_error("could not insert/update bank account view")?;
@@ -88,7 +77,7 @@ where
     }
 
     /// Load an existing view
-    async fn load(&self, id: &String) -> Result<Option<(BankAccountView, i64)>, Error> {
+    async fn load(&self, id: &str) -> Result<Option<(BankAccountView, i64)>, Error> {
         let conn = self.get_conn().await?;
 
         let row = conn
@@ -96,22 +85,49 @@ where
                 "
                 SELECT last_event_sequence, balance FROM bank_account WHERE account_number = $1;
                 ",
-                &[id],
+                &[&id],
             )
             .await
             .internal_error("could not select bank account view")?;
 
-        Ok(row.map(|row| (BankAccountView::new(id.clone(), row.get(1)), row.get(0))))
+        Ok(row.map(|row| (BankAccountView::new(id.to_string(), row.get(1)), row.get(0))))
     }
 
     /// Delete an existing view
-    async fn delete(&self, id: &String) -> Result<(), Error> {
+    async fn delete(&self, id: &str) -> Result<(), Error> {
         let conn = self.get_conn().await?;
 
-        conn.execute("DELETE FROM bank_account WHERE account_number = $1", &[id])
+        conn.execute("DELETE FROM bank_account WHERE account_number = $1", &[&id])
             .await
             .internal_error("could not insert/update bank account view")?;
 
         Ok(())
+    }
+
+    /// Load the latest event version number
+    async fn last_event_id(&self) -> Result<Option<i64>, Error> {
+        let conn = self.get_conn().await?;
+
+        let row = conn
+            .query_one(r#"SELECT MAX("last_event_id") FROM "bank_account""#, &[])
+            .await
+            .internal_error("could not query max last_event_id")?;
+
+        Ok(row.get(0))
+    }
+
+    /// Load the latest event version number
+    async fn last_event_sequence(&self, id: &str) -> Result<Option<i64>, Error> {
+        let conn = self.get_conn().await?;
+
+        let row = conn
+            .query_opt(
+                r#"SELECT "last_event_sequence" FROM "bank_account" WHERE "id" = $1"#,
+                &[&id],
+            )
+            .await
+            .internal_error("could not query max last_event_id")?;
+
+        Ok(row.map(|row| row.get(0)))
     }
 }

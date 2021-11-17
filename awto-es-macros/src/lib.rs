@@ -37,6 +37,30 @@ pub fn event(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     }
 }
 
+#[proc_macro_derive(StreamTopic, attributes(topic_suffix))]
+pub fn stream_topic(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = syn::parse_macro_input!(input as syn::DeriveInput);
+
+    match derive_macros::StreamTopic::new(input) {
+        Ok(derive) => derive_macros::StreamTopic::expand(derive)
+            .unwrap_or_else(syn::Error::into_compile_error)
+            .into(),
+        Err(err) => syn::Error::into_compile_error(err).into(),
+    }
+}
+
+#[proc_macro_derive(CommandMessage)]
+pub fn command_message(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = syn::parse_macro_input!(input as syn::DeriveInput);
+
+    match derive_macros::CommandMessage::new(input) {
+        Ok(derive) => derive_macros::CommandMessage::expand(derive)
+            .unwrap_or_else(syn::Error::into_compile_error)
+            .into(),
+        Err(err) => syn::Error::into_compile_error(err).into(),
+    }
+}
+
 #[proc_macro_derive(AggregateType)]
 pub fn aggregate_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);

@@ -53,14 +53,14 @@ impl AggregateCommands {
         });
 
         Ok(quote!(
-            #[derive(Clone, Debug, PartialEq, ::awto_es::macros::Command, ::serde::Deserialize, ::serde::Serialize)]
+            #[derive(Clone, Debug, PartialEq, ::awto_es::macros::Command, ::awto_es::macros::StreamTopic, ::awto_es::macros::CommandMessage, ::serde::Deserialize, ::serde::Serialize)]
             pub enum #command_ident {
                 #( #variants, )*
             }
         ))
     }
 
-    fn expand_impl_aggregate_command(&self) -> syn::Result<TokenStream> {
+    fn expand_impl_aggregate_command_handler(&self) -> syn::Result<TokenStream> {
         let Self {
             command_ident,
             // error_ty,
@@ -86,7 +86,7 @@ impl AggregateCommands {
             });
 
         Ok(quote!(
-            impl ::awto_es::AggregateCommand for #ident {
+            impl ::awto_es::AggregateCommandHandler for #ident {
                 type Command = #command_ident;
                 type Event = #event_ident;
 
@@ -281,7 +281,7 @@ impl AggregateCommands {
 
         let expanded_input = quote!(#input);
         let expanded_events_enum = self.expand_command_enum()?;
-        let expanded_impl_aggregate_command = self.expand_impl_aggregate_command()?;
+        let expanded_impl_aggregate_command = self.expand_impl_aggregate_command_handler()?;
 
         Ok(TokenStream::from_iter([
             expanded_input,

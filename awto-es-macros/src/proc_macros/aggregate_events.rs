@@ -57,7 +57,7 @@ impl AggregateEvents {
         });
 
         Ok(quote!(
-            #[derive(Clone, Debug, PartialEq, ::awto_es::macros::Event, ::serde::Deserialize, ::serde::Serialize)]
+            #[derive(Clone, Debug, PartialEq, ::awto_es::macros::Event, ::awto_es::macros::StreamTopic, ::serde::Deserialize, ::serde::Serialize)]
             #[aggregate = #ident]
             pub enum #event_ident {
                 #( #variants, )*
@@ -65,7 +65,7 @@ impl AggregateEvents {
         ))
     }
 
-    fn expand_impl_aggregate_state_mutator(&self) -> syn::Result<TokenStream> {
+    fn expand_impl_aggregate_event_handler(&self) -> syn::Result<TokenStream> {
         let Self {
             event_ident,
             ident,
@@ -89,7 +89,7 @@ impl AggregateEvents {
             });
 
         Ok(quote!(
-            impl ::awto_es::AggregateStateMutator for #ident {
+            impl ::awto_es::AggregateEventHandler for #ident {
                 type Event = #event_ident;
 
                 fn apply(&mut self, event: Self::Event) {
@@ -213,7 +213,7 @@ impl AggregateEvents {
 
         let expanded_input = quote!(#input);
         let expanded_event_enum = self.expand_event_enum()?;
-        let expanded_impl_aggregate_state_mutator = self.expand_impl_aggregate_state_mutator()?;
+        let expanded_impl_aggregate_state_mutator = self.expand_impl_aggregate_event_handler()?;
 
         Ok(TokenStream::from_iter([
             expanded_input,
