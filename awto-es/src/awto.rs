@@ -9,7 +9,6 @@ use rdkafka::{
     producer::FutureProducer,
     ClientConfig, Message,
 };
-use serde::de;
 use tokio::{
     signal,
     sync::{
@@ -187,80 +186,49 @@ where
             Ok(async move {
                 let actors_cache = Arc::clone(&actors_cache);
 
-                loop_recv_event(
-                    consumer,
-                    on_error,
-                    |topic, offset, key, command: <A as Aggregate>::Command| async move {
+                loop_result_async(on_error, || async {
+                    let actors_cache = Arc::clone(&actors_cache);
+                    let msg = consumer
+                        .recv()
+                        .await
+                        .internal_error("could not receive message from command handler")?;
+                    let topic = msg.topic();
+                    let offset = msg.offset();
+                    let key = msg
+                        .key_view::<str>()
+                        .transpose()
+                        .internal_error("could not read key as str")?
+                        .ok_or_else(|| Error::new_simple(ErrorKind::MissingKey))?;
+
+                    if let Some(payload) = msg.payload() {
+                        let command = serde_json::from_slice::<<A as Aggregate>::Command>(payload)
+                            .map_err(|err| Error::new(ErrorKind::DeserializeError, err))?;
                         debug!(topic, offset, key, ?command, "received command");
 
-                        // {
-                        //     let mut guard = actors_cache.lock().await;
-                        //     let actor = match guard.get(key) {
-                        //         Some(actor) => actor,
-                        //         None => {
-                        //             let actor = Act::new(
-                        //                 key.to_string(),
-                        //                 event_store.clone(),
-                        //                 producer.clone(),
-                        //             );
-                        //             guard.put(key.to_string(), actor.start());
-                        //             guard.get(key).expect("item should exist")
-                        //         }
-                        //     };
+                        {
+                            let mut guard = actors_cache.lock().await;
+                            let actor = match guard.get(key) {
+                                Some(actor) => actor,
+                                None => {
+                                    let actor = Act::new(
+                                        key.to_string(),
+                                        event_store.clone(),
+                                        producer.clone(),
+                                    );
+                                    guard.put(key.to_string(), actor.start());
+                                    guard.get(key).expect("item should exist")
+                                }
+                            };
 
-                        //     actor.send(command)
-                        // }
-                        // .await
-                        // .map_err(|_err| Error::new_simple(ErrorKind::MailboxFull))??;
+                            actor.send(command)
+                        }
+                        .await
+                        .map_err(|_err| Error::new_simple(ErrorKind::MailboxFull))??;
+                    }
 
-                        Ok(())
-                    },
-                )
+                    Ok(())
+                })
                 .await
-
-                // loop_result_async(on_error, || async {
-                //     let actors_cache = Arc::clone(&actors_cache);
-                //     let msg = consumer
-                //         .recv()
-                //         .await
-                //         .internal_error("could not receive message from command handler")?;
-                //     let topic = msg.topic();
-                //     let offset = msg.offset();
-                //     let key = msg
-                //         .key_view::<str>()
-                //         .transpose()
-                //         .internal_error("could not read key as str")?
-                //         .ok_or_else(|| Error::new_simple(ErrorKind::MissingKey))?;
-
-                //     if let Some(payload) = msg.payload() {
-                //         let command = serde_json::from_slice::<<A as Aggregate>::Command>(payload)
-                //             .map_err(|err| Error::new(ErrorKind::DeserializeError, err))?;
-                //         debug!(topic, offset, key, ?command, "received command");
-
-                //         {
-                //             let mut guard = actors_cache.lock().await;
-                //             let actor = match guard.get(key) {
-                //                 Some(actor) => actor,
-                //                 None => {
-                //                     let actor = Act::new(
-                //                         key.to_string(),
-                //                         event_store.clone(),
-                //                         producer.clone(),
-                //                     );
-                //                     guard.put(key.to_string(), actor.start());
-                //                     guard.get(key).expect("item should exist")
-                //                 }
-                //             };
-
-                //             actor.send(command)
-                //         }
-                //         .await
-                //         .map_err(|_err| Error::new_simple(ErrorKind::MailboxFull))??;
-                //     }
-
-                //     Ok(())
-                // })
-                // .await
             }
             .boxed())
         }));
@@ -357,44 +325,10 @@ where
     }
 }
 
-pub async fn loop_recv_event<Fut, F, P>(
-    consumer: Arc<StreamConsumer>,
-    on_error: Option<fn(&dyn error::Error)>,
-    f: F,
-) where
-    Fut: Future<Output = Result<(), Box<dyn error::Error>>>,
-    for<'r> F: Fn(&'r str, i64, &'r str, P) -> Fut + 'r,
-    P: de::DeserializeOwned,
-{
-    loop_result_async(on_error, || async {
-        let msg = consumer
-            .recv()
-            .await
-            .internal_error("could not receive message from event handler")?;
-        let topic = msg.topic();
-        let offset = msg.offset();
-        let key = msg
-            .key_view::<str>()
-            .transpose()
-            .internal_error("could not read key as str")?
-            .ok_or_else(|| Error::new_simple(ErrorKind::MissingKey))?;
-
-        if let Some(payload) = msg.payload() {
-            let payload: P = serde_json::from_slice(payload)
-                .map_err(|err| Error::new(ErrorKind::DeserializeError, err))?;
-
-            f(topic, offset, key, payload).await?;
-        }
-
-        Ok(())
-    })
-    .await
-}
-
 pub async fn loop_result_async<Fut, F>(on_error: Option<fn(&dyn error::Error)>, f: F)
 where
     Fut: Future<Output = Result<(), Box<dyn error::Error>>>,
-    for<'r> F: Fn() -> Fut + 'r,
+    F: Fn() -> Fut,
 {
     loop {
         if let Err(err) = f().await {
