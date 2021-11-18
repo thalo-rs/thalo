@@ -37,6 +37,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     // Create event store
     let event_store = PgEventStore::new_from_stringlike(&cfg.database_url, NoTls).await?;
+    event_store.create_event_table().await?;
 
     // Create repository
     let repository = BankAccountViewRepository::connect(&cfg.database_url, NoTls).await?;
