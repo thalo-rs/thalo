@@ -33,7 +33,9 @@ services:
       - 9092:9092
       - 29092:29092
   database:
-    image: postgres
+    build:
+      context: .
+      dockerfile: database.Dockerfile
     ports:
       - 5435:5432
     env_file:
