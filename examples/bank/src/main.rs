@@ -49,7 +49,8 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
         })
         .aggregate::<BankAccount>(500)
         .projection(BankAccountProjector::new(event_store, repository))
-        .run()
+        .build()
+        .run_with_outbox_relay_from_stringlike(&cfg.database_url, NoTls, "outbox")
         .await?;
 
     Ok(())
