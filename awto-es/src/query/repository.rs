@@ -1,6 +1,7 @@
 use std::ops::Range;
 
 use async_trait::async_trait;
+use chrono::{DateTime, FixedOffset};
 use serde::{Deserialize, Serialize};
 
 use crate::{Aggregate, AggregateEventHandler, Error, Projection};
@@ -16,6 +17,8 @@ pub struct AggregateEvent<'a> {
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct AggregateEventOwned {
     pub id: i64,
+    #[serde(with = "created_at_format")]
+    pub created_at: DateTime<FixedOffset>,
     pub aggregate_type: String,
     pub aggregate_id: String,
     pub sequence: i64,
@@ -74,4 +77,28 @@ pub trait Repository<View> {
 
     /// Load the latest event sequence number from an aggregate
     async fn last_event_sequence(&self, id: &str) -> Result<Option<i64>, Error>;
+}
+
+mod created_at_format {
+    use chrono::{DateTime, FixedOffset};
+    use serde::{self, Deserialize, Deserializer, Serializer};
+
+    const FORMAT_SER: &str = "%F %T.%f%z";
+    const FORMAT_DE: &str = "%F %T.%f%#z";
+
+    pub fn serialize<S>(date: &DateTime<FixedOffset>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let s = format!("{}", date.format(FORMAT_SER));
+        serializer.serialize_str(&s)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<DateTime<FixedOffset>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        DateTime::parse_from_str(&s, FORMAT_DE).map_err(serde::de::Error::custom)
+    }
 }

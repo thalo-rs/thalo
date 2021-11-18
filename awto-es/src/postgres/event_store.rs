@@ -60,6 +60,12 @@ where
         Ok(Self { pool })
     }
 
+    pub async fn new_from_pool(
+        pool: Pool<PostgresConnectionManager<Tls>>,
+    ) -> Result<Self, bb8_postgres::tokio_postgres::Error> {
+        Ok(Self { pool })
+    }
+
     pub async fn create_event_table(&self) -> Result<(), Error> {
         let conn = self
             .pool
@@ -154,11 +160,11 @@ where
             let next = current.unwrap_or(-1) + 1;
 
             // Insert event with incremented sequence
-            let id: i64 = t.query_one(
+            let result = t.query_one(
                     r#"
                     INSERT INTO "event" ("aggregate_type", "aggregate_id", "sequence", "event_type", "event_data")
                     VALUES ($1, $2, $3, $4, $5)
-                    RETURNING "id"
+                    RETURNING "id", "created_at"
                     "#,
                     &[
                         &event.aggregate_type,
@@ -169,16 +175,27 @@ where
                     ],
                 )
                 .await
-                .internal_error("could not insert event")?
-                .get(0);
+                .internal_error("could not insert event")?;
+            let id = result.get(0);
             inserted_events.push(AggregateEventOwned {
                 id,
+                created_at: result.get(1),
                 aggregate_type: event.aggregate_type.to_string(),
                 aggregate_id: event.aggregate_id.to_string(),
                 sequence: next,
                 event_type: event.event_type.to_string(),
                 event_data: event.event_data.clone(),
             });
+
+            t.execute(
+                r#"
+                INSERT INTO "outbox"
+                VALUES ($1)
+                "#,
+                &[&id],
+            )
+            .await
+            .internal_error("could not insert to outbox")?;
         }
         t.commit()
             .await
@@ -200,7 +217,7 @@ where
             .internal_error("could not get connection from pool")?;
 
         let mut query = r#"
-            SELECT "id", "sequence", "event_type", "event_data"
+            SELECT "id", "created_at", "sequence", "event_type", "event_data"
             FROM "event"
             WHERE "aggregate_type" = $1 AND "aggregate_id" = $2
             "#
@@ -239,11 +256,12 @@ where
             .into_iter()
             .map(|row| AggregateEventOwned {
                 id: row.get(0),
+                created_at: row.get(1),
                 aggregate_type: aggregate_type.to_string(),
                 aggregate_id: aggregate_id.to_string(),
-                sequence: row.get(1),
-                event_type: row.get(2),
-                event_data: row.get(3),
+                sequence: row.get(2),
+                event_type: row.get(3),
+                event_data: row.get(4),
             })
             .collect())
     }
@@ -256,7 +274,7 @@ where
             .internal_error("could not get connection from pool")?;
 
         let mut query = r#"
-            SELECT "id", "aggregate_type", "aggregate_id", "sequence", "event_type", "event_data"
+            SELECT "id", "created_at", "aggregate_type", "aggregate_id", "sequence", "event_type", "event_data"
             FROM "event"
             "#
         .to_string();
@@ -304,11 +322,12 @@ where
             .into_iter()
             .map(|row| AggregateEventOwned {
                 id: row.get(0),
-                aggregate_type: row.get(1),
-                aggregate_id: row.get(2),
-                sequence: row.get(3),
-                event_type: row.get(4),
-                event_data: row.get(5),
+                created_at: row.get(1),
+                aggregate_type: row.get(2),
+                aggregate_id: row.get(3),
+                sequence: row.get(4),
+                event_type: row.get(5),
+                event_data: row.get(6),
             })
             .collect())
     }
@@ -326,10 +345,10 @@ where
         let row = conn
             .query_opt(
                 r#"
-            SELECT "id", "aggregate_type", "aggregate_id", "sequence", "event_type", "event_data"
-            FROM "event"
-            WHERE "aggregate_type" = $1 AND sequence = $2;
-            "#,
+                SELECT "id", "created_at", "aggregate_type", "aggregate_id", "sequence", "event_type", "event_data"
+                FROM "event"
+                WHERE "aggregate_type" = $1 AND sequence = $2
+                "#,
                 &[&A::aggregate_type(), &sequence],
             )
             .await
@@ -337,6 +356,7 @@ where
 
         Ok(row.map(|row| AggregateEventOwned {
             id: row.get(0),
+            created_at: row.get(1),
             aggregate_type: row.get(1),
             aggregate_id: row.get(2),
             sequence: row.get(3),

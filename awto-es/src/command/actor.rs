@@ -1,12 +1,8 @@
-use std::time::Duration;
-
 use actix::{Actor, ActorFutureExt, Context, Handler, Message, ResponseActFuture, WrapFuture};
-use rdkafka::producer::{FutureProducer, FutureRecord};
-use tracing::{error, trace};
 
 use crate::{
-    message::StreamTopic, Aggregate, AggregateCommandHandler, AggregateEventHandler,
-    AggregateEventOwned, Error, ErrorKind, Event, EventStore,
+    message::StreamTopic, Aggregate, AggregateCommandHandler, AggregateEventOwned, Error, Event,
+    EventStore,
 };
 
 pub trait AggregateActor<ES, A>
@@ -16,13 +12,12 @@ where
     A: Aggregate,
     <A as Aggregate>::Command: Message<Result = Result<Vec<AggregateEventOwned>, Error>>,
 {
-    fn new(id: String, event_store: ES, producer: FutureProducer) -> Self;
+    fn new(id: String, event_store: ES) -> Self;
 }
 
 pub struct BaseAggregateActor<ES: EventStore, A: Aggregate> {
     id: String,
     event_store: ES,
-    producer: FutureProducer,
     aggregate: Option<A>,
 }
 
@@ -33,11 +28,10 @@ where
     <A as Aggregate>::Command: Message<Result = Result<Vec<AggregateEventOwned>, Error>> + Unpin,
     <A as Aggregate>::Event: StreamTopic + Unpin,
 {
-    fn new(id: String, event_store: ES, producer: FutureProducer) -> Self {
+    fn new(id: String, event_store: ES) -> Self {
         Self {
             id,
             event_store,
-            producer,
             aggregate: None,
         }
     }
@@ -77,7 +71,6 @@ where
         let id = self.id.clone();
         let aggregate_opt = self.aggregate.clone();
         let event_store = self.event_store.clone();
-        let producer = self.producer.clone();
 
         Box::pin(
             async move {
@@ -93,46 +86,6 @@ where
                     .collect::<Result<_, _>>()?;
                 let inserted_events = event_store.save_events(&agg_events).await?;
                 events.into_iter().for_each(|event| aggregate.apply(event));
-
-                let send_results: Vec<_> = inserted_events
-                    .iter()
-                    .map(|event| {
-                        let id = id.as_str();
-                        let producer_ref = &producer;
-                        async move {
-                            let delivery_status = producer_ref
-                                .send(
-                                    FutureRecord::to(
-                                        <A as AggregateEventHandler>::Event::stream_topic(),
-                                    )
-                                    .payload(&serde_json::to_vec(&event).map_err(|err| {
-                                        Error::new(ErrorKind::SerializeError, err)
-                                    })?)
-                                    .key(id),
-                                    Duration::from_secs(0),
-                                )
-                                .await;
-
-                            trace!(?event, "submitted event to broker");
-
-                            Result::<_, Error>::Ok(delivery_status)
-                        }
-                    })
-                    .collect();
-
-                for result in send_results {
-                    match result.await {
-                        Ok(Ok((partition, offset))) => {
-                            trace!(partition, offset, "produced message");
-                        }
-                        Ok(Err((err, _))) => {
-                            error!("could not produce message: {}", err);
-                        }
-                        Err(err) => {
-                            error!("could not produce message: {}", err);
-                        }
-                    }
-                }
 
                 Result::<_, Error>::Ok((aggregate, inserted_events))
             }

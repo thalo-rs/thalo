@@ -1,4 +1,4 @@
-use heck::KebabCase;
+use heck::SnakeCase;
 use proc_macro2::TokenStream;
 use quote::quote;
 
@@ -10,7 +10,7 @@ impl StreamTopic {
     fn expand_impl_stream_topic(&self) -> syn::Result<TokenStream> {
         let Self { ident } = self;
 
-        let stream_topic_string = ident.to_string().to_kebab_case();
+        let stream_topic_string = ident.to_string().to_snake_case();
 
         Ok(quote!(
             impl ::awto_es::StreamTopic for #ident {

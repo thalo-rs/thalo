@@ -1,12 +1,20 @@
 use std::{env, error, fmt, pin::Pin, sync::Arc, time::Duration};
 
 use actix::{dev::ToEnvelope, Actor, Addr};
+#[cfg(feature = "outbox_relay")]
+use bb8_postgres::{
+    bb8::Pool,
+    tokio_postgres::{
+        tls::{MakeTlsConnect, TlsConnect},
+        Socket,
+    },
+    PostgresConnectionManager,
+};
 use futures::{stream::FuturesUnordered, Future, FutureExt, StreamExt};
 use lru::LruCache;
 use rdkafka::{
     config::RDKafkaLogLevel,
     consumer::{Consumer, StreamConsumer},
-    producer::FutureProducer,
     ClientConfig, Message,
 };
 use tokio::{
@@ -30,7 +38,6 @@ struct WorkerContext<'a, ES: EventStore> {
     consumer_config: &'a ClientConfig,
     event_store: &'a ES,
     on_error: &'a Option<for<'r> fn(&'r dyn error::Error)>,
-    producer_config: &'a ClientConfig,
     shutdown_recv: &'a Receiver<()>,
 }
 
@@ -38,7 +45,8 @@ pub struct Awto<ES: EventStore> {
     consumer_config: ClientConfig,
     event_store: ES,
     on_error: Option<for<'r> fn(&'r dyn error::Error)>,
-    producer_config: ClientConfig,
+    #[cfg(feature = "outbox_relay")]
+    redpanda_host: String,
     workers: Vec<WorkerFn<ES>>,
 }
 
@@ -59,7 +67,6 @@ where
                 consumer_config: &self.consumer_config,
                 event_store: &self.event_store,
                 on_error: &self.on_error,
-                producer_config: &self.producer_config,
                 shutdown_recv: &shutdown_recv,
             };
             workers.push(worker(ctx)?.boxed());
@@ -74,6 +81,73 @@ where
 
         Ok(())
     }
+
+    #[cfg(feature = "outbox_relay")]
+    pub async fn run_with_outbox_relay<Tls>(
+        &mut self,
+        pool: Pool<PostgresConnectionManager<Tls>>,
+        database_url: &str,
+        slot: &str,
+    ) -> Result<(), Box<dyn error::Error>>
+    where
+        Tls: MakeTlsConnect<Socket> + Clone + Send + Sync + 'static,
+        <Tls as MakeTlsConnect<Socket>>::Stream: Send + Sync,
+        <Tls as MakeTlsConnect<Socket>>::TlsConnect: Send,
+        <<Tls as MakeTlsConnect<Socket>>::TlsConnect as TlsConnect<Socket>>::Future: Send,
+    {
+        use tokio::select;
+
+        let (shutdown_send, shutdown_recv) = watch::channel(());
+        let mut workers = FuturesUnordered::new();
+
+        for worker in &self.workers {
+            let ctx = WorkerContext {
+                consumer_config: &self.consumer_config,
+                event_store: &self.event_store,
+                on_error: &self.on_error,
+                shutdown_recv: &shutdown_recv,
+            };
+            workers.push(worker(ctx)?.boxed());
+        }
+
+        actix::spawn(async move { while workers.next().await.is_some() {} });
+
+        let database_url = database_url.to_string();
+        let redpanda_host = self.redpanda_host.clone();
+        let slot = slot.to_string();
+        let outbox_join_handle = tokio::spawn(async move {
+            outbox_relay::outbox_relay(pool, &database_url, redpanda_host, &slot).await
+        });
+
+        select! {
+            res = outbox_join_handle => { res??; },
+            _ = signal::ctrl_c() => {},
+        };
+
+        shutdown_send.send(())?;
+        tokio::time::sleep(Duration::from_millis(500)).await;
+
+        Ok(())
+    }
+
+    #[cfg(feature = "outbox_relay")]
+    pub async fn run_with_outbox_relay_from_stringlike<Tls>(
+        &mut self,
+        conn: &str,
+        tls: Tls,
+        slot: &str,
+    ) -> Result<(), Box<dyn error::Error>>
+    where
+        Tls: MakeTlsConnect<Socket> + Clone + Send + Sync + 'static,
+        <Tls as MakeTlsConnect<Socket>>::Stream: Send + Sync,
+        <Tls as MakeTlsConnect<Socket>>::TlsConnect: Send,
+        <<Tls as MakeTlsConnect<Socket>>::TlsConnect as TlsConnect<Socket>>::Future: Send,
+    {
+        let manager = PostgresConnectionManager::new_from_stringlike(conn, tls)?;
+        let pool = Pool::builder().build(manager).await?;
+
+        self.run_with_outbox_relay(pool, conn, slot).await
+    }
 }
 
 pub struct AwtoBuilder<ES>
@@ -83,7 +157,8 @@ where
     consumer_config: ClientConfig,
     event_store: ES,
     on_error: Option<fn(&dyn error::Error)>,
-    producer_config: ClientConfig,
+    #[cfg(feature = "outbox_relay")]
+    redpanda_host: String,
     workers: Vec<WorkerFn<ES>>,
 }
 
@@ -95,36 +170,34 @@ where
         let mut consumer_config = ClientConfig::new();
         consumer_config
             .set("group.id", env!("CARGO_PKG_NAME"))
-            .set("bootstrap.servers", redpanda_host.clone())
             .set("allow.auto.create.topics", "true")
             .set("enable.auto.commit", "true")
             .set("auto.offset.reset", "earliest")
             .set_log_level(RDKafkaLogLevel::Debug);
-
-        let mut producer_config = ClientConfig::new();
-        producer_config
-            .set("bootstrap.servers", redpanda_host)
-            .set_log_level(RDKafkaLogLevel::Debug);
+        #[cfg(not(feature = "outbox_relay"))]
+        consumer_config.set("bootstrap.servers", redpanda_host);
+        #[cfg(feature = "outbox_relay")]
+        consumer_config.set("bootstrap.servers", redpanda_host.clone());
 
         Self {
             consumer_config,
             event_store,
             on_error: None,
-            producer_config,
+            #[cfg(feature = "outbox_relay")]
+            redpanda_host: redpanda_host.into(),
             workers: Vec::new(),
         }
     }
 
-    pub async fn run(self) -> Result<(), Box<dyn error::Error>> {
-        let mut app = Awto {
+    pub fn build(self) -> Awto<ES> {
+        Awto {
             consumer_config: self.consumer_config,
             event_store: self.event_store,
             on_error: self.on_error,
-            producer_config: self.producer_config,
+            #[cfg(feature = "outbox_relay")]
+            redpanda_host: self.redpanda_host,
             workers: self.workers,
-        };
-
-        app.run().await
+        }
     }
 
     pub fn on_error(mut self, cb: fn(&dyn error::Error)) -> Self {
@@ -161,7 +234,6 @@ where
                 Arc::new(Mutex::new(LruCache::new(cache_cap)));
 
             let consumer: Arc<StreamConsumer> = Arc::new(ctx.consumer_config.create()?);
-            let producer: FutureProducer = ctx.producer_config.create()?;
 
             consumer.subscribe(&[<A as Aggregate>::Command::stream_topic()])?;
             debug!(
@@ -194,6 +266,14 @@ where
                         .internal_error("could not receive message from command handler")?;
                     let topic = msg.topic();
                     let offset = msg.offset();
+                    let key_dbg = msg
+                        .key_view::<str>()
+                        .transpose()
+                        .ok()
+                        .flatten()
+                        .unwrap_or("");
+                    let payload_dbg = msg.payload_view::<str>().transpose().ok().flatten().unwrap_or("");
+                    trace!(%topic, offset, key = key_dbg, payload = payload_dbg, "received message");
                     let key = msg
                         .key_view::<str>()
                         .transpose()
@@ -210,11 +290,7 @@ where
                             let actor = match guard.get(key) {
                                 Some(actor) => actor,
                                 None => {
-                                    let actor = Act::new(
-                                        key.to_string(),
-                                        event_store.clone(),
-                                        producer.clone(),
-                                    );
+                                    let actor = Act::new(key.to_string(), event_store.clone());
                                     guard.put(key.to_string(), actor.start());
                                     guard.get(key).expect("item should exist")
                                 }
@@ -281,6 +357,14 @@ where
                         .internal_error("could not receive message from event handler")?;
                     let topic = msg.topic();
                     let offset = msg.offset();
+                    let key_dbg = msg
+                        .key_view::<str>()
+                        .transpose()
+                        .ok()
+                        .flatten()
+                        .unwrap_or("");
+                    let payload_dbg = msg.payload_view::<str>().transpose().ok().flatten().unwrap_or("");
+                    trace!(%topic, offset, key = key_dbg, payload = payload_dbg, "received message");
                     let key = msg
                         .key_view::<str>()
                         .transpose()
