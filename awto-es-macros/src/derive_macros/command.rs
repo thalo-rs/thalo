@@ -1,15 +1,20 @@
 use heck::ShoutySnekCase;
-use proc_macro2::TokenStream;
+use proc_macro2::{TokenStream, TokenTree};
 use quote::quote;
 
 pub struct Command {
+    aggregate: TokenStream,
     ident: syn::Ident,
     variants: syn::punctuated::Punctuated<syn::Variant, syn::Token![,]>,
 }
 
 impl Command {
     fn expand_impl_command(&self) -> syn::Result<TokenStream> {
-        let Self { ident, variants } = self;
+        let Self {
+            aggregate,
+            ident,
+            variants,
+        } = self;
 
         let variant_idents = variants.iter().map(|variant| &variant.ident);
         let variant_strings = variants
@@ -18,6 +23,8 @@ impl Command {
 
         Ok(quote!(
             impl ::awto_es::Command for #ident {
+                type Aggregate = #aggregate;
+
                 fn command_type(&self) -> &'static str {
                     match self {
                         #( Self::#variant_idents { .. } => #variant_strings, )*
@@ -42,7 +49,34 @@ impl Command {
             }
         };
 
-        Ok(Command { ident, variants })
+        let aggregate: TokenStream = input
+            .attrs
+            .into_iter()
+            .find_map(|attr| {
+                let segment = attr.path.segments.first()?;
+                if segment.ident != "aggregate" {
+                    return None;
+                }
+
+                let mut tokens = attr.tokens.into_iter();
+                if !matches!(tokens.next()?, TokenTree::Punct(punct) if punct.as_char() == '=') {
+                    return None;
+                }
+
+                match tokens.next()? {
+                    TokenTree::Literal(lit) => Some(lit.to_string().trim_matches('"').parse()),
+                    _ => None,
+                }
+            })
+            .ok_or_else(|| {
+                syn::Error::new(ident.span(), "missing attribute #[aggregate = MyAggregate]")
+            })??;
+
+        Ok(Command {
+            aggregate,
+            ident,
+            variants,
+        })
     }
 
     pub fn expand(self) -> syn::Result<TokenStream> {

@@ -27,8 +27,8 @@ use tokio::{
 use tracing::{debug, trace};
 
 use crate::{
-    message::StreamTopic, Aggregate, AggregateActor, AggregateEventOwned, BaseAggregateActor,
-    Error, ErrorKind, EventHandler, EventStore, InternalError, Projection,
+    message::StreamTopic, Aggregate, AggregateActor, BaseAggregateActor, Error, ErrorKind,
+    EventEnvelope, EventHandler, EventStore, InternalError, Projection,
 };
 
 type WorkerFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
@@ -208,8 +208,9 @@ where
     pub fn aggregate<A>(self, cache_cap: usize) -> Self
     where
         A: Aggregate + Clone + Unpin + 'static,
-        <A as Aggregate>::Command:
-            actix::Message<Result = Result<Vec<AggregateEventOwned>, Error>> + StreamTopic + Unpin,
+        <A as Aggregate>::Command: actix::Message<Result = Result<Vec<EventEnvelope<<A as Aggregate>::Event>>, Error>>
+            + StreamTopic
+            + Unpin,
         <A as Aggregate>::Event: StreamTopic + Unpin,
     {
         self.aggregate_actor::<BaseAggregateActor<ES, A>, A>(cache_cap)
@@ -219,7 +220,7 @@ where
     where
         Act: AggregateActor<ES, A>,
         A: Aggregate,
-        <A as Aggregate>::Command: actix::Message<Result = Result<Vec<AggregateEventOwned>, Error>>
+        <A as Aggregate>::Command: actix::Message<Result = Result<Vec<EventEnvelope<<A as Aggregate>::Event>>, Error>>
             + StreamTopic
             + Unpin
             + 'static,
@@ -372,14 +373,12 @@ where
                         .ok_or_else(|| Error::new_simple(ErrorKind::MissingKey))?;
 
                     if let Some(payload) = msg.payload() {
-                        let event_envelope: AggregateEventOwned =
+                        let event_envelope: EventEnvelope<<P as EventHandler>::Event> =
                             serde_json::from_slice(payload)
                                 .map_err(|err| Error::new(ErrorKind::DeserializeError, err))?;
                         let event_id = event_envelope.id;
                         let event_sequence = event_envelope.sequence;
-                        let event: <P as EventHandler>::Event =
-                            serde_json::from_value(event_envelope.event_data)
-                                .map_err(|err| Error::new(ErrorKind::DeserializeError, err))?;
+                        let event = event_envelope.event;
                         debug!(
                             topic,
                             offset,

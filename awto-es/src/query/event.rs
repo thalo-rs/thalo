@@ -1,13 +1,17 @@
+use std::fmt;
+
 use async_trait::async_trait;
 
 use crate::{Aggregate, AggregateEvent, Error};
 
-pub trait Event: serde::de::DeserializeOwned + serde::ser::Serialize + Clone + Send + Sync {
-    type Aggregate: Aggregate;
+pub trait Event:
+    serde::de::DeserializeOwned + serde::ser::Serialize + Clone + fmt::Debug + PartialEq + Send + Sync
+{
+    type Aggregate: Aggregate<Event = Self>;
 
     fn event_type(&self) -> &'static str;
 
-    fn aggregate_event<'a>(&self, aggregate_id: &'a str) -> Result<AggregateEvent<'a>, Error>;
+    fn aggregate_event<'a>(&'a self, aggregate_id: &'a str) -> AggregateEvent<'a, Self::Aggregate>;
 }
 
 /// EventHandler must run once only when multiple nodes of the

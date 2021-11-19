@@ -37,8 +37,7 @@ pub struct Event {
     pub aggregate_type: String,
     pub aggregate_id: String,
     pub sequence: i64,
-    pub event_type: String,
-    pub event_data: Map<String, Value>,
+    pub event: Map<String, Value>,
 }
 
 impl TryFrom<Vec<Value>> for Event {
@@ -51,7 +50,7 @@ impl TryFrom<Vec<Value>> for Event {
             };
         }
 
-        let event_data: Map<String, Value> = match values.get(6).ok_or(6)? {
+        let event: Map<String, Value> = match values.get(6).ok_or(6)? {
             Value::String(s) => serde_json::from_str(s).map_err(|_| 10)?,
             Value::Object(map) => map.clone(),
             _ => return Err(12),
@@ -63,8 +62,7 @@ impl TryFrom<Vec<Value>> for Event {
             aggregate_type: get_value!(values, 2, as_str).to_string(),
             aggregate_id: get_value!(values, 3, as_str).to_string(),
             sequence: get_value!(values, 4, as_i64),
-            event_type: get_value!(values, 5, as_str).to_string(),
-            event_data,
+            event,
         })
     }
 }

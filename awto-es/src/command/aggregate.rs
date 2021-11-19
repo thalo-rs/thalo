@@ -37,8 +37,8 @@ pub trait Aggregate:
     + Send
     + Sync
 {
-    type Command: Command;
-    type Event: Event;
+    type Command: Command<Aggregate = Self>;
+    type Event: Event<Aggregate = Self>;
 }
 
 /// An Aggregate represents an entity (such as a user, bank account, etc)
@@ -66,8 +66,8 @@ where
         + AggregateEventHandler<Event = E>
         + Send
         + Sync,
-    C: Command,
-    E: Event,
+    C: Command<Aggregate = Self>,
+    E: Event<Aggregate = Self>,
 {
     type Command = C;
     type Event = E;

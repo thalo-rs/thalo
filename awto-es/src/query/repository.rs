@@ -1,29 +1,40 @@
-use std::ops::Range;
+use std::{marker::PhantomData, ops::Range};
 
 use async_trait::async_trait;
 use chrono::{DateTime, FixedOffset};
 use serde::{Deserialize, Serialize};
 
-use crate::{Aggregate, AggregateEventHandler, Error, Projection};
+use crate::{Aggregate, AggregateEventHandler, Error, Event, Projection};
 
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
-pub struct AggregateEvent<'a> {
-    pub aggregate_type: &'a str,
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct AggregateEvent<'a, A: Aggregate> {
+    aggregate: PhantomData<A>,
     pub aggregate_id: &'a str,
-    pub event_type: &'a str,
-    pub event_data: serde_json::Value,
+    pub event: &'a <A as Aggregate>::Event,
+}
+
+impl<'a, A> AggregateEvent<'a, A>
+where
+    A: Aggregate,
+{
+    pub fn new(aggregate_id: &'a str, event: &'a <A as Aggregate>::Event) -> Self {
+        Self {
+            aggregate: PhantomData,
+            aggregate_id,
+            event,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
-pub struct AggregateEventOwned {
+pub struct EventEnvelope<E> {
     pub id: i64,
     #[serde(with = "created_at_format")]
     pub created_at: DateTime<FixedOffset>,
     pub aggregate_type: String,
     pub aggregate_id: String,
     pub sequence: i64,
-    pub event_type: String,
-    pub event_data: serde_json::Value,
+    pub event: E,
 }
 
 #[async_trait]
@@ -35,48 +46,33 @@ pub trait EventStore {
     ) -> Result<(), Error>;
 
     /// Returns the last inserted event sequence
-    async fn save_events(
+    async fn save_events<A: Aggregate>(
         &self,
-        events: &[AggregateEvent],
-    ) -> Result<Vec<AggregateEventOwned>, Error>;
+        events: Vec<AggregateEvent<'_, A>>,
+    ) -> Result<Vec<EventEnvelope<<A as Aggregate>::Event>>, Error>;
 
-    async fn get_aggregate_events(
+    async fn get_aggregate_events<E: Event>(
         &self,
         aggregate_type: &str,
         aggregate_id: &str,
         range: Range<i64>,
-    ) -> Result<Vec<AggregateEventOwned>, Error>;
+    ) -> Result<Vec<EventEnvelope<E>>, Error>;
 
-    async fn get_all_events(&self, range: Range<i64>) -> Result<Vec<AggregateEventOwned>, Error>;
+    async fn get_all_events<E: Event>(
+        &self,
+        range: Range<i64>,
+    ) -> Result<Vec<EventEnvelope<E>>, Error>;
 
     async fn get_event_by_aggregate_sequence<A: Aggregate>(
         &self,
         sequence: i64,
-    ) -> Result<Option<AggregateEventOwned>, Error>;
+    ) -> Result<Option<EventEnvelope<<A as Aggregate>::Event>>, Error>;
 
     async fn load_aggregate<A: Aggregate>(&self, id: String) -> Result<A, Error>;
 
     async fn resync_projection<P>(&self, projection: &mut P) -> Result<(), Error>
     where
         P: Projection + Send + Sync;
-}
-
-#[async_trait]
-pub trait Repository<View> {
-    /// Insert or update view
-    async fn save(&self, view: &View, event_id: i64, event_sequence: i64) -> Result<(), Error>;
-
-    /// Load an existing view
-    async fn load(&self, id: &str) -> Result<Option<(View, i64)>, Error>;
-
-    /// Delete an existing view
-    async fn delete(&self, id: &str) -> Result<(), Error>;
-
-    /// Load the latest event version number
-    async fn last_event_id(&self) -> Result<Option<i64>, Error>;
-
-    /// Load the latest event sequence number from an aggregate
-    async fn last_event_sequence(&self, id: &str) -> Result<Option<i64>, Error>;
 }
 
 mod created_at_format {

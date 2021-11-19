@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use awto_es::{
     postgres::tls::NoTls, postgres::PgEventStore, Error, ErrorKind, EventHandler, Projection,
-    Repository,
 };
 
 use crate::{

@@ -11,7 +11,14 @@ impl CommandMessage {
 
         Ok(quote!(
             impl ::actix::Message for #ident {
-                type Result = ::std::result::Result<::std::vec::Vec<::awto_es::AggregateEventOwned>, ::awto_es::Error>;
+                type Result = ::std::result::Result<
+                    ::std::vec::Vec<
+                        ::awto_es::EventEnvelope<
+                            <<Self as ::awto_es::Command>::Aggregate as ::awto_es::Aggregate>::Event,
+                        >,
+                    >,
+                    ::awto_es::Error,
+                >;
             }
         ))
     }

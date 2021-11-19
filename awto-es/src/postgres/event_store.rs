@@ -17,8 +17,8 @@ use bb8_postgres::{
 use tracing::debug;
 
 use crate::{
-    Aggregate, AggregateEvent, AggregateEventHandler, AggregateEventOwned, Error, Event,
-    EventStore, Identity, InternalError, Projection,
+    Aggregate, AggregateEvent, AggregateEventHandler, Error, ErrorKind, Event, EventEnvelope,
+    EventHandler, EventStore, Identity, InternalError, Projection,
 };
 
 /// EventStore for postgres database
@@ -116,9 +116,9 @@ where
     ) -> Result<(), Error> {
         let agg_events: Vec<_> = events
             .iter()
-            .map(|event| event.aggregate_event(Identity::identity(agg).as_ref()))
-            .collect::<Result<_, _>>()?;
-        self.save_events(&agg_events).await?;
+            .map(|event| event.aggregate_event(Identity::identity(agg)))
+            .collect();
+        self.save_events(agg_events).await?;
 
         for event in events {
             <A as AggregateEventHandler>::apply(agg, event);
@@ -127,10 +127,10 @@ where
         Ok(())
     }
 
-    async fn save_events(
+    async fn save_events<A: Aggregate>(
         &self,
-        events: &[AggregateEvent],
-    ) -> Result<Vec<AggregateEventOwned>, Error> {
+        events: Vec<AggregateEvent<'_, A>>,
+    ) -> Result<Vec<EventEnvelope<<A as Aggregate>::Event>>, Error> {
         let mut conn = self
             .pool
             .get()
@@ -150,7 +150,7 @@ where
             let row = t
                 .query_one(
                     r#"SELECT MAX("sequence") FROM "event" WHERE "aggregate_type" = $1 AND "aggregate_id" = $2"#,
-                    &[&event.aggregate_type, &event.aggregate_id],
+                    &[&A::aggregate_type(), &event.aggregate_id],
                 )
                 .await
                 .internal_error("could not select max sequence")?;
@@ -160,6 +160,8 @@ where
             let next = current.unwrap_or(-1) + 1;
 
             // Insert event with incremented sequence
+            let event_json = serde_json::to_value(&event.event)
+                .map_err(|err| Error::new(ErrorKind::DeserializeError, err))?;
             let result = t.query_one(
                     r#"
                     INSERT INTO "event" ("aggregate_type", "aggregate_id", "sequence", "event_type", "event_data")
@@ -167,24 +169,23 @@ where
                     RETURNING "id", "created_at"
                     "#,
                     &[
-                        &event.aggregate_type,
+                        &A::aggregate_type(),
                         &event.aggregate_id,
                         &next,
-                        &event.event_type,
-                        &event.event_data,
+                        &event.event.event_type(),
+                        &event_json,
                     ],
                 )
                 .await
                 .internal_error("could not insert event")?;
             let id = result.get(0);
-            inserted_events.push(AggregateEventOwned {
+            inserted_events.push(EventEnvelope {
                 id,
                 created_at: result.get(1),
-                aggregate_type: event.aggregate_type.to_string(),
+                aggregate_type: A::aggregate_type().to_string(),
                 aggregate_id: event.aggregate_id.to_string(),
                 sequence: next,
-                event_type: event.event_type.to_string(),
-                event_data: event.event_data.clone(),
+                event: event.event.clone(),
             });
 
             t.execute(
@@ -204,12 +205,12 @@ where
         Ok(inserted_events)
     }
 
-    async fn get_aggregate_events(
+    async fn get_aggregate_events<E: Event>(
         &self,
         aggregate_type: &str,
         aggregate_id: &str,
         range: Range<i64>,
-    ) -> Result<Vec<AggregateEventOwned>, Error> {
+    ) -> Result<Vec<EventEnvelope<E>>, Error> {
         let conn = self
             .pool
             .get()
@@ -217,7 +218,7 @@ where
             .internal_error("could not get connection from pool")?;
 
         let mut query = r#"
-            SELECT "id", "created_at", "sequence", "event_type", "event_data"
+            SELECT "id", "created_at", "sequence", "event_data"
             FROM "event"
             WHERE "aggregate_type" = $1 AND "aggregate_id" = $2
             "#
@@ -252,21 +253,27 @@ where
             .await
             .internal_error("could not get aggregate events in range")?;
 
-        Ok(rows
-            .into_iter()
-            .map(|row| AggregateEventOwned {
-                id: row.get(0),
-                created_at: row.get(1),
-                aggregate_type: aggregate_type.to_string(),
-                aggregate_id: aggregate_id.to_string(),
-                sequence: row.get(2),
-                event_type: row.get(3),
-                event_data: row.get(4),
+        rows.into_iter()
+            .map(|row| {
+                let event_json = row.get(3);
+                let event = serde_json::from_value(event_json)
+                    .map_err(|err| Error::new(ErrorKind::DeserializeError, err))?;
+                Ok(EventEnvelope {
+                    id: row.get(0),
+                    created_at: row.get(1),
+                    aggregate_type: aggregate_type.to_string(),
+                    aggregate_id: aggregate_id.to_string(),
+                    sequence: row.get(2),
+                    event,
+                })
             })
-            .collect())
+            .collect::<Result<Vec<_>, _>>()
     }
 
-    async fn get_all_events(&self, range: Range<i64>) -> Result<Vec<AggregateEventOwned>, Error> {
+    async fn get_all_events<E: Event>(
+        &self,
+        range: Range<i64>,
+    ) -> Result<Vec<EventEnvelope<E>>, Error> {
         let conn = self
             .pool
             .get()
@@ -274,7 +281,7 @@ where
             .internal_error("could not get connection from pool")?;
 
         let mut query = r#"
-            SELECT "id", "created_at", "aggregate_type", "aggregate_id", "sequence", "event_type", "event_data"
+            SELECT "id", "created_at", "aggregate_type", "aggregate_id", "sequence", "event_data"
             FROM "event"
             "#
         .to_string();
@@ -318,24 +325,27 @@ where
             .await
             .internal_error("could not get events in range")?;
 
-        Ok(rows
-            .into_iter()
-            .map(|row| AggregateEventOwned {
-                id: row.get(0),
-                created_at: row.get(1),
-                aggregate_type: row.get(2),
-                aggregate_id: row.get(3),
-                sequence: row.get(4),
-                event_type: row.get(5),
-                event_data: row.get(6),
+        rows.into_iter()
+            .map(|row| {
+                let event_json = row.get(5);
+                let event = serde_json::from_value(event_json)
+                    .map_err(|err| Error::new(ErrorKind::DeserializeError, err))?;
+                Ok(EventEnvelope {
+                    id: row.get(0),
+                    created_at: row.get(1),
+                    aggregate_type: row.get(2),
+                    aggregate_id: row.get(3),
+                    sequence: row.get(4),
+                    event,
+                })
             })
-            .collect())
+            .collect::<Result<Vec<_>, _>>()
     }
 
     async fn get_event_by_aggregate_sequence<A: Aggregate>(
         &self,
         sequence: i64,
-    ) -> Result<Option<AggregateEventOwned>, Error> {
+    ) -> Result<Option<EventEnvelope<<A as Aggregate>::Event>>, Error> {
         let conn = self
             .pool
             .get()
@@ -345,7 +355,7 @@ where
         let row = conn
             .query_opt(
                 r#"
-                SELECT "id", "created_at", "aggregate_type", "aggregate_id", "sequence", "event_type", "event_data"
+                SELECT "id", "created_at", "aggregate_type", "aggregate_id", "sequence", "event_data"
                 FROM "event"
                 WHERE "aggregate_type" = $1 AND sequence = $2
                 "#,
@@ -354,15 +364,20 @@ where
             .await
             .internal_error("could not get event from aggregate type and sequence")?;
 
-        Ok(row.map(|row| AggregateEventOwned {
-            id: row.get(0),
-            created_at: row.get(1),
-            aggregate_type: row.get(1),
-            aggregate_id: row.get(2),
-            sequence: row.get(3),
-            event_type: row.get(4),
-            event_data: row.get(5),
-        }))
+        row.map(|row| {
+            let event_json = row.get(5);
+            let event = serde_json::from_value(event_json)
+                .map_err(|err| Error::new(ErrorKind::DeserializeError, err))?;
+            Ok(EventEnvelope {
+                id: row.get(0),
+                created_at: row.get(1),
+                aggregate_type: row.get(2),
+                aggregate_id: row.get(3),
+                sequence: row.get(4),
+                event,
+            })
+        })
+        .transpose()
     }
 
     async fn load_aggregate<A: Aggregate>(&self, id: String) -> Result<A, Error> {
@@ -412,7 +427,9 @@ where
 
         loop {
             let missing_events = self
-                .get_all_events(last_event_version + 1..last_event_version + 10)
+                .get_all_events::<<P as EventHandler>::Event>(
+                    last_event_version + 1..last_event_version + 10,
+                )
                 .await?;
 
             if missing_events.is_empty() {
@@ -420,21 +437,19 @@ where
             }
 
             for missing_event in missing_events {
-                let event = serde_json::from_value(missing_event.event_data.clone())
-                    .internal_error("corrupt event")?;
                 projection
                     .handle(
                         missing_event
                             .aggregate_id
                             .parse()
                             .internal_error("cannot parse id from string")?,
-                        event,
+                        missing_event.event.clone(),
                         missing_event.id,
                         missing_event.sequence,
                     )
                     .await?;
                 last_event_version = missing_event.id;
-                debug!(?missing_event, "handled missing event",);
+                debug!(?missing_event, "handled missing event");
             }
         }
 

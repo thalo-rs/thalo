@@ -31,18 +31,8 @@ impl Event {
                     }
                 }
 
-                fn aggregate_event<'a>(&self, aggregate_id: &'a str) -> Result<::awto_es::AggregateEvent<'a>, ::awto_es::Error> {
-                    Ok(::awto_es::AggregateEvent {
-                        aggregate_type: <Self::Aggregate as ::awto_es::AggregateType>::aggregate_type(),
-                        aggregate_id,
-                        event_type: <Self as ::awto_es::Event>::event_type(self),
-                        event_data: ::serde_json::to_value(&self).map_err(|err| {
-                            ::awto_es::Error::new(
-                                ::awto_es::ErrorKind::SerializeError,
-                                "could not serialize event",
-                            )
-                        })?,
-                    })
+                fn aggregate_event<'a>(&'a self, aggregate_id: &'a str) -> ::awto_es::AggregateEvent<'a, #aggregate> {
+                    ::awto_es::AggregateEvent::new(aggregate_id, self)
                 }
             }
         ))
@@ -63,7 +53,7 @@ impl Event {
             }
         };
 
-        let aggregate: TokenStream = input
+        let aggregate = input
             .attrs
             .into_iter()
             .find_map(|attr| {

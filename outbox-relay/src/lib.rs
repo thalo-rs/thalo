@@ -70,7 +70,6 @@ where
                             "event"."aggregate_type",
                             "event"."aggregate_id",
                             "event"."sequence",
-                            "event"."event_type",
                             "event"."event_data"
                         FROM "event"
                         INNER JOIN "outbox" ON "event"."id" = "outbox"."id"
@@ -91,8 +90,7 @@ where
                             aggregate_type: row.get(2),
                             aggregate_id: row.get(3),
                             sequence: row.get(4),
-                            event_type: row.get(5),
-                            event_data: row.get::<_, Value>(6).as_object()?.clone(),
+                            event: row.get::<_, Value>(5).as_object()?.clone(),
                         })
                     })
                     .fold(Vec::new(), |mut acc, event| {

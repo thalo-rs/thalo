@@ -27,9 +27,12 @@ impl AggregateCommands {
     fn expand_command_enum(&self) -> syn::Result<TokenStream> {
         let Self {
             command_ident,
+            ident,
             methods,
             ..
         } = self;
+
+        let ident = ident.to_string();
 
         let variants = methods.iter().map(|method| {
             let docs = &method.docs;
@@ -54,6 +57,7 @@ impl AggregateCommands {
 
         Ok(quote!(
             #[derive(Clone, Debug, PartialEq, ::awto_es::macros::Command, ::awto_es::macros::StreamTopic, ::awto_es::macros::CommandMessage, ::serde::Deserialize, ::serde::Serialize)]
+            #[aggregate = #ident]
             pub enum #command_ident {
                 #( #variants, )*
             }

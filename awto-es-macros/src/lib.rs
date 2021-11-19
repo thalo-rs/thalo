@@ -13,7 +13,7 @@ pub fn identity(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     }
 }
 
-#[proc_macro_derive(Command)]
+#[proc_macro_derive(Command, attributes(aggregate))]
 pub fn command(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
