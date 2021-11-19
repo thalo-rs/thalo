@@ -14,11 +14,11 @@ use bb8_postgres::{
     },
     PostgresConnectionManager,
 };
-use tracing::debug;
+use tracing::{debug, trace};
 
 use crate::{
-    Aggregate, AggregateEvent, AggregateEventHandler, Error, ErrorKind, Event, EventEnvelope,
-    EventHandler, EventStore, Identity, InternalError, Projection,
+    Aggregate, AggregateEvent, AggregateEventHandler, AggregateType, Error, ErrorKind, Event,
+    EventEnvelope, EventHandler, EventStore, Identity, InternalError, Projection,
 };
 
 /// EventStore for postgres database
@@ -423,6 +423,8 @@ where
     where
         P: Projection + Send + Sync,
     {
+        let aggregate_type = <<P as EventHandler>::Event as Event>::Aggregate::aggregate_type();
+        trace!(aggregate_type, "resyncing projection");
         let mut last_event_version = projection.last_event_id().await?.unwrap_or(-1);
 
         loop {
