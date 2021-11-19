@@ -1,3 +1,1 @@
-pub use bank_account::*;
-
-mod bank_account;
+pub mod bank_account;

@@ -1,12 +1,13 @@
 use async_trait::async_trait;
 use awto_es::{
-    postgres::tls::NoTls, postgres::PgEventStore, Error, ErrorKind, EventHandler, Projection,
+    postgres::PgEventStore,
+    postgres::{tls::NoTls, PgRepository},
+    Error, ErrorKind, EventHandler, Projection,
 };
 
-use crate::{
-    command::BankAccountEvent,
-    query::{BankAccountView, BankAccountViewRepository},
-};
+use crate::command::bank_account::BankAccountEvent;
+
+use super::{BankAccountView, BankAccountViewRepository};
 
 #[derive(Clone)]
 pub struct BankAccountProjector {
@@ -59,13 +60,16 @@ impl EventHandler for BankAccountProjector {
         use BankAccountEvent::*;
         match event {
             AccountOpened { initial_balance } => {
-                let view = BankAccountView::new(id, initial_balance);
+                let view = BankAccountView {
+                    account_number: id,
+                    balance: initial_balance,
+                };
                 self.repository
                     .save(&view, event_id, event_sequence)
                     .await?;
             }
             _ => {
-                let (view, _) = self.repository.load(&id).await?.ok_or_else(|| {
+                let view = self.repository.load(&id).await?.ok_or_else(|| {
                     Error::new(ErrorKind::ResourceNotFound, "bank account not found")
                 })?;
 

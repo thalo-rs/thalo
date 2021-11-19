@@ -1,13 +1,13 @@
 use std::error;
 
-use awto_es::postgres::{tls::NoTls, PgEventStore};
+use awto_es::postgres::{tls::NoTls, PgEventStore, PgRepository};
 use serde::Deserialize;
 use tracing::error;
 use tracing_subscriber::fmt::format::Format;
 
 use crate::{
-    command::BankAccount,
-    query::{BankAccountProjector, BankAccountViewRepository},
+    command::bank_account::BankAccount,
+    query::bank_account::{BankAccountProjector, BankAccountViewRepository},
 };
 
 mod command;
