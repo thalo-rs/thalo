@@ -54,7 +54,7 @@ pub trait EventStore {
     async fn get_aggregate_events<E: Event>(
         &self,
         aggregate_type: &str,
-        aggregate_id: &str,
+        aggregate_id: Option<&str>,
         range: Range<i64>,
     ) -> Result<Vec<EventEnvelope<E>>, Error>;
 

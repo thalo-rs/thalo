@@ -208,7 +208,7 @@ where
     async fn get_aggregate_events<E: Event>(
         &self,
         aggregate_type: &str,
-        aggregate_id: &str,
+        aggregate_id: Option<&str>,
         range: Range<i64>,
     ) -> Result<Vec<EventEnvelope<E>>, Error> {
         let conn = self
@@ -218,12 +218,16 @@ where
             .internal_error("could not get connection from pool")?;
 
         let mut query = r#"
-            SELECT "id", "created_at", "sequence", "event_data"
+            SELECT "id", "created_at", "aggregate_id", "sequence", "event_data"
             FROM "event"
-            WHERE "aggregate_type" = $1 AND "aggregate_id" = $2
+            WHERE "aggregate_type" = $1
             "#
         .to_string();
-        let mut params: Vec<&(dyn ToSql + Sync)> = vec![&aggregate_type, &aggregate_id];
+        let mut params: Vec<&(dyn ToSql + Sync)> = vec![&aggregate_type];
+        if let Some(id) = aggregate_id.as_ref().take() {
+            write!(query, r#" AND "aggregate_id" = $2"#).unwrap();
+            params.push(id);
+        }
         match range.start_bound() {
             Bound::Included(from) => {
                 write!(query, r#" AND "sequence" >= ${} "#, params.len() + 1).unwrap();
@@ -255,15 +259,15 @@ where
 
         rows.into_iter()
             .map(|row| {
-                let event_json = row.get(3);
+                let event_json = row.get(4);
                 let event = serde_json::from_value(event_json)
                     .map_err(|err| Error::new(ErrorKind::DeserializeError, err))?;
                 Ok(EventEnvelope {
                     id: row.get(0),
                     created_at: row.get(1),
                     aggregate_type: aggregate_type.to_string(),
-                    aggregate_id: aggregate_id.to_string(),
-                    sequence: row.get(2),
+                    aggregate_id: row.get(2),
+                    sequence: row.get(3),
                     event,
                 })
             })
@@ -429,7 +433,9 @@ where
 
         loop {
             let missing_events = self
-                .get_all_events::<<P as EventHandler>::Event>(
+                .get_aggregate_events::<<P as EventHandler>::Event>(
+                    aggregate_type,
+                    None,
                     last_event_version + 1..last_event_version + 10,
                 )
                 .await?;
