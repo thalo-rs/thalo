@@ -17,7 +17,7 @@ use tokio::{
     process::Command,
     time,
 };
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 use crate::{
     change::{handle_event, Event, SlotChange},
@@ -40,6 +40,8 @@ where
     <<Tls as MakeTlsConnect<Socket>>::TlsConnect as TlsConnect<Socket>>::Future: Send,
 {
     // Create producer
+    let redpanda_host = redpanda_host.into();
+    debug!(%redpanda_host, "connecting to redpanda");
     let mut producer_config = ClientConfig::new();
     producer_config
         .set("bootstrap.servers", redpanda_host)
