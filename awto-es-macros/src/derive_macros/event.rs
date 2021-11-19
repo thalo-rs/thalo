@@ -73,7 +73,10 @@ impl Event {
                 }
             })
             .ok_or_else(|| {
-                syn::Error::new(ident.span(), "missing attribute #[aggregate = MyAggregate]")
+                syn::Error::new(
+                    ident.span(),
+                    "missing attribute #[aggregate = \"MyAggregate\"]",
+                )
             })??;
 
         Ok(Event {

@@ -49,7 +49,7 @@ impl Command {
             }
         };
 
-        let aggregate: TokenStream = input
+        let aggregate = input
             .attrs
             .into_iter()
             .find_map(|attr| {
@@ -69,7 +69,10 @@ impl Command {
                 }
             })
             .ok_or_else(|| {
-                syn::Error::new(ident.span(), "missing attribute #[aggregate = MyAggregate]")
+                syn::Error::new(
+                    ident.span(),
+                    "missing attribute #[aggregate = \"MyAggregate\"]",
+                )
             })??;
 
         Ok(Command {
