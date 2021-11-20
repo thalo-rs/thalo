@@ -35,7 +35,7 @@ impl BankAccount {
     /// Creates a command for opening an account
     pub fn open_account(&self, initial_balance: f64) -> Result<Vec<BankAccountEvent>, Error> {
         if self.opened {
-            return Err(Error::validation_error("account already opened"));
+            return Err(Error::invariant("account already opened"));
         }
 
         // Reference the event created by the BankAccount::account_opened method
@@ -45,7 +45,7 @@ impl BankAccount {
     /// Deposit funds
     pub fn deposit_funds(&self, amount: f64) -> Result<Vec<BankAccountEvent>, Error> {
         if !self.opened {
-            return Err(Error::validation_error("account does not exist"));
+            return Err(Error::invariant("account does not exist"));
         }
 
         Ok(vec![BankAccountEvent::FundsDeposited { amount }])
@@ -54,12 +54,12 @@ impl BankAccount {
     /// Withdraw funds
     pub fn withdraw_funds(&self, amount: f64) -> Result<Vec<BankAccountEvent>, Error> {
         if !self.opened {
-            return Err(Error::validation_error("account does not exist"));
+            return Err(Error::invariant("account does not exist"));
         }
 
         let new_balance = self.balance - amount;
         if new_balance < 0.0 {
-            return Err(Error::validation_error("insufficient funds for withdrawal"));
+            return Err(Error::invariant("insufficient funds for withdrawal"));
         }
 
         Ok(vec![BankAccountEvent::FundsWithdrawn { amount }])
