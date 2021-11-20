@@ -11,6 +11,7 @@ derive_macro!(StreamTopic);
 derive_macro!(CommandMessage);
 derive_macro!(AggregateType);
 derive_macro!(PgRepository);
+derive_macro!(CombinedEvent);
 
 attribute_macro!(aggregate_events, AggregateEvents);
 attribute_macro!(aggregate_commands, AggregateCommands);
