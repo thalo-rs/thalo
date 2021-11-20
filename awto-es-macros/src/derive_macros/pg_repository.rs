@@ -37,7 +37,7 @@ impl PgRepository {
         } = self;
 
         let expanded_save = self.expand_save();
-        let expanded_load = self.expand_load();
+        let expanded_load_with_last_event_id = self.expand_load_with_last_event_id();
         let expanded_last_event_id = self.expand_last_event_id();
 
         quote!(
@@ -72,34 +72,31 @@ impl PgRepository {
                     event_id: i64,
                     event_sequence: i64,
                 ) -> ::std::result::Result<(), ::awto_es::Error> {
-                    use ::awto_es::InternalError;
                     let conn = self
                         .pool
                         .get()
                         .await
-                        .internal_error("could not get connection from pool")?;
+                        .map_err(::awto_es::Error::GetDbPoolConnectionError)?;
 
                     #expanded_save
                 }
 
-                async fn load(&self, id: &str) -> ::std::result::Result<::std::option::Option<Self::View>, ::awto_es::Error> {
-                    use ::awto_es::InternalError;
+                async fn load_with_last_event_id(&self, id: &str) -> ::std::result::Result<::std::option::Option<(Self::View, i64)>, ::awto_es::Error> {
                     let conn = self
                         .pool
                         .get()
                         .await
-                        .internal_error("could not get connection from pool")?;
+                        .map_err(::awto_es::Error::GetDbPoolConnectionError)?;
 
-                    #expanded_load
+                    #expanded_load_with_last_event_id
                 }
 
                 async fn last_event_id(&self) -> ::std::result::Result<::std::option::Option<i64>, ::awto_es::Error> {
-                    use ::awto_es::InternalError;
                     let conn = self
                         .pool
                         .get()
                         .await
-                        .internal_error("could not get connection from pool")?;
+                        .map_err(::awto_es::Error::GetDbPoolConnectionError)?;
 
                     #expanded_last_event_id
                 }
@@ -111,7 +108,6 @@ impl PgRepository {
         let Self {
             columns,
             fields,
-            ident,
             primary_key,
             table_name,
             ..
@@ -145,8 +141,6 @@ impl PgRepository {
 
         let field_idents = fields.iter().map(|field| field.ident.as_ref().unwrap());
 
-        let error_string = format!("could not insert/update {} view", ident.to_string());
-
         quote!(
             conn.execute(#q,
                 &[
@@ -155,34 +149,27 @@ impl PgRepository {
                     #( &view.#field_idents, )*
                 ],
             )
-            .await
-            .internal_error(#error_string)?;
+            .await?;
 
             Ok(())
         )
     }
 
-    fn expand_load(&self) -> TokenStream {
+    fn expand_load_with_last_event_id(&self) -> TokenStream {
         let Self {
             columns,
             fields,
-            ident,
             primary_key,
             table_name,
             ..
         } = self;
 
         let mut q = String::new();
-        write!(q, r#"SELECT "#).unwrap();
-        for (i, column) in columns.iter().skip(1).enumerate() {
-            if i > 0 {
-                write!(q, ", ").unwrap();
-            }
-            write!(q, r#""{}""#, column).unwrap();
+        write!(q, r#"SELECT "last_event_id""#).unwrap();
+        for column in columns.iter().skip(1) {
+            write!(q, r#", "{}""#, column).unwrap();
         }
         write!(q, r#" FROM "{}" WHERE "{}" = $1"#, table_name, primary_key).unwrap();
-
-        let error_string = format!("could not load {} view", ident.to_string());
 
         let mut fields_iter = fields.iter();
         let primary_key_ident = fields_iter.next().unwrap().ident.as_ref().unwrap();
@@ -196,12 +183,16 @@ impl PgRepository {
         quote!(
             let row = conn
                 .query_opt(#q, &[&id])
-                .await
-                .internal_error(#error_string)?;
+                .await?;
 
-            Ok(row.map(|row| Self::View {
-                #primary_key_ident: id.to_string(),
-                #( #field_idents: row.get(#field_indexes), )*
+            Ok(row.map(|row| {
+                (
+                    Self::View {
+                        #primary_key_ident: id.to_string(),
+                        #( #field_idents: row.get(#field_indexes + 1), )*
+                    },
+                    row.get(0)
+                )
             }))
         )
     }
@@ -212,10 +203,7 @@ impl PgRepository {
         let q = format!(r#"SELECT MAX("last_event_id") FROM "{}""#, table_name);
 
         quote!(
-            let row = conn
-                .query_one(#q, &[])
-                .await
-                .internal_error("could not query max last_event_id")?;
+            let row = conn.query_one(#q, &[]).await?;
 
             Ok(row.get(0))
         )

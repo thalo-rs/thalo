@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, FixedOffset};
 use serde::{Deserialize, Serialize};
 
-use crate::{Aggregate, AggregateEventHandler, Error, Event, Projection};
+use crate::{Aggregate, AggregateEventHandler, CombinedEvent, Error, Event, Projection};
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct AggregateEvent<'a, A: Aggregate> {
@@ -51,9 +51,9 @@ pub trait EventStore {
         events: Vec<AggregateEvent<'_, A>>,
     ) -> Result<Vec<EventEnvelope<<A as Aggregate>::Event>>, Error>;
 
-    async fn get_aggregate_events<E: Event>(
+    async fn get_aggregate_events<E: CombinedEvent>(
         &self,
-        aggregate_type: &str,
+        aggregate_type: &[&str],
         aggregate_id: Option<&str>,
         range: Range<i64>,
     ) -> Result<Vec<EventEnvelope<E>>, Error>;

@@ -1,4 +1,4 @@
-use std::{env, error, fmt, pin::Pin, sync::Arc, time::Duration};
+use std::{env, fmt, pin::Pin, sync::Arc, time::Duration};
 
 use actix::{dev::ToEnvelope, Actor, Addr};
 #[cfg(feature = "outbox_relay")]
@@ -15,6 +15,7 @@ use lru::LruCache;
 use rdkafka::{
     config::RDKafkaLogLevel,
     consumer::{Consumer, StreamConsumer},
+    message::Headers,
     ClientConfig, Message,
 };
 use tokio::{
@@ -24,27 +25,28 @@ use tokio::{
         Mutex,
     },
 };
-use tracing::{debug, trace};
+use tracing::{debug, info, trace};
 
 use crate::{
-    message::StreamTopic, Aggregate, AggregateActor, BaseAggregateActor, Error, ErrorKind,
-    EventEnvelope, EventHandler, EventStore, InternalError, Projection,
+    message::{MultiStreamTopic, StreamTopic},
+    Aggregate, AggregateActor, BaseAggregateActor, Error, EventEnvelope, EventHandler, EventStore,
+    Projection,
 };
 
 type WorkerFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
-type WorkerFn<ES> = Box<dyn Fn(WorkerContext<ES>) -> Result<WorkerFuture, Box<dyn error::Error>>>;
+type WorkerFn<ES> = Box<dyn Fn(WorkerContext<ES>) -> Result<WorkerFuture, Error>>;
 
 struct WorkerContext<'a, ES: EventStore> {
     consumer_config: &'a ClientConfig,
     event_store: &'a ES,
-    on_error: &'a Option<for<'r> fn(&'r dyn error::Error)>,
+    on_error: &'a Option<for<'r> fn(Error)>,
     shutdown_recv: &'a Receiver<()>,
 }
 
 pub struct Awto<ES: EventStore> {
     consumer_config: ClientConfig,
     event_store: ES,
-    on_error: Option<for<'r> fn(&'r dyn error::Error)>,
+    on_error: Option<for<'r> fn(Error)>,
     #[cfg(feature = "outbox_relay")]
     redpanda_host: String,
     workers: Vec<WorkerFn<ES>>,
@@ -58,7 +60,7 @@ where
         AwtoBuilder::new(event_store, redpanda_host)
     }
 
-    pub async fn run(&mut self) -> Result<(), Box<dyn error::Error>> {
+    pub async fn run(&mut self) -> Result<(), Error> {
         let (shutdown_send, shutdown_recv) = watch::channel(());
         let mut workers = FuturesUnordered::new();
 
@@ -88,7 +90,7 @@ where
         pool: Pool<PostgresConnectionManager<Tls>>,
         database_url: &str,
         slot: &str,
-    ) -> Result<(), Box<dyn error::Error>>
+    ) -> Result<(), Error>
     where
         Tls: MakeTlsConnect<Socket> + Clone + Send + Sync + 'static,
         <Tls as MakeTlsConnect<Socket>>::Stream: Send + Sync,
@@ -136,7 +138,7 @@ where
         conn: &str,
         tls: Tls,
         slot: &str,
-    ) -> Result<(), Box<dyn error::Error>>
+    ) -> Result<(), Error>
     where
         Tls: MakeTlsConnect<Socket> + Clone + Send + Sync + 'static,
         <Tls as MakeTlsConnect<Socket>>::Stream: Send + Sync,
@@ -156,7 +158,7 @@ where
 {
     consumer_config: ClientConfig,
     event_store: ES,
-    on_error: Option<fn(&dyn error::Error)>,
+    on_error: Option<fn(Error)>,
     #[cfg(feature = "outbox_relay")]
     redpanda_host: String,
     workers: Vec<WorkerFn<ES>>,
@@ -200,7 +202,7 @@ where
         }
     }
 
-    pub fn on_error(mut self, cb: fn(&dyn error::Error)) -> Self {
+    pub fn on_error(mut self, cb: fn(Error)) -> Self {
         self.on_error = Some(cb);
         self
     }
@@ -234,9 +236,9 @@ where
             let actors_cache: Arc<Mutex<LruCache<String, Addr<Act>>>> =
                 Arc::new(Mutex::new(LruCache::new(cache_cap)));
 
-            let consumer: Arc<StreamConsumer> = Arc::new(ctx.consumer_config.create()?);
+            let consumer: Arc<StreamConsumer> = Arc::new(ctx.consumer_config.create().map_err(Error::CreateConsumerError)?);
 
-            consumer.subscribe(&[<A as Aggregate>::Command::stream_topic()])?;
+            consumer.subscribe(&[<A as Aggregate>::Command::stream_topic()]).map_err(Error::SubscribeTopicError)?;
             debug!(
                 topic = <A as Aggregate>::Command::stream_topic(),
                 "subscribed to command topic"
@@ -264,7 +266,18 @@ where
                     let msg = consumer
                         .recv()
                         .await
-                        .internal_error("could not receive message from command handler")?;
+                        .map_err(Error::RecieveMessageError)?;
+                    let msg_type = msg.headers().and_then(|headers| {
+                        for i in 0..headers.count() {
+                            if let Some((k, v)) = headers.get(i) {
+                                if k == "type" {
+                                    return Some(v)
+                                }
+                            }
+                        }
+                        None
+                    }).and_then(|msg_type| std::str::from_utf8(msg_type).ok());// .map(|msg_type| "OPEN_ACCOUNT".as_bytes() == msg_type);
+                    info!(?msg_type, "message type");
                     let topic = msg.topic();
                     let offset = msg.offset();
                     let key_dbg = msg
@@ -272,18 +285,18 @@ where
                         .transpose()
                         .ok()
                         .flatten()
-                        .unwrap_or("");
+                        .unwrap_or_default();
                     let payload_dbg = msg.payload_view::<str>().transpose().ok().flatten().unwrap_or("");
                     trace!(%topic, offset, key = key_dbg, payload = payload_dbg, "received message");
                     let key = msg
                         .key_view::<str>()
                         .transpose()
-                        .internal_error("could not read key as str")?
-                        .ok_or_else(|| Error::new_simple(ErrorKind::MissingKey))?;
+                        .map_err(Error::MessageKeyUtf8Error)?
+                        .ok_or(Error::MessageKeyMissing)?;
 
                     if let Some(payload) = msg.payload() {
                         let command = serde_json::from_slice::<<A as Aggregate>::Command>(payload)
-                            .map_err(|err| Error::new(ErrorKind::DeserializeError, err))?;
+                            .map_err(Error::MessageJsonDeserializeError)?;
                         debug!(topic, offset, key, ?command, "received command");
 
                         {
@@ -299,8 +312,7 @@ where
 
                             actor.send(command)
                         }
-                        .await
-                        .map_err(|_err| Error::new_simple(ErrorKind::MailboxFull))??;
+                        .await??;
                     }
 
                     Ok(())
@@ -316,18 +328,24 @@ where
     pub fn projection<P>(mut self, projection: P) -> Self
     where
         P: Projection + Clone + Send + Sync + 'static,
-        <P as EventHandler>::Event: StreamTopic + fmt::Debug,
+        <P as EventHandler>::Event: MultiStreamTopic + fmt::Debug,
     {
+        let projection_type = P::projection_type();
+
         self.workers.push(Box::new(move |ctx| {
             let event_store = ctx.event_store.to_owned();
             let on_error = ctx.on_error.to_owned();
             let mut projection = projection.clone();
 
-            let consumer: Arc<StreamConsumer> = Arc::new(ctx.consumer_config.create()?);
-            consumer.subscribe(&[<P as EventHandler>::Event::stream_topic()])?;
+            let mut consumer_config = ctx.consumer_config.clone();
+            consumer_config.set("group.id", projection_type);
+            let consumer: Arc<StreamConsumer> = Arc::new(consumer_config.create().map_err(Error::CreateConsumerError)?);
+            let topics = <P as EventHandler>::Event::stream_topics();
+            consumer.subscribe(&topics).map_err(Error::SubscribeTopicError)?;
             debug!(
-                topic = <P as EventHandler>::Event::stream_topic(),
-                "subscribed to event topic"
+                projection = projection_type,
+                ?topics,
+                "subscribed to event topics"
             );
 
             {
@@ -337,7 +355,8 @@ where
                     while shutdown_recv.changed().await.is_ok() {
                         consumer.unsubscribe();
                         debug!(
-                            topic = <P as EventHandler>::Event::stream_topic(),
+                            projection = projection_type,
+                            ?topics,
                             "unsubscribed from event topic"
                         )
                     }
@@ -347,7 +366,7 @@ where
             Ok(async move {
                 if let Err(err) = event_store.resync_projection(&mut projection).await {
                     if let Some(on_error) = on_error {
-                        on_error(&err);
+                        on_error(err);
                     }
                 }
 
@@ -355,7 +374,7 @@ where
                     let msg = consumer
                         .recv()
                         .await
-                        .internal_error("could not receive message from event handler")?;
+                        .map_err(Error::RecieveMessageError)?;
                     let topic = msg.topic();
                     let offset = msg.offset();
                     let key_dbg = msg
@@ -365,21 +384,21 @@ where
                         .flatten()
                         .unwrap_or("");
                     let payload_dbg = msg.payload_view::<str>().transpose().ok().flatten().unwrap_or("");
-                    trace!(%topic, offset, key = key_dbg, payload = payload_dbg, "received message");
+                    trace!(projection = projection_type, %topic, offset, key = key_dbg, payload = payload_dbg, "received message");
                     let key = msg
                         .key_view::<str>()
                         .transpose()
-                        .internal_error("could not read key as str")?
-                        .ok_or_else(|| Error::new_simple(ErrorKind::MissingKey))?;
+                        .map_err(Error::MessageKeyUtf8Error)?
+                        .ok_or(Error::MessageKeyMissing)?;
 
                     if let Some(payload) = msg.payload() {
                         let event_envelope: EventEnvelope<<P as EventHandler>::Event> =
-                            serde_json::from_slice(payload)
-                                .map_err(|err| Error::new(ErrorKind::DeserializeError, err))?;
+                            serde_json::from_slice(payload).map_err(Error::MessageJsonDeserializeError)?;
                         let event_id = event_envelope.id;
                         let event_sequence = event_envelope.sequence;
                         let event = event_envelope.event;
                         debug!(
+                            projection = projection_type,
                             topic,
                             offset,
                             key,
@@ -394,7 +413,7 @@ where
                             .handle(key.to_string(), event, event_id, event_sequence)
                             .await?;
 
-                        trace!(key, event_id, "handled projectoion");
+                        trace!(projection = projection_type, key, event_id, "handled projectoion");
                     }
 
                     Ok(())
@@ -408,15 +427,15 @@ where
     }
 }
 
-pub async fn loop_result_async<Fut, F>(on_error: Option<fn(&dyn error::Error)>, f: F)
+pub async fn loop_result_async<Fut, F>(on_error: Option<fn(Error)>, f: F)
 where
-    Fut: Future<Output = Result<(), Box<dyn error::Error>>>,
+    Fut: Future<Output = Result<(), Error>>,
     F: Fn() -> Fut,
 {
     loop {
         if let Err(err) = f().await {
             if let Some(on_error) = on_error {
-                on_error(err.as_ref())
+                on_error(err)
             }
         }
     }
