@@ -45,7 +45,7 @@ pub enum Error {
 impl Error {
     /// Invariant (or business rule) was not satisfied.
     ///
-    /// Returns the `Error::Invariant` variant.
+    /// Returns the [Error::Invariant] variant.
     ///
     /// Typically used in aggregate command handlers to indicate
     /// the failure of a command due to business rules.
@@ -58,7 +58,7 @@ impl Error {
 
     /// Resource not found.
     ///
-    /// Returns the `Error::ResourceNotFound` variant.
+    /// Returns the [Error::ResourceNotFound] variant.
     pub fn not_found<M>(msg: Option<M>) -> Self
     where
         M: Into<Cow<'static, str>>,
