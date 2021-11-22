@@ -33,7 +33,7 @@ environment variables are set.
 **In a new terminal:**
 
 ```bash
-docker exec -it redpanda-1 rpk topic produce hello -k test
+$ docker exec -it redpanda-1 rpk topic produce bank_account_command -k test
 ```
 
 Messages will be read from stdin. Once you have the terminal waiting for input, try to open the account by entering the following:

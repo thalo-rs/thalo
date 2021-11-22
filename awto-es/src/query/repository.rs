@@ -48,7 +48,6 @@ pub trait EventStore {
         agg: &mut A,
     ) -> Result<(), Error>;
 
-    /// Returns the last inserted event sequence
     async fn save_events<A: Aggregate>(
         &self,
         events: Vec<AggregateEvent<'_, A>>,
