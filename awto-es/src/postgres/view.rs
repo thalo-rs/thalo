@@ -13,7 +13,7 @@ pub trait PgRepository: Sized {
     /// Connect to the database.
     async fn connect(conn: &str, tls: NoTls) -> Result<Self, bb8_postgres::tokio_postgres::Error>;
 
-    /// Insert or update view
+    /// Insert or update view.
     async fn save(
         &self,
         view: &Self::View,
