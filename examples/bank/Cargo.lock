@@ -108,6 +108,7 @@ dependencies = [
  "lru",
  "outbox-relay",
  "rdkafka",
+ "sea-query",
  "serde",
  "serde_json",
  "thiserror",
@@ -988,6 +989,31 @@ name = "scopeguard"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
+
+[[package]]
+name = "sea-query"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a02a5aa1610e9109bac5f01c0652ff327a681719deaab1acb620fe281429c201"
+dependencies = [
+ "bytes",
+ "postgres-types",
+ "sea-query-derive",
+ "serde_json",
+]
+
+[[package]]
+name = "sea-query-derive"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34cdc022b4f606353fe5dc85b09713a04e433323b70163e81513b141c6ae6eb5"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn",
+ "thiserror",
+]
 
 [[package]]
 name = "serde"

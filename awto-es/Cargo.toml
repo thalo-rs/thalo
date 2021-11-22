@@ -16,6 +16,12 @@ futures = "0.3"
 lru = "0.7"
 outbox-relay = { path = "../outbox-relay", optional = true }
 rdkafka = "0.27"
+sea-query = { version = "0.19", features = [
+  "backend-postgres",
+  "postgres",
+  "postgres-json",
+  "thread-safe",
+] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "1.0"
