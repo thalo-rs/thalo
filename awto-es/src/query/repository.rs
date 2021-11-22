@@ -3,8 +3,11 @@ use std::{marker::PhantomData, ops::Range};
 use async_trait::async_trait;
 use chrono::{DateTime, FixedOffset};
 use serde::{Deserialize, Serialize};
+use tracing::{debug, trace};
 
-use crate::{Aggregate, AggregateEventHandler, CombinedEvent, Error, Event, Projection};
+use crate::{
+    Aggregate, AggregateEventHandler, CombinedEvent, Error, Event, EventHandler, Projection,
+};
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct AggregateEvent<'a, A: Aggregate> {
@@ -72,7 +75,41 @@ pub trait EventStore {
 
     async fn resync_projection<P>(&self, projection: &mut P) -> Result<(), Error>
     where
-        P: Projection + Send + Sync;
+        P: Projection + Send + Sync,
+    {
+        let aggregate_types = <<P as EventHandler>::Event as CombinedEvent>::aggregate_types();
+        trace!(?aggregate_types, "resyncing projection");
+        let mut last_event_version = projection.last_event_id().await?.unwrap_or(-1);
+
+        loop {
+            let missing_events = self
+                .get_aggregate_events::<<P as EventHandler>::Event>(
+                    &aggregate_types,
+                    None,
+                    last_event_version + 1..last_event_version + 10,
+                )
+                .await?;
+
+            if missing_events.is_empty() {
+                break;
+            }
+
+            for missing_event in missing_events {
+                projection
+                    .handle(
+                        missing_event.aggregate_id.clone(),
+                        missing_event.event.clone(),
+                        missing_event.id,
+                        missing_event.sequence,
+                    )
+                    .await?;
+                last_event_version = missing_event.id;
+                debug!(?missing_event, "handled missing event");
+            }
+        }
+
+        Ok(())
+    }
 }
 
 mod created_at_format {

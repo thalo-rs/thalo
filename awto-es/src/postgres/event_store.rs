@@ -1,7 +1,4 @@
-use std::{
-    fmt::Write,
-    ops::{Bound, Range, RangeBounds},
-};
+use std::ops::{Bound, Range, RangeBounds};
 
 use async_trait::async_trait;
 use bb8_postgres::{
@@ -9,17 +6,29 @@ use bb8_postgres::{
     tokio_postgres::{
         self,
         tls::{MakeTlsConnect, TlsConnect},
-        types::ToSql,
         Socket,
     },
     PostgresConnectionManager,
 };
-use tracing::{debug, trace};
+use sea_query::{Expr, Iden, Order, PostgresDriver, PostgresQueryBuilder, Query, Value};
 
 use crate::{
     Aggregate, AggregateEvent, AggregateEventHandler, CombinedEvent, Error, Event, EventEnvelope,
-    EventHandler, EventStore, Identity, Projection,
+    EventStore, Identity,
 };
+
+#[derive(Iden)]
+enum EventTable {
+    #[iden = "event"]
+    Table,
+    Id,
+    CreatedAt,
+    AggregateType,
+    AggregateId,
+    Sequence,
+    EventType,
+    EventData,
+}
 
 /// EventStore for postgres database
 #[derive(Clone, Debug)]
@@ -77,6 +86,7 @@ where
             r#"
             CREATE TABLE IF NOT EXISTS "event" (
                 "id"                BIGSERIAL    PRIMARY KEY,
+                "created_at"        TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
                 "aggregate_type"    TEXT         NOT NULL,
                 "aggregate_id"      TEXT         NOT NULL,
                 "sequence"          BIGINT       NOT NULL,
@@ -145,33 +155,42 @@ where
         let mut inserted_events = Vec::with_capacity(events.len());
         for event in events {
             // Get the max sequence for the given aggregate type and id
-            let row = t
-                .query_one(
-                    r#"SELECT MAX("sequence") FROM "event" WHERE "aggregate_type" = $1 AND "aggregate_id" = $2"#,
-                    &[&A::aggregate_type(), &event.aggregate_id],
-                )
-                .await?;
+            let (query, params) = Query::select()
+                .expr(Expr::col(EventTable::Sequence).max())
+                .from(EventTable::Table)
+                .and_where(Expr::col(EventTable::AggregateType).eq(A::aggregate_type()))
+                .and_where(Expr::col(EventTable::AggregateId).eq(event.aggregate_id))
+                .build(PostgresQueryBuilder);
+            let row = t.query_one(&query, &params.as_params()).await?;
             let current: Option<i64> = row.get(0);
             let next = current.unwrap_or(-1) + 1;
 
             // Insert event with incremented sequence
             let event_json =
                 serde_json::to_value(&event.event).map_err(Error::SerializeEventError)?;
-            let result = t.query_one(
-                    r#"
-                    INSERT INTO "event" ("aggregate_type", "aggregate_id", "sequence", "event_type", "event_data")
-                    VALUES ($1, $2, $3, $4, $5)
-                    RETURNING "id", "created_at"
-                    "#,
-                    &[
-                        &A::aggregate_type(),
-                        &event.aggregate_id,
-                        &next,
-                        &event.event.event_type(),
-                        &event_json,
-                    ],
+            let (query, params) = Query::insert()
+                .into_table(EventTable::Table)
+                .columns([
+                    EventTable::AggregateType,
+                    EventTable::AggregateId,
+                    EventTable::Sequence,
+                    EventTable::EventType,
+                    EventTable::EventData,
+                ])
+                .values_panic(vec![
+                    Value::from(A::aggregate_type()),
+                    event.aggregate_id.into(),
+                    next.into(),
+                    event.event.event_type().into(),
+                    event_json.into(),
+                ])
+                .returning(
+                    Query::select()
+                        .columns([EventTable::Id, EventTable::CreatedAt])
+                        .take(),
                 )
-                .await?;
+                .build(PostgresQueryBuilder);
+            let result = t.query_one(&query, &params.as_params()).await?;
 
             let id = result.get(0);
             inserted_events.push(EventEnvelope {
@@ -209,88 +228,49 @@ where
             .await
             .map_err(Error::GetDbPoolConnectionError)?;
 
-        let mut query = r#"
-            SELECT "id", "created_at", "aggregate_type", "aggregate_id", "sequence", "event_data"
-            FROM "event"
-            "#
-        .to_string();
-        let mut params: Vec<&(dyn ToSql + Sync)> = Vec::new();
+        let mut query = Query::select();
+        query
+            .columns([
+                EventTable::Id,
+                EventTable::CreatedAt,
+                EventTable::AggregateType,
+                EventTable::AggregateId,
+                EventTable::Sequence,
+                EventTable::EventData,
+            ])
+            .from(EventTable::Table)
+            .order_by(EventTable::Id, Order::Asc);
 
-        if !aggregate_types.is_empty()
-            || aggregate_id.is_some()
-            || matches!(range.start_bound(), Bound::Included(_) | Bound::Excluded(_))
-            || matches!(range.end_bound(), Bound::Included(_) | Bound::Excluded(_))
-        {
-            write!(query, " WHERE ").unwrap();
-
-            // Aggregate types
-            if !aggregate_types.is_empty() {
-                write!(query, r#" "aggregate_type" IN ( "#).unwrap();
-
-                for (i, aggregate_type) in aggregate_types.iter().enumerate() {
-                    if i > 0 {
-                        write!(query, ", ").unwrap();
-                    }
-                    write!(query, "${}", params.len() + 1).unwrap();
-                    params.push(aggregate_type);
-                }
-
-                write!(query, " )").unwrap();
-
-                if aggregate_id.is_some()
-                    || matches!(range.start_bound(), Bound::Included(_) | Bound::Excluded(_))
-                    || matches!(range.end_bound(), Bound::Included(_) | Bound::Excluded(_))
-                {
-                    write!(query, " AND ").unwrap();
-                }
-            }
-
-            // Aggregate id
-            if let Some(id) = aggregate_id.as_ref().take() {
-                write!(query, r#""aggregate_id" = ${}"#, params.len() + 1).unwrap();
-                params.push(id);
-                if matches!(range.start_bound(), Bound::Included(_) | Bound::Excluded(_))
-                    || matches!(range.end_bound(), Bound::Included(_) | Bound::Excluded(_))
-                {
-                    write!(query, " AND ").unwrap();
-                }
-            }
-
-            // Range start
-            match range.start_bound() {
-                Bound::Included(from) => {
-                    write!(query, r#""id" >= ${}"#, params.len() + 1).unwrap();
-                    params.push(from);
-                }
-                Bound::Excluded(from) => {
-                    write!(query, r#""id" > ${}"#, params.len() + 1).unwrap();
-                    params.push(from);
-                }
-                Bound::Unbounded => {}
-            }
-            if matches!(range.start_bound(), Bound::Included(_) | Bound::Excluded(_))
-                && matches!(range.end_bound(), Bound::Included(_) | Bound::Excluded(_))
-            {
-                write!(query, " AND ").unwrap();
-            }
-
-            // Range end
-            match range.end_bound() {
-                Bound::Included(to) => {
-                    write!(query, r#""id" <= ${}"#, params.len() + 1).unwrap();
-                    params.push(to);
-                }
-                Bound::Excluded(to) => {
-                    write!(query, r#""id" < ${}"#, params.len() + 1).unwrap();
-                    params.push(to);
-                }
-                Bound::Unbounded => {}
-            }
+        if !aggregate_types.is_empty() {
+            query.and_where(Expr::col(EventTable::AggregateType).is_in(aggregate_types.to_vec()));
         }
 
-        write!(query, r#"ORDER BY "id" ASC"#).unwrap();
+        if let Some(id) = aggregate_id.as_ref().take() {
+            query.and_where(Expr::col(EventTable::AggregateId).eq(*id));
+        }
 
-        let rows = conn.query(&query, &params).await?;
+        match range.start_bound() {
+            Bound::Included(from) => {
+                query.and_where(Expr::col(EventTable::Id).greater_or_equal(Expr::value(*from)));
+            }
+            Bound::Excluded(from) => {
+                query.and_where(Expr::col(EventTable::Id).greater_than(Expr::value(*from)));
+            }
+            Bound::Unbounded => {}
+        }
+
+        match range.end_bound() {
+            Bound::Included(to) => {
+                query.and_where(Expr::col(EventTable::Id).less_or_equal(Expr::value(*to)));
+            }
+            Bound::Excluded(to) => {
+                query.and_where(Expr::col(EventTable::Id).less_than(Expr::value(*to)));
+            }
+            Bound::Unbounded => {}
+        }
+
+        let (query, params) = query.build(PostgresQueryBuilder);
+        let rows = conn.query(&query, &params.as_params()).await?;
 
         rows.into_iter()
             .map(|row| {
@@ -319,47 +299,41 @@ where
             .await
             .map_err(Error::GetDbPoolConnectionError)?;
 
-        let mut query = r#"
-            SELECT "id", "created_at", "aggregate_type", "aggregate_id", "sequence", "event_data"
-            FROM "event"
-            "#
-        .to_string();
-        let mut params: Vec<&(dyn ToSql + Sync)> = Vec::new();
+        let mut query = Query::select();
+        query
+            .columns([
+                EventTable::Id,
+                EventTable::CreatedAt,
+                EventTable::AggregateType,
+                EventTable::AggregateId,
+                EventTable::Sequence,
+                EventTable::EventData,
+            ])
+            .from(EventTable::Table)
+            .order_by(EventTable::Id, Order::Asc);
+
         match range.start_bound() {
             Bound::Included(from) => {
-                write!(query, r#" WHERE "id" >= ${} "#, params.len() + 1).unwrap();
-                params.push(from);
+                query.and_where(Expr::col(EventTable::Id).greater_or_equal(Expr::value(*from)));
             }
             Bound::Excluded(from) => {
-                write!(query, r#" WHERE "id" > ${} "#, params.len() + 1).unwrap();
-                params.push(from);
+                query.and_where(Expr::col(EventTable::Id).greater_than(Expr::value(*from)));
             }
             Bound::Unbounded => {}
         }
+
         match range.end_bound() {
             Bound::Included(to) => {
-                if matches!(range.start_bound(), Bound::Included(_) | Bound::Excluded(_)) {
-                    write!(query, r#" AND "#).unwrap();
-                } else {
-                    write!(query, r#" WHERE "#).unwrap();
-                }
-                write!(query, r#" id <= ${} "#, params.len() + 1).unwrap();
-                params.push(to);
+                query.and_where(Expr::col(EventTable::Id).less_or_equal(Expr::value(*to)));
             }
             Bound::Excluded(to) => {
-                if matches!(range.start_bound(), Bound::Included(_) | Bound::Excluded(_)) {
-                    write!(query, r#" AND "#).unwrap();
-                } else {
-                    write!(query, r#" WHERE "#).unwrap();
-                }
-                write!(query, r#" "id" < ${} "#, params.len() + 1).unwrap();
-                params.push(to);
+                query.and_where(Expr::col(EventTable::Id).less_than(Expr::value(*to)));
             }
             Bound::Unbounded => {}
         }
-        write!(query, r#"ORDER BY "id" ASC"#).unwrap();
 
-        let rows = conn.query(&query, &params).await?;
+        let (query, params) = query.build(PostgresQueryBuilder);
+        let rows = conn.query(&query, &params.as_params()).await?;
 
         rows.into_iter()
             .map(|row| {
@@ -388,16 +362,20 @@ where
             .await
             .map_err(Error::GetDbPoolConnectionError)?;
 
-        let row = conn
-            .query_opt(
-                r#"
-                SELECT "id", "created_at", "aggregate_type", "aggregate_id", "sequence", "event_data"
-                FROM "event"
-                WHERE "aggregate_type" = $1 AND sequence = $2
-                "#,
-                &[&A::aggregate_type(), &sequence],
-            )
-            .await?;
+        let (query, params) = Query::select()
+            .columns([
+                EventTable::Id,
+                EventTable::CreatedAt,
+                EventTable::AggregateType,
+                EventTable::AggregateId,
+                EventTable::Sequence,
+                EventTable::EventData,
+            ])
+            .from(EventTable::Table)
+            .and_where(Expr::col(EventTable::AggregateType).eq(A::aggregate_type()))
+            .and_where(Expr::col(EventTable::Sequence).eq(sequence))
+            .build(PostgresQueryBuilder);
+        let row = conn.query_opt(&query, &params.as_params()).await?;
 
         row.map(|row| {
             let event_json = row.get(5);
@@ -422,17 +400,14 @@ where
             .await
             .map_err(Error::GetDbPoolConnectionError)?;
 
-        let rows = conn
-            .query(
-                r#"
-                SELECT "event_data"
-                FROM "event"
-                WHERE "aggregate_type" = $1 AND "aggregate_id" = $2
-                ORDER BY "sequence" ASC
-                "#,
-                &[&A::aggregate_type(), &id],
-            )
-            .await?;
+        let (query, params) = Query::select()
+            .column(EventTable::EventData)
+            .from(EventTable::Table)
+            .and_where(Expr::col(EventTable::AggregateType).eq(A::aggregate_type()))
+            .and_where(Expr::col(EventTable::AggregateId).eq(id.as_str()))
+            .order_by(EventTable::Sequence, Order::Asc)
+            .build(PostgresQueryBuilder);
+        let rows = conn.query(&query, &params.as_params()).await?;
         let events: Vec<<A as AggregateEventHandler>::Event> = rows
             .into_iter()
             .map(|row| {
@@ -447,43 +422,5 @@ where
         }
 
         Ok(aggregate)
-    }
-
-    async fn resync_projection<P>(&self, projection: &mut P) -> Result<(), Error>
-    where
-        P: Projection + Send + Sync,
-    {
-        let aggregate_types = <<P as EventHandler>::Event as CombinedEvent>::aggregate_types();
-        trace!(?aggregate_types, "resyncing projection");
-        let mut last_event_version = projection.last_event_id().await?.unwrap_or(-1);
-
-        loop {
-            let missing_events = self
-                .get_aggregate_events::<<P as EventHandler>::Event>(
-                    &aggregate_types,
-                    None,
-                    last_event_version + 1..last_event_version + 10,
-                )
-                .await?;
-
-            if missing_events.is_empty() {
-                break;
-            }
-
-            for missing_event in missing_events {
-                projection
-                    .handle(
-                        missing_event.aggregate_id.clone(),
-                        missing_event.event.clone(),
-                        missing_event.id,
-                        missing_event.sequence,
-                    )
-                    .await?;
-                last_event_version = missing_event.id;
-                debug!(?missing_event, "handled missing event");
-            }
-        }
-
-        Ok(())
     }
 }
