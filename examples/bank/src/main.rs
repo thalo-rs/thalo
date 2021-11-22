@@ -1,14 +1,11 @@
 use std::error;
 
-use awto_es::postgres::{tls::NoTls, PgEventStore, PgRepository};
+use awto_es::postgres::{tls::NoTls, PgEventStore};
 use serde::Deserialize;
 use tracing::error;
 use tracing_subscriber::fmt::format::Format;
 
-use crate::{
-    command::bank_account::BankAccount,
-    query::bank_account::{BankAccountProjector, BankAccountViewRepository},
-};
+use crate::{command::bank_account::BankAccount, query::bank_account::BankAccountProjector};
 
 mod command;
 mod query;
@@ -39,16 +36,13 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     let event_store = PgEventStore::new_from_stringlike(&cfg.database_url, NoTls).await?;
     event_store.create_event_table().await?;
 
-    // Create repository
-    let repository = BankAccountViewRepository::connect(&cfg.database_url, NoTls).await?;
-
     // Build and run app
     awto_es::build(event_store.clone(), &cfg.redpanda_host)
         .on_error(|err| {
             error!("{}", err);
         })
         .aggregate::<BankAccount>(500)
-        .projection(BankAccountProjector::new(event_store, repository))
+        .projection(BankAccountProjector::new(event_store))
         .build()
         .run_with_outbox_relay_from_stringlike(&cfg.database_url, NoTls, "outbox")
         .await?;

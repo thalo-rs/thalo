@@ -108,6 +108,10 @@ where
 
         Ok(())
     }
+
+    pub fn pool(&self) -> &Pool<PostgresConnectionManager<Tls>> {
+        &self.pool
+    }
 }
 
 #[async_trait]

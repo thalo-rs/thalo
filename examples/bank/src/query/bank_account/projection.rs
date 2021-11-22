@@ -23,7 +23,9 @@ pub struct BankAccountProjector {
 }
 
 impl BankAccountProjector {
-    pub fn new(event_store: PgEventStore<NoTls>, repository: BankAccountViewRepository) -> Self {
+    pub fn new(event_store: PgEventStore<NoTls>) -> Self {
+        let repository = BankAccountViewRepository::new(event_store.pool().clone());
+
         Self {
             event_store,
             repository,
