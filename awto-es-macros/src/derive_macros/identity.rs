@@ -22,6 +22,7 @@ impl Identity {
                 }
 
                 fn new_with_id(id: String) -> Self {
+                    #[allow(clippy::needless_update)]
                     Self {
                         #field_ident: id,
                         ..Default::default()
