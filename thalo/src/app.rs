@@ -1,8 +1,8 @@
 use std::{
     env, fmt,
     pin::Pin,
-    sync::{mpsc, Arc},
-    thread,
+    sync::Arc,
+    thread::{self, JoinHandle},
     time::Duration,
 };
 
@@ -23,11 +23,8 @@ use rdkafka::{
     message::Headers,
     ClientConfig, Message,
 };
-use tokio::{
-    select, signal,
-    sync::watch::{self, Receiver},
-};
-use tracing::{debug, info, trace};
+use tokio::{select, signal, sync::Notify};
+use tracing::{debug, error, info, trace};
 
 use crate::{
     Aggregate, AggregateActor, AggregateActorPool, BaseAggregateActor, Error, EventEnvelope,
@@ -43,7 +40,7 @@ struct WorkerContext<'a, ES: EventStore> {
     consumer_config: &'a ClientConfig,
     event_store: &'a ES,
     on_error: &'a Option<for<'r> fn(Error)>,
-    shutdown_recv: &'a Receiver<()>,
+    shutdown_recv: &'a Arc<Notify>,
 }
 
 pub struct App<ES: EventStore> {
@@ -86,37 +83,24 @@ where
         }
     }
 
-    /// Runs in the current tokio runtime.
+    /// Runs on the current Actix system.
     ///
-    /// An Actix system is spawned in a new thread to handle actors.
-    /// Suitable when using `#[tokio::main]`.
+    /// Suitable when using `#[actix::main]`.
     pub async fn run(self) -> Result<(), Error> {
-        let (tx, rx) = mpsc::sync_channel(1);
-
-        thread::spawn(move || {
-            let sys = System::new();
-            tx.send(System::current()).unwrap();
-            sys.run()
-        });
-
-        let sys = rx.recv().unwrap();
-
+        let sys = System::try_current().ok_or_else(|| {
+            error!("Could not run the thalo app as no actix system was found.\n\nIf your app uses `#[tokio::main]`, try `.run_isolated()` or `.run_in_system()`.");
+            Error::MissingActixSystem
+        })?;
         self.run_in_system(&sys).await
     }
 
-    /// Runs on a new tokio runtime with the current thread scheduler selected.
+    /// Runs in a separate thread.
     ///
-    /// An Actix system is created in the current thread to handle actors.
-    pub fn run_in_current_thread(self) -> Result<(), Error> {
-        System::new().block_on(async move { self.run_in_system(&System::current()).await })
-    }
-
-    /// Runs in the current Actix system.
-    ///
-    /// Suitable when using `#[actix::main]`.
-    /// Same as `run_in_system(&System::current())`.
-    pub async fn run_in_current_system(self) -> Result<(), Error> {
-        self.run_in_system(&System::current()).await
+    /// Suitable when **not** using `#[actix::main]`.
+    pub fn run_isolated(self) -> JoinHandle<Result<(), Error>> {
+        thread::spawn(move || {
+            System::new().block_on(async move { self.run_in_system(&System::current()).await })
+        })
     }
 
     /// Runs in an existing Actix system.
@@ -124,7 +108,7 @@ where
     /// Suitable for when you have access to your own Actix system.
     #[allow(unused_mut)]
     pub async fn run_in_system(mut self, sys: &System) -> Result<(), Error> {
-        let (shutdown_send, shutdown_recv) = watch::channel(());
+        let shutdown_send = Arc::new(Notify::new());
         let mut workers = FuturesUnordered::new();
 
         for worker in &self.workers {
@@ -133,7 +117,7 @@ where
                 consumer_config: &self.consumer_config,
                 event_store: &self.event_store,
                 on_error: &self.on_error,
-                shutdown_recv: &shutdown_recv,
+                shutdown_recv: &shutdown_send,
             };
             workers.push(worker(ctx)?.boxed());
         }
@@ -158,15 +142,9 @@ where
             }
         }
 
-        shutdown_send.send(())?;
+        shutdown_send.notify_waiters();
         tokio::time::sleep(Duration::from_millis(500)).await;
-
-        signal::ctrl_c().await.ok();
-
-        shutdown_send.send(())?;
-        tokio::time::sleep(Duration::from_millis(500)).await;
-
-        Ok(())
+        std::process::exit(0);
     }
 
     #[cfg(feature = "outbox_relay")]
@@ -262,16 +240,15 @@ where
             );
 
             {
-                let mut shutdown_recv = ctx.shutdown_recv.clone();
+                let shutdown_recv = Arc::clone(ctx.shutdown_recv);
                 let consumer = Arc::clone(&consumer);
                 tokio::spawn(async move {
-                    while shutdown_recv.changed().await.is_ok() {
-                        consumer.unsubscribe();
-                        debug!(
-                            topic,
-                            "unsubscribed from command topic"
-                        )
-                    }
+                    shutdown_recv.notified().await;
+                    consumer.unsubscribe();
+                    debug!(
+                        topic,
+                        "unsubscribed from command topic"
+                    )
                 });
             }
 
@@ -354,17 +331,16 @@ where
             );
 
             {
-                let mut shutdown_recv = ctx.shutdown_recv.clone();
+                let shutdown_recv = Arc::clone(ctx.shutdown_recv);
                 let consumer = Arc::clone(&consumer);
                 tokio::spawn(async move {
-                    while shutdown_recv.changed().await.is_ok() {
-                        consumer.unsubscribe();
-                        debug!(
-                            projection = projection_type,
-                            ?topics,
-                            "unsubscribed from event topic"
-                        )
-                    }
+                    shutdown_recv.notified().await;
+                    consumer.unsubscribe();
+                    debug!(
+                        projection = projection_type,
+                        ?topics,
+                        "unsubscribed from event topic"
+                    )
                 });
             }
 
