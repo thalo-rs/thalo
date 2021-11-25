@@ -34,12 +34,46 @@ impl<E: Event> CombinedEvent for E {
 #[async_trait]
 pub trait EventHandler {
     type Event: CombinedEvent;
+    type View: Send;
 
-    async fn handle(
+    /// Handle an event and return an updated view.
+    ///
+    /// ```
+    async fn handle(&mut self, id: String, event: Self::Event) -> Result<Self::View, Error>;
+
+    /// Commits an event handler from a previously handled view.
+    ///
+    /// Commit is where you would save/update the view, or just update the `last_event_id` and `last_sequence_id`s.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// async fn commit(
+    ///     &mut self,
+    ///     id: &str,
+    ///     view: Option<UserView>,
+    ///     event_id: i64,
+    ///     event_sequence: i64,
+    /// ) -> Result<(), Error> {
+    ///     if let Some(view) = view {
+    ///         self.repository
+    ///             .save(&view, event_id, event_sequence)
+    ///             .await?;
+    ///     } else {
+    ///         self.repository
+    ///             .update_last_event(id, event_id, event_sequence)
+    ///             .await?;
+    ///     }
+    ///     Ok(())
+    /// }
+    /// ```
+    async fn commit(
         &mut self,
-        id: String,
-        event: Self::Event,
-        event_id: i64,
-        event_sequence: i64,
-    ) -> Result<(), Error>;
+        _id: &str,
+        _view: Self::View,
+        _event_id: i64,
+        _event_sequence: i64,
+    ) -> Result<(), Error> {
+        Ok(())
+    }
 }
