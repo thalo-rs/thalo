@@ -77,8 +77,9 @@ pub trait EventStore {
         P: Projection + Send + Sync,
     {
         let aggregate_types = <<P as EventHandler>::Event as CombinedEvent>::aggregate_types();
-        trace!(?aggregate_types, "resyncing projection");
         let mut last_event_version = projection.last_event_id().await?.unwrap_or(-1);
+        let projection_type = <P as Projection>::projection_type();
+        trace!(%projection_type, last_event_version, ?aggregate_types, "resyncing projection");
 
         loop {
             let missing_events = self
@@ -94,10 +95,16 @@ pub trait EventStore {
             }
 
             for missing_event in missing_events {
-                projection
+                let view = projection
                     .handle(
                         missing_event.aggregate_id.clone(),
                         missing_event.event.clone(),
+                    )
+                    .await?;
+                projection
+                    .commit(
+                        &missing_event.aggregate_id,
+                        view,
                         missing_event.id,
                         missing_event.sequence,
                     )
