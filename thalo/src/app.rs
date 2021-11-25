@@ -1,6 +1,12 @@
-use std::{env, fmt, pin::Pin, sync::Arc, time::Duration};
+use std::{
+    env, fmt,
+    pin::Pin,
+    sync::{mpsc, Arc},
+    thread,
+    time::Duration,
+};
 
-use actix::{dev::ToEnvelope, Actor};
+use actix::{dev::ToEnvelope, Actor, ArbiterHandle, System};
 #[cfg(feature = "outbox_relay")]
 use bb8_postgres::{
     bb8::Pool,
@@ -18,21 +24,22 @@ use rdkafka::{
     ClientConfig, Message,
 };
 use tokio::{
-    signal,
+    select, signal,
     sync::watch::{self, Receiver},
 };
 use tracing::{debug, info, trace};
 
 use crate::{
-    MultiStreamTopic, StreamTopic,
     Aggregate, AggregateActor, AggregateActorPool, BaseAggregateActor, Error, EventEnvelope,
-    EventHandler, EventStore, Projection,
+    EventHandler, EventStore, MultiStreamTopic, Projection, StreamTopic,
 };
 
 type WorkerFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
-type WorkerFn<ES> = Box<dyn Fn(WorkerContext<ES>) -> Result<WorkerFuture, Error>>;
+type WorkerFn<ES> = Box<dyn Fn(WorkerContext<ES>) -> Result<WorkerFuture, Error> + Send>;
+type OutboxHandler = Pin<Box<dyn Future<Output = Result<(), Error>> + Send>>;
 
 struct WorkerContext<'a, ES: EventStore> {
+    arbiter: &'a ArbiterHandle,
     consumer_config: &'a ClientConfig,
     event_store: &'a ES,
     on_error: &'a Option<for<'r> fn(Error)>,
@@ -42,9 +49,11 @@ struct WorkerContext<'a, ES: EventStore> {
 pub struct App<ES: EventStore> {
     consumer_config: ClientConfig,
     event_store: ES,
-    on_error: Option<for<'r> fn(Error)>,
+    on_error: Option<for<'e> fn(Error)>,
     #[cfg(feature = "outbox_relay")]
     redpanda_host: String,
+    #[cfg(feature = "outbox_relay")]
+    outbox_handler: Option<OutboxHandler>,
     workers: Vec<WorkerFn<ES>>,
 }
 
@@ -52,119 +61,7 @@ impl<ES> App<ES>
 where
     ES: EventStore + Clone + Send + Sync + Unpin + 'static,
 {
-    pub fn build(event_store: ES, redpanda_host: impl Into<String> + Clone) -> AppBuilder<ES> {
-        AppBuilder::new(event_store, redpanda_host)
-    }
-
-    pub async fn run(&mut self) -> Result<(), Error> {
-        let (shutdown_send, shutdown_recv) = watch::channel(());
-        let mut workers = FuturesUnordered::new();
-
-        for worker in &self.workers {
-            let ctx = WorkerContext {
-                consumer_config: &self.consumer_config,
-                event_store: &self.event_store,
-                on_error: &self.on_error,
-                shutdown_recv: &shutdown_recv,
-            };
-            workers.push(worker(ctx)?.boxed());
-        }
-
-        actix::spawn(async move { while workers.next().await.is_some() {} });
-
-        signal::ctrl_c().await.ok();
-
-        shutdown_send.send(())?;
-        tokio::time::sleep(Duration::from_millis(500)).await;
-
-        Ok(())
-    }
-
-    #[cfg(feature = "outbox_relay")]
-    pub async fn run_with_outbox_relay<Tls>(
-        &mut self,
-        pool: Pool<PostgresConnectionManager<Tls>>,
-        database_url: &str,
-        slot: &str,
-    ) -> Result<(), Error>
-    where
-        Tls: MakeTlsConnect<Socket> + Clone + Send + Sync + 'static,
-        <Tls as MakeTlsConnect<Socket>>::Stream: Send + Sync,
-        <Tls as MakeTlsConnect<Socket>>::TlsConnect: Send,
-        <<Tls as MakeTlsConnect<Socket>>::TlsConnect as TlsConnect<Socket>>::Future: Send,
-    {
-        use tokio::select;
-
-        let (shutdown_send, shutdown_recv) = watch::channel(());
-        let mut workers = FuturesUnordered::new();
-
-        for worker in &self.workers {
-            let ctx = WorkerContext {
-                consumer_config: &self.consumer_config,
-                event_store: &self.event_store,
-                on_error: &self.on_error,
-                shutdown_recv: &shutdown_recv,
-            };
-            workers.push(worker(ctx)?.boxed());
-        }
-
-        actix::spawn(async move { while workers.next().await.is_some() {} });
-
-        let database_url = database_url.to_string();
-        let redpanda_host = self.redpanda_host.clone();
-        let slot = slot.to_string();
-        let outbox_join_handle = tokio::spawn(async move {
-            outbox_relay::outbox_relay(pool, &database_url, redpanda_host, &slot).await
-        });
-
-        select! {
-            res = outbox_join_handle => { res??; },
-            _ = signal::ctrl_c() => {},
-        };
-
-        shutdown_send.send(())?;
-        tokio::time::sleep(Duration::from_millis(500)).await;
-
-        Ok(())
-    }
-
-    #[cfg(feature = "outbox_relay")]
-    pub async fn run_with_outbox_relay_from_stringlike<Tls>(
-        &mut self,
-        conn: &str,
-        tls: Tls,
-        slot: &str,
-    ) -> Result<(), Error>
-    where
-        Tls: MakeTlsConnect<Socket> + Clone + Send + Sync + 'static,
-        <Tls as MakeTlsConnect<Socket>>::Stream: Send + Sync,
-        <Tls as MakeTlsConnect<Socket>>::TlsConnect: Send,
-        <<Tls as MakeTlsConnect<Socket>>::TlsConnect as TlsConnect<Socket>>::Future: Send,
-    {
-        let manager = PostgresConnectionManager::new_from_stringlike(conn, tls)?;
-        let pool = Pool::builder().build(manager).await?;
-
-        self.run_with_outbox_relay(pool, conn, slot).await
-    }
-}
-
-pub struct AppBuilder<ES>
-where
-    ES: EventStore + Clone + Send + Sync + Unpin + 'static,
-{
-    consumer_config: ClientConfig,
-    event_store: ES,
-    on_error: Option<fn(Error)>,
-    #[cfg(feature = "outbox_relay")]
-    redpanda_host: String,
-    workers: Vec<WorkerFn<ES>>,
-}
-
-impl<ES> AppBuilder<ES>
-where
-    ES: EventStore + Clone + Send + Sync + Unpin + 'static,
-{
-    pub fn new(event_store: ES, redpanda_host: impl Into<String> + Clone) -> AppBuilder<ES> {
+    pub fn new(event_store: ES, redpanda_host: impl Into<String> + Clone) -> App<ES> {
         let mut consumer_config = ClientConfig::new();
         consumer_config
             .set("group.id", env!("CARGO_PKG_NAME"))
@@ -183,19 +80,140 @@ where
             on_error: None,
             #[cfg(feature = "outbox_relay")]
             redpanda_host: redpanda_host.into(),
+            #[cfg(feature = "outbox_relay")]
+            outbox_handler: None,
             workers: Vec::new(),
         }
     }
 
-    pub fn build(self) -> App<ES> {
-        App {
-            consumer_config: self.consumer_config,
-            event_store: self.event_store,
-            on_error: self.on_error,
-            #[cfg(feature = "outbox_relay")]
-            redpanda_host: self.redpanda_host,
-            workers: self.workers,
+    /// Runs in the current tokio runtime.
+    ///
+    /// An Actix system is spawned in a new thread to handle actors.
+    /// Suitable when using `#[tokio::main]`.
+    pub async fn run(self) -> Result<(), Error> {
+        let (tx, rx) = mpsc::sync_channel(1);
+
+        thread::spawn(move || {
+            let sys = System::new();
+            tx.send(System::current()).unwrap();
+            sys.run()
+        });
+
+        let sys = rx.recv().unwrap();
+
+        self.run_in_system(&sys).await
+    }
+
+    /// Runs on a new tokio runtime with the current thread scheduler selected.
+    ///
+    /// An Actix system is created in the current thread to handle actors.
+    pub fn run_in_current_thread(self) -> Result<(), Error> {
+        System::new().block_on(async move { self.run_in_system(&System::current()).await })
+    }
+
+    /// Runs in the current Actix system.
+    ///
+    /// Suitable when using `#[actix::main]`.
+    /// Same as `run_in_system(&System::current())`.
+    pub async fn run_in_current_system(self) -> Result<(), Error> {
+        self.run_in_system(&System::current()).await
+    }
+
+    /// Runs in an existing Actix system.
+    ///
+    /// Suitable for when you have access to your own Actix system.
+    #[allow(unused_mut)]
+    pub async fn run_in_system(mut self, sys: &System) -> Result<(), Error> {
+        let (shutdown_send, shutdown_recv) = watch::channel(());
+        let mut workers = FuturesUnordered::new();
+
+        for worker in &self.workers {
+            let ctx = WorkerContext {
+                arbiter: sys.arbiter(),
+                consumer_config: &self.consumer_config,
+                event_store: &self.event_store,
+                on_error: &self.on_error,
+                shutdown_recv: &shutdown_recv,
+            };
+            workers.push(worker(ctx)?.boxed());
         }
+
+        actix::spawn(async move { while workers.next().await.is_some() {} });
+
+        #[cfg(feature = "outbox_relay")]
+        let outbox_handler = self.outbox_handler.take();
+        #[cfg(not(feature = "outbox_relay"))]
+        let outbox_handler: Option<OutboxHandler> = None;
+        match outbox_handler {
+            Some(outbox_handler) => {
+                let outbox_join_handle = tokio::spawn(outbox_handler);
+
+                select! {
+                    res = outbox_join_handle => { res??; },
+                    _ = signal::ctrl_c() => {},
+                };
+            }
+            None => {
+                signal::ctrl_c().await.ok();
+            }
+        }
+
+        shutdown_send.send(())?;
+        tokio::time::sleep(Duration::from_millis(500)).await;
+
+        signal::ctrl_c().await.ok();
+
+        shutdown_send.send(())?;
+        tokio::time::sleep(Duration::from_millis(500)).await;
+
+        Ok(())
+    }
+
+    #[cfg(feature = "outbox_relay")]
+    pub fn with_outbox_relay<Tls>(
+        mut self,
+        pool: Pool<PostgresConnectionManager<Tls>>,
+        database_url: &str,
+        slot: &str,
+    ) -> App<ES>
+    where
+        Tls: MakeTlsConnect<Socket> + Clone + Send + Sync + 'static,
+        <Tls as MakeTlsConnect<Socket>>::Stream: Send + Sync,
+        <Tls as MakeTlsConnect<Socket>>::TlsConnect: Send,
+        <<Tls as MakeTlsConnect<Socket>>::TlsConnect as TlsConnect<Socket>>::Future: Send,
+    {
+        let database_url = database_url.to_string();
+        let redpanda_host = self.redpanda_host.clone();
+        let slot = slot.to_string();
+        self.outbox_handler = Some(Box::pin(
+            async move {
+                outbox_relay::outbox_relay(pool, &database_url, redpanda_host, &slot)
+                    .await
+                    .map_err(Error::OutboxRelayError)
+            }
+            .boxed(),
+        ));
+
+        self
+    }
+
+    #[cfg(feature = "outbox_relay")]
+    pub async fn with_outbox_relay_from_stringlike<Tls>(
+        self,
+        conn: &str,
+        tls: Tls,
+        slot: &str,
+    ) -> Result<App<ES>, Error>
+    where
+        Tls: MakeTlsConnect<Socket> + Clone + Send + Sync + 'static,
+        <Tls as MakeTlsConnect<Socket>>::Stream: Send + Sync,
+        <Tls as MakeTlsConnect<Socket>>::TlsConnect: Send,
+        <<Tls as MakeTlsConnect<Socket>>::TlsConnect as TlsConnect<Socket>>::Future: Send,
+    {
+        let manager = PostgresConnectionManager::new_from_stringlike(conn, tls)?;
+        let pool = Pool::builder().build(manager).await?;
+
+        Ok(self.with_outbox_relay(pool, conn, slot))
     }
 
     pub fn on_error(mut self, cb: fn(Error)) -> Self {
@@ -231,7 +249,7 @@ where
             let event_store = ctx.event_store.to_owned();
             let on_error = ctx.on_error.to_owned();
 
-            let agg_actor_pool = AggregateActorPool::<Act, _, _>::new(event_store, cache_cap);
+            let agg_actor_pool = AggregateActorPool::< Act, _, _>::new_in_arbiter(ctx.arbiter.clone(), event_store, cache_cap);
 
             let topic = <A as Aggregate>::Command::stream_topic();
 
@@ -258,8 +276,6 @@ where
             }
 
             Ok(async move {
-                let agg_actor_pool = agg_actor_pool.clone();
-
                 loop_result_async(on_error, || async {
                     let agg_actor_pool = agg_actor_pool.clone();
                     let msg = consumer

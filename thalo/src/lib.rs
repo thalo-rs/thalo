@@ -43,9 +43,9 @@ mod query;
 mod topic;
 
 /// Builds a thalo app.
-pub fn build<ES>(event_store: ES, redpanda_host: impl Into<String> + Clone) -> AppBuilder<ES>
+pub fn new<ES>(event_store: ES, redpanda_host: impl Into<String> + Clone) -> App<ES>
 where
     ES: EventStore + Clone + Send + Sync + Unpin + 'static,
 {
-    App::build(event_store, redpanda_host)
+    App::new(event_store, redpanda_host)
 }

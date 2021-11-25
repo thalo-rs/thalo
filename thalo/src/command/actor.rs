@@ -8,8 +8,7 @@ use lru::LruCache;
 use tokio::sync::Mutex;
 
 use crate::{
-    StreamTopic, Aggregate, AggregateCommandHandler, Error, Event, EventEnvelope,
-    EventStore,
+    Aggregate, AggregateCommandHandler, Error, Event, EventEnvelope, EventStore, StreamTopic,
 };
 
 pub trait AggregateActor<ES, A>
