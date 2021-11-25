@@ -236,11 +236,13 @@ where
             let actors_cache: Arc<Mutex<LruCache<String, Addr<Act>>>> =
                 Arc::new(Mutex::new(LruCache::new(cache_cap)));
 
-            let consumer: Arc<StreamConsumer> = Arc::new(ctx.consumer_config.create().map_err(Error::CreateConsumerError)?);
+            let topic = <A as Aggregate>::Command::stream_topic();
 
-            consumer.subscribe(&[<A as Aggregate>::Command::stream_topic()]).map_err(Error::SubscribeTopicError)?;
+            let consumer: Arc<StreamConsumer> = Arc::new(ctx.consumer_config.create().map_err(Error::CreateConsumerError)?);
+            consumer.fetch_metadata(Some(topic), Duration::from_secs(10)).map_err(Error::FetchTopicMetadataError)?; // Creates the topic if it doesn't exist
+            consumer.subscribe(&[topic]).map_err(Error::SubscribeTopicError)?;
             debug!(
-                topic = <A as Aggregate>::Command::stream_topic(),
+                topic = topic,
                 "subscribed to command topic"
             );
 
@@ -251,7 +253,7 @@ where
                     while shutdown_recv.changed().await.is_ok() {
                         consumer.unsubscribe();
                         debug!(
-                            topic = <A as Aggregate>::Command::stream_topic(),
+                            topic,
                             "unsubscribed from command topic"
                         )
                     }
@@ -341,6 +343,9 @@ where
             consumer_config.set("group.id", projection_type);
             let consumer: Arc<StreamConsumer> = Arc::new(consumer_config.create().map_err(Error::CreateConsumerError)?);
             let topics = <P as EventHandler>::Event::stream_topics();
+            for topic in &topics {
+                consumer.fetch_metadata(Some(*topic), Duration::from_secs(10)).map_err(Error::FetchTopicMetadataError)?; // Creates the topic if it doesn't exist
+            }
             consumer.subscribe(&topics).map_err(Error::SubscribeTopicError)?;
             debug!(
                 projection = projection_type,

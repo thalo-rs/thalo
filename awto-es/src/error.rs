@@ -13,6 +13,8 @@ pub enum Error {
     DbError(#[from] bb8_postgres::tokio_postgres::Error),
     #[error("event {0} already handled")]
     EventAlreadyHandled(i64),
+    #[error("fetch topic metadata error: {0}")]
+    FetchTopicMetadataError(rdkafka::error::KafkaError),
     #[error("get connection from database pool error: {0}")]
     GetDbPoolConnectionError(bb8_postgres::bb8::RunError<bb8_postgres::tokio_postgres::Error>),
     #[error("invariant: {0}")]

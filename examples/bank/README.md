@@ -10,13 +10,6 @@ A basic example of an event sourced bank app.
 $ docker-compose up -d database redpanda
 ```
 
-### Create bank account **command** and **event** topics
-
-```bash
-$ docker exec -it redpanda-1 rpk topic create bank_account_command
-$ docker exec -it redpanda-1 rpk topic create bank_account_event
-```
-
 ### Run the app
 
 ```bash
