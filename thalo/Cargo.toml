@@ -20,7 +20,7 @@ futures = "0.3"
 lru = "0.7"
 outbox-relay = { version = "0.1.0", path = "../outbox-relay", optional = true }
 rdkafka = "0.27"
-sea-query = { git = "https://github.com/SeaQL/sea-query.git", rev = "db6dc7e86a73f811275c563dd88077b8cfe6b98e", features = [
+sea-query = { version = "0.19", features = [
   "backend-postgres",
   "postgres",
   "postgres-json",
