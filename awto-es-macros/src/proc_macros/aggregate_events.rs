@@ -76,11 +76,11 @@ impl AggregateEvents {
 
         Ok(quote!(
             #(
-                #[derive(Clone, Debug, PartialEq, ::awto_es::macros::EventIdentity, ::serde::Deserialize, ::serde::Serialize)]
+                #[derive(Clone, Debug, PartialEq, ::awto_es::EventIdentity, ::serde::Deserialize, ::serde::Serialize)]
                 #structs
             )*
 
-            #[derive(Clone, Debug, PartialEq, ::awto_es::macros::Event, ::awto_es::macros::StreamTopic, ::serde::Deserialize, ::serde::Serialize)]
+            #[derive(Clone, Debug, PartialEq, ::awto_es::Event, ::awto_es::StreamTopic, ::serde::Deserialize, ::serde::Serialize)]
             #[aggregate = #ident]
             pub enum #event_ident {
                 #( #variants, )*

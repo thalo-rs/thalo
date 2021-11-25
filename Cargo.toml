@@ -1,3 +1,4 @@
 
 [workspace]
+default-members = ["awto-es"]
 members = ["awto-es", "awto-es-macros", "outbox-relay"]

@@ -1,7 +1,4 @@
-use awto_es::{
-    macros::{aggregate_commands, aggregate_events, AggregateType, Identity},
-    Error,
-};
+use awto_es::{aggregate_commands, aggregate_events, AggregateType, Error, Identity};
 
 #[derive(Identity, AggregateType, Clone, Debug, Default)]
 pub struct BankAccount {
