@@ -28,7 +28,7 @@ futures = "0.3"
 lru = "0.7"
 outbox-relay = { version = "0.1.0", path = "../outbox-relay", optional = true }
 rdkafka = "0.27"
-sea-query = { version = "0.19", features = [
+sea-query = { version = "0.19.1", features = [
   "backend-postgres",
   "postgres",
   "postgres-json",
