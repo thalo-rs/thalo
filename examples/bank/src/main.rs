@@ -1,7 +1,7 @@
 use std::error;
 
 use serde::Deserialize;
-use thalo::postgres::{tls::NoTls, PgEventStore};
+use thalo::postgres::{tokio_postgres::tls::NoTls, PgEventStore};
 use tracing::error;
 use tracing_subscriber::fmt::format::Format;
 
@@ -17,7 +17,7 @@ struct Config {
     redpanda_host: String,
 }
 
-#[tokio::main]
+#[actix::main]
 async fn main() -> Result<(), Box<dyn error::Error>> {
     // Load environment variables
     let cfg = envy::from_env::<Config>()?;
@@ -37,14 +37,15 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     event_store.create_event_table().await?;
 
     // Build and run app
-    thalo::build(event_store.clone(), &cfg.redpanda_host)
+    thalo::new(event_store.clone(), &cfg.redpanda_host)
         .on_error(|err| {
             error!("{}", err);
         })
         .aggregate::<BankAccount>(500)
         .projection(BankAccountProjector::new(event_store))
-        .build()
-        .run_with_outbox_relay_from_stringlike(&cfg.database_url, NoTls, "outbox")
+        .with_outbox_relay_from_stringlike(&cfg.database_url, NoTls, "outbox")
+        .await?
+        .run()
         .await?;
 
     Ok(())

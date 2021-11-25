@@ -99,17 +99,11 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 name = "bank"
 version = "0.1.0"
 dependencies = [
- "async-trait",
- "bb8-postgres",
+ "actix",
  "envy",
- "futures",
- "lazy_static",
- "lru",
- "rdkafka",
  "serde",
  "serde_json",
  "thalo",
- "tokio",
  "tracing",
  "tracing-subscriber",
 ]
