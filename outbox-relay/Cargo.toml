@@ -7,6 +7,7 @@ description = "Relay events from an outbox table to kafka"
 repository = "https://github.com/awto-rs/thalo"
 license = "MIT OR Apache-2.0"
 keywords = ["event-sourcing", "cqrs", "event-driven", "outbox"]
+categories = ["command-line-utilities", "database"]
 
 [dependencies]
 bb8-postgres = { version = "0.7", features = ["with-serde_json-1"] }

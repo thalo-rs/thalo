@@ -4,9 +4,17 @@ version = "0.1.0"
 authors = ["Ari Seyhun <ariseyhun@live.com.au>"]
 edition = "2021"
 description = "An event sourcing & CQRS framework for Event Driven Architechture"
+readme = "../README.md"
 repository = "https://github.com/awto-rs/thalo"
 license = "MIT OR Apache-2.0"
 keywords = ["event-sourcing", "cqrs", "event-driven", "actors", "macros"]
+categories = [
+  "database",
+  "data-structures",
+  "development-tools",
+  "rust-patterns",
+  "web-programming::http-server",
+]
 
 [dependencies]
 actix = "0.12"
