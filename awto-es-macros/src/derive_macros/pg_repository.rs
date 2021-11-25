@@ -37,8 +37,10 @@ impl PgRepository {
         } = self;
 
         let expanded_save = self.expand_save();
+        let expanded_update_last_event = self.expand_update_last_event();
         let expanded_load_with_last_event_id = self.expand_load_with_last_event_id();
         let expanded_last_event_id = self.expand_last_event_id();
+        let expanded_delete = self.expand_delete();
 
         quote!(
             #[::async_trait::async_trait]
@@ -81,6 +83,21 @@ impl PgRepository {
                     #expanded_save
                 }
 
+                async fn update_last_event(
+                    &self,
+                    id: &str,
+                    event_id: i64,
+                    event_sequence: i64,
+                ) -> ::std::result::Result<(), ::awto_es::Error> {
+                    let conn = self
+                        .pool
+                        .get()
+                        .await
+                        .map_err(::awto_es::Error::GetDbPoolConnectionError)?;
+
+                    #expanded_update_last_event
+                }
+
                 async fn load_with_last_event_id(&self, id: &str) -> ::std::result::Result<::std::option::Option<(Self::View, i64)>, ::awto_es::Error> {
                     let conn = self
                         .pool
@@ -99,6 +116,16 @@ impl PgRepository {
                         .map_err(::awto_es::Error::GetDbPoolConnectionError)?;
 
                     #expanded_last_event_id
+                }
+
+                async fn delete(&self, id: &str) -> ::std::result::Result<(), ::awto_es::Error> {
+                    let conn = self
+                        .pool
+                        .get()
+                        .await
+                        .map_err(::awto_es::Error::GetDbPoolConnectionError)?;
+
+                    #expanded_delete
                 }
             }
         )
@@ -147,6 +174,27 @@ impl PgRepository {
                     &event_id,
                     &event_sequence,
                     #( &view.#field_idents, )*
+                ],
+            )
+            .await?;
+
+            Ok(())
+        )
+    }
+
+    fn expand_update_last_event(&self) -> TokenStream {
+        let Self { table_name, .. } = self;
+
+        let q = format!(
+            r#"UPDATE "{}" SET "last_event_id" = $1, "last_event_sequence" = $2"#,
+            table_name
+        );
+
+        quote!(
+            conn.execute(#q,
+                &[
+                    &event_id,
+                    &event_sequence,
                 ],
             )
             .await?;
@@ -206,6 +254,25 @@ impl PgRepository {
             let row = conn.query_one(#q, &[]).await?;
 
             Ok(row.get(0))
+        )
+    }
+
+    fn expand_delete(&self) -> TokenStream {
+        let Self {
+            primary_key,
+            table_name,
+            ..
+        } = self;
+
+        let q = format!(
+            r#"DELETE FROM "{}" WHERE "{}" = $1"#,
+            table_name, primary_key
+        );
+
+        quote!(
+            conn.execute(#q, &[&id]).await?;
+
+            Ok(())
         )
     }
 }
