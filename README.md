@@ -1,4 +1,4 @@
-## Awto ES
+## Thalo
 
 Ecosystem for building event sourced applications in Rust.
 

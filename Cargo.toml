@@ -1,4 +1,4 @@
 
 [workspace]
-default-members = ["awto-es"]
-members = ["awto-es", "awto-es-macros", "outbox-relay"]
+default-members = ["thalo"]
+members = ["thalo", "thalo-macros", "outbox-relay"]

@@ -12,10 +12,10 @@ impl MultiStreamTopic {
         let Self { event_types, ident } = self;
 
         quote!(
-            impl ::awto_es::MultiStreamTopic for #ident {
+            impl ::thalo::MultiStreamTopic for #ident {
                 fn stream_topics() -> ::std::vec::Vec<&'static str> {
                     vec![
-                        #( <#event_types as ::awto_es::StreamTopic>::stream_topic(), )*
+                        #( <#event_types as ::thalo::StreamTopic>::stream_topic(), )*
                     ]
                 }
             }

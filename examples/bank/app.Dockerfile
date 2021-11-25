@@ -2,10 +2,10 @@ FROM rust
 
 # Build dependencies only
 WORKDIR /usr/src/app
-RUN cargo new --lib awto-es
-COPY awto-es/Cargo.toml awto-es/
-RUN cargo new --lib awto-es-macros
-COPY awto-es-macros/Cargo.toml awto-es-macros/
+RUN cargo new --lib thalo
+COPY thalo/Cargo.toml thalo/
+RUN cargo new --lib thalo-macros
+COPY thalo-macros/Cargo.toml thalo-macros/
 COPY Cargo.toml Cargo.lock ./
 WORKDIR /usr/src/app/examples
 RUN cargo new --bin bank
@@ -15,10 +15,10 @@ RUN cargo build --release
 
 # Build workspace packages
 WORKDIR /usr/src/app
-COPY awto-es/src awto-es/src
-RUN touch -a -m awto-es/src/lib.rs
-COPY awto-es-macros/src awto-es-macros/src
-RUN touch -a -m awto-es-macros/src/lib.rs
+COPY thalo/src thalo/src
+RUN touch -a -m thalo/src/lib.rs
+COPY thalo-macros/src thalo-macros/src
+RUN touch -a -m thalo-macros/src/lib.rs
 WORKDIR /usr/src/app/examples
 RUN cargo build --release
 

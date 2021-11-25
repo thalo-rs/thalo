@@ -1,6 +1,6 @@
 use std::error;
 
-use awto_es::postgres::{tls::NoTls, PgEventStore};
+use thalo::postgres::{tls::NoTls, PgEventStore};
 use serde::Deserialize;
 use tracing::error;
 use tracing_subscriber::fmt::format::Format;
@@ -27,7 +27,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
         .with_env_filter(
             cfg.rust_log
                 .as_deref()
-                .unwrap_or("warn,awto_es=trace,bank=trace"),
+                .unwrap_or("warn,thalo=trace,bank=trace"),
         )
         .event_format(Format::default().pretty().with_source_location(false))
         .init();
@@ -37,7 +37,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     event_store.create_event_table().await?;
 
     // Build and run app
-    awto_es::build(event_store.clone(), &cfg.redpanda_host)
+    thalo::build(event_store.clone(), &cfg.redpanda_host)
         .on_error(|err| {
             error!("{}", err);
         })

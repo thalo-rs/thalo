@@ -39,7 +39,7 @@ struct WorkerContext<'a, ES: EventStore> {
     shutdown_recv: &'a Receiver<()>,
 }
 
-pub struct Awto<ES: EventStore> {
+pub struct App<ES: EventStore> {
     consumer_config: ClientConfig,
     event_store: ES,
     on_error: Option<for<'r> fn(Error)>,
@@ -48,12 +48,12 @@ pub struct Awto<ES: EventStore> {
     workers: Vec<WorkerFn<ES>>,
 }
 
-impl<ES> Awto<ES>
+impl<ES> App<ES>
 where
     ES: EventStore + Clone + Send + Sync + Unpin + 'static,
 {
-    pub fn build(event_store: ES, redpanda_host: impl Into<String> + Clone) -> AwtoBuilder<ES> {
-        AwtoBuilder::new(event_store, redpanda_host)
+    pub fn build(event_store: ES, redpanda_host: impl Into<String> + Clone) -> AppBuilder<ES> {
+        AppBuilder::new(event_store, redpanda_host)
     }
 
     pub async fn run(&mut self) -> Result<(), Error> {
@@ -148,7 +148,7 @@ where
     }
 }
 
-pub struct AwtoBuilder<ES>
+pub struct AppBuilder<ES>
 where
     ES: EventStore + Clone + Send + Sync + Unpin + 'static,
 {
@@ -160,11 +160,11 @@ where
     workers: Vec<WorkerFn<ES>>,
 }
 
-impl<ES> AwtoBuilder<ES>
+impl<ES> AppBuilder<ES>
 where
     ES: EventStore + Clone + Send + Sync + Unpin + 'static,
 {
-    pub fn new(event_store: ES, redpanda_host: impl Into<String> + Clone) -> AwtoBuilder<ES> {
+    pub fn new(event_store: ES, redpanda_host: impl Into<String> + Clone) -> AppBuilder<ES> {
         let mut consumer_config = ClientConfig::new();
         consumer_config
             .set("group.id", env!("CARGO_PKG_NAME"))
@@ -187,8 +187,8 @@ where
         }
     }
 
-    pub fn build(self) -> Awto<ES> {
-        Awto {
+    pub fn build(self) -> App<ES> {
+        App {
             consumer_config: self.consumer_config,
             event_store: self.event_store,
             on_error: self.on_error,

@@ -14,7 +14,7 @@ impl EventIdentity {
         let event_type_string = event_type_string.trim_end_matches("Event");
 
         Ok(quote!(
-            impl ::awto_es::EventIdentity for #ident {
+            impl ::thalo::EventIdentity for #ident {
                 fn event_type() -> &'static str {
                     #event_type_string
                 }

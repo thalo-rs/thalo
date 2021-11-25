@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use awto_es::{
+use thalo::{
     postgres::PgEventStore,
     postgres::{tls::NoTls, PgRepository},
     Error, EventHandler, Projection,
