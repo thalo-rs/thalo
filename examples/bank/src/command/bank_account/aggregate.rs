@@ -39,20 +39,22 @@ impl BankAccount {
         }
 
         // Reference the event created by the BankAccount::account_opened method
-        Ok(vec![BankAccountEvent::AccountOpened { initial_balance }])
+        Ok(vec![BankAccountEvent::AccountOpened(AccountOpenedEvent {
+            initial_balance,
+        })])
     }
 
     /// Deposit funds
-    pub fn deposit_funds(&self, amount: f64) -> Result<Vec<BankAccountEvent>, Error> {
+    pub fn deposit_funds(&self, amount: f64) -> Result<FundsDepositedEvent, Error> {
         if !self.opened {
             return Err(Error::invariant("account does not exist"));
         }
 
-        Ok(vec![BankAccountEvent::FundsDeposited { amount }])
+        Ok(FundsDepositedEvent { amount })
     }
 
     /// Withdraw funds
-    pub fn withdraw_funds(&self, amount: f64) -> Result<Vec<BankAccountEvent>, Error> {
+    pub fn withdraw_funds(&self, amount: f64) -> Result<FundsWithdrawnEvent, Error> {
         if !self.opened {
             return Err(Error::invariant("account does not exist"));
         }
@@ -62,6 +64,6 @@ impl BankAccount {
             return Err(Error::invariant("insufficient funds for withdrawal"));
         }
 
-        Ok(vec![BankAccountEvent::FundsWithdrawn { amount }])
+        Ok(FundsWithdrawnEvent { amount })
     }
 }

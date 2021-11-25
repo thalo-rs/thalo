@@ -6,7 +6,9 @@ use awto_es::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::command::bank_account::BankAccountEvent;
+use crate::command::bank_account::{
+    AccountOpenedEvent, BankAccountEvent, FundsDepositedEvent, FundsWithdrawnEvent,
+};
 
 use super::{BankAccountView, BankAccountViewRepository};
 
@@ -36,47 +38,45 @@ impl BankAccountProjector {
 #[async_trait]
 impl EventHandler for BankAccountProjector {
     type Event = BankAccountEvent;
+    type View = BankAccountView;
 
     async fn handle(
         &mut self,
         id: String,
         event: BankAccountEvent,
         event_id: i64,
-        event_sequence: i64,
-    ) -> Result<(), Error> {
+        _event_sequence: i64,
+    ) -> Result<Self::View, Error> {
         use BankAccountEvent::*;
 
-        match event {
-            AccountOpened { initial_balance } => {
-                let view = BankAccountView {
-                    account_number: id,
-                    balance: initial_balance,
-                };
-                self.repository
-                    .save(&view, event_id, event_sequence)
-                    .await?;
-            }
-            FundsDeposited { amount } => {
+        let view = match event {
+            AccountOpened(AccountOpenedEvent { initial_balance }) => BankAccountView {
+                account_number: id,
+                balance: initial_balance,
+            },
+            FundsDeposited(FundsDepositedEvent { amount }) => {
                 let mut view = self.repository.load(&id, event_id).await?;
-
                 view.balance += amount;
-
-                self.repository
-                    .save(&view, event_id, event_sequence)
-                    .await?;
+                view
             }
-            FundsWithdrawn { amount } => {
+            FundsWithdrawn(FundsWithdrawnEvent { amount }) => {
                 let mut view = self.repository.load(&id, event_id).await?;
-
                 view.balance -= amount;
-
-                self.repository
-                    .save(&view, event_id, event_sequence)
-                    .await?;
+                view
             }
-        }
+        };
 
-        Ok(())
+        Ok(view)
+    }
+
+    async fn commit(
+        &mut self,
+        _id: &str,
+        view: Self::View,
+        event_id: i64,
+        event_sequence: i64,
+    ) -> Result<(), Error> {
+        self.repository.save(&view, event_id, event_sequence).await
     }
 }
 
