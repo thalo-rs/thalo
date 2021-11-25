@@ -954,8 +954,9 @@ checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
 name = "sea-query"
-version = "0.19.0"
-source = "git+https://github.com/SeaQL/sea-query.git?rev=db6dc7e86a73f811275c563dd88077b8cfe6b98e#db6dc7e86a73f811275c563dd88077b8cfe6b98e"
+version = "0.19.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6143f12d2d5711b800dc1c8ccf0f4f884522608348e332e6692cbf2076d68d5f"
 dependencies = [
  "bytes",
  "postgres-types",
@@ -966,7 +967,8 @@ dependencies = [
 [[package]]
 name = "sea-query-derive"
 version = "0.2.0"
-source = "git+https://github.com/SeaQL/sea-query.git?rev=db6dc7e86a73f811275c563dd88077b8cfe6b98e#db6dc7e86a73f811275c563dd88077b8cfe6b98e"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34cdc022b4f606353fe5dc85b09713a04e433323b70163e81513b141c6ae6eb5"
 dependencies = [
  "heck",
  "proc-macro2",
