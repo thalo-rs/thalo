@@ -11,10 +11,10 @@
 //! ## Current status
 //!
 //! **Thalo is still under heavy development and is not production ready.**
-//! 
+//!
 //! Documentation is extremely lacking, but will improve once the API begins
 //! to stabilise.
-//! 
+//!
 //! ## Get in touch
 //!
 //! If you'd like to ask/discuss or learn more, you can reach out via Discord.
@@ -24,22 +24,23 @@
 //!
 //! An example can be seen at <https://github.com/awto-rs/thalo/tree/main/examples/bank>.
 
+pub use actix::Message;
 use app::*;
-#[doc(hidden)]
-pub use thalo_macros::*;
 #[doc(inline)]
 pub use command::*;
 pub use error::Error;
-pub use topic::*;
 #[doc(inline)]
 pub use query::*;
+#[doc(hidden)]
+pub use thalo_macros::*;
+pub use topic::*;
 
 mod app;
 mod command;
 mod error;
-mod topic;
 pub mod postgres;
 mod query;
+mod topic;
 
 /// Builds a thalo app.
 pub fn build<ES>(event_store: ES, redpanda_host: impl Into<String> + Clone) -> AppBuilder<ES>

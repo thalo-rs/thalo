@@ -10,7 +10,7 @@ impl CommandMessage {
         let Self { ident } = self;
 
         Ok(quote!(
-            impl ::actix::Message for #ident {
+            impl ::thalo::Message for #ident {
                 type Result = ::std::result::Result<
                     ::std::vec::Vec<
                         ::thalo::EventEnvelope<
