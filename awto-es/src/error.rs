@@ -27,6 +27,8 @@ pub enum Error {
     MessageJsonDeserializeError(serde_json::Error),
     #[error("message key missing")]
     MessageKeyMissing,
+    #[error("missing actix system")]
+    MissingActixSystem,
     #[cfg(feature = "outbox_relay")]
     #[error(transparent)]
     OutboxRelayError(#[from] outbox_relay::error::Error),

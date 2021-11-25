@@ -1,6 +1,6 @@
 use std::{env, fmt, pin::Pin, sync::Arc, time::Duration};
 
-use actix::{dev::ToEnvelope, Actor, Addr};
+use actix::{dev::ToEnvelope, Actor};
 #[cfg(feature = "outbox_relay")]
 use bb8_postgres::{
     bb8::Pool,
@@ -11,7 +11,6 @@ use bb8_postgres::{
     PostgresConnectionManager,
 };
 use futures::{stream::FuturesUnordered, Future, FutureExt, StreamExt};
-use lru::LruCache;
 use rdkafka::{
     config::RDKafkaLogLevel,
     consumer::{Consumer, StreamConsumer},
@@ -20,17 +19,14 @@ use rdkafka::{
 };
 use tokio::{
     signal,
-    sync::{
-        watch::{self, Receiver},
-        Mutex,
-    },
+    sync::watch::{self, Receiver},
 };
 use tracing::{debug, info, trace};
 
 use crate::{
     message::{MultiStreamTopic, StreamTopic},
-    Aggregate, AggregateActor, BaseAggregateActor, Error, EventEnvelope, EventHandler, EventStore,
-    Projection,
+    Aggregate, AggregateActor, AggregateActorPool, BaseAggregateActor, Error, EventEnvelope,
+    EventHandler, EventStore, Projection,
 };
 
 type WorkerFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
@@ -212,6 +208,7 @@ where
         A: Aggregate + Clone + Unpin + 'static,
         <A as Aggregate>::Command: actix::Message<Result = Result<Vec<EventEnvelope<<A as Aggregate>::Event>>, Error>>
             + StreamTopic
+            + Clone
             + Unpin,
         <A as Aggregate>::Event: StreamTopic + Unpin,
     {
@@ -220,10 +217,11 @@ where
 
     pub fn aggregate_actor<Act, A>(mut self, cache_cap: usize) -> Self
     where
-        Act: AggregateActor<ES, A>,
-        A: Aggregate,
+        Act: AggregateActor<ES, A> + Clone,
+        A: Aggregate + Clone + Unpin + 'static,
         <A as Aggregate>::Command: actix::Message<Result = Result<Vec<EventEnvelope<<A as Aggregate>::Event>>, Error>>
             + StreamTopic
+            + Clone
             + Unpin
             + 'static,
         <A as Aggregate>::Event: StreamTopic + Unpin,
@@ -233,8 +231,7 @@ where
             let event_store = ctx.event_store.to_owned();
             let on_error = ctx.on_error.to_owned();
 
-            let actors_cache: Arc<Mutex<LruCache<String, Addr<Act>>>> =
-                Arc::new(Mutex::new(LruCache::new(cache_cap)));
+            let agg_actor_pool = AggregateActorPool::<Act, _, _>::new(event_store, cache_cap);
 
             let topic = <A as Aggregate>::Command::stream_topic();
 
@@ -261,10 +258,10 @@ where
             }
 
             Ok(async move {
-                let actors_cache = Arc::clone(&actors_cache);
+                let agg_actor_pool = agg_actor_pool.clone();
 
                 loop_result_async(on_error, || async {
-                    let actors_cache = Arc::clone(&actors_cache);
+                    let agg_actor_pool = agg_actor_pool.clone();
                     let msg = consumer
                         .recv()
                         .await
@@ -301,20 +298,7 @@ where
                             .map_err(Error::MessageJsonDeserializeError)?;
                         debug!(topic, offset, key, ?command, "received command");
 
-                        {
-                            let mut guard = actors_cache.lock().await;
-                            let actor = match guard.get(key) {
-                                Some(actor) => actor,
-                                None => {
-                                    let actor = Act::new(key.to_string(), event_store.clone());
-                                    guard.put(key.to_string(), actor.start());
-                                    guard.get(key).expect("item should exist")
-                                }
-                            };
-
-                            actor.send(command)
-                        }
-                        .await??;
+                        agg_actor_pool.handle(key, command).await?;
                     }
 
                     Ok(())
