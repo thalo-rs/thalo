@@ -6,13 +6,7 @@ edition = "2021"
 description = "Macros for crates.io/thalo"
 repository = "https://github.com/awto-rs/thalo"
 license = "MIT OR Apache-2.0"
-keywords = [
-  "event-sourcing",
-  "cqrs",
-  "event-driven-architechture",
-  "actors",
-  "macros",
-]
+keywords = ["event-sourcing", "cqrs", "event-driven", "actors", "macros"]
 
 [lib]
 proc-macro = true
