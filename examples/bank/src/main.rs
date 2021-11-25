@@ -1,7 +1,7 @@
 use std::error;
 
-use thalo::postgres::{tls::NoTls, PgEventStore};
 use serde::Deserialize;
+use thalo::postgres::{tls::NoTls, PgEventStore};
 use tracing::error;
 use tracing_subscriber::fmt::format::Format;
 
@@ -17,7 +17,7 @@ struct Config {
     redpanda_host: String,
 }
 
-#[actix::main]
+#[tokio::main]
 async fn main() -> Result<(), Box<dyn error::Error>> {
     // Load environment variables
     let cfg = envy::from_env::<Config>()?;
