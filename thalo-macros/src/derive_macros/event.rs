@@ -2,14 +2,14 @@ use heck::ShoutySnekCase;
 use proc_macro2::{TokenStream, TokenTree};
 use quote::quote;
 
-pub struct Command {
+pub struct Event {
     aggregate: TokenStream,
     ident: syn::Ident,
     variants: syn::punctuated::Punctuated<syn::Variant, syn::Token![,]>,
 }
 
-impl Command {
-    fn expand_impl_command(&self) -> syn::Result<TokenStream> {
+impl Event {
+    fn expand_impl_event(&self) -> syn::Result<TokenStream> {
         let Self {
             aggregate,
             ident,
@@ -22,20 +22,24 @@ impl Command {
             .map(|variant| variant.ident.to_string().TO_SHOUTY_SNEK_CASE());
 
         Ok(quote!(
-            impl ::awto_es::Command for #ident {
+            impl ::thalo::Event for #ident {
                 type Aggregate = #aggregate;
 
-                fn command_type(&self) -> &'static str {
+                fn event_type(&self) -> &'static str {
                     match self {
-                        #( Self::#variant_idents { .. } => #variant_strings, )*
+                        #( Self::#variant_idents(_) => #variant_strings, )*
                     }
+                }
+
+                fn aggregate_event<'a>(&'a self, aggregate_id: &'a str) -> ::thalo::AggregateEvent<'a, #aggregate> {
+                    ::thalo::AggregateEvent::new(aggregate_id, self)
                 }
             }
         ))
     }
 }
 
-impl Command {
+impl Event {
     pub fn new(input: syn::DeriveInput) -> syn::Result<Self> {
         let ident = input.ident;
 
@@ -44,7 +48,7 @@ impl Command {
             _ => {
                 return Err(syn::Error::new(
                     ident.span(),
-                    "Command can only be applied to enums",
+                    "Event can only be applied to enums",
                 ))
             }
         };
@@ -75,7 +79,7 @@ impl Command {
                 )
             })??;
 
-        Ok(Command {
+        Ok(Event {
             aggregate,
             ident,
             variants,
@@ -83,8 +87,8 @@ impl Command {
     }
 
     pub fn expand(self) -> syn::Result<TokenStream> {
-        let expanded_impl_command = self.expand_impl_command()?;
+        let expanded_impl_event = self.expand_impl_event()?;
 
-        Ok(expanded_impl_command)
+        Ok(expanded_impl_event)
     }
 }

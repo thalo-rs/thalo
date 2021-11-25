@@ -1,11 +1,11 @@
 #!/bin/bash
 
 build() {
-  docker build -t awto-es:latest ./src
+  docker build -t thalo-db:latest ./src
 }
 
 push() {
-  docker push acidic9/awto-es:latest
+  docker push acidic9/thalo-db:latest
 }
 
 help() {

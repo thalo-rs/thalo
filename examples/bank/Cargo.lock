@@ -96,43 +96,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
-name = "awto-es"
-version = "0.1.0"
-dependencies = [
- "actix",
- "async-trait",
- "awto-es-macros",
- "bb8-postgres",
- "chrono",
- "futures",
- "lru",
- "outbox-relay",
- "rdkafka",
- "sea-query",
- "serde",
- "serde_json",
- "thiserror",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "awto-es-macros"
-version = "0.1.0"
-dependencies = [
- "heck",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "bank"
 version = "0.1.0"
 dependencies = [
  "actix",
  "async-trait",
- "awto-es",
  "bb8-postgres",
  "envy",
  "futures",
@@ -141,6 +109,7 @@ dependencies = [
  "rdkafka",
  "serde",
  "serde_json",
+ "thalo",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -1152,6 +1121,37 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0066c8d12af8b5acd21e00547c3797fde4e8677254a7ee429176ccebbe93dd80"
 dependencies = [
  "unicode-width",
+]
+
+[[package]]
+name = "thalo"
+version = "0.1.0"
+dependencies = [
+ "actix",
+ "async-trait",
+ "bb8-postgres",
+ "chrono",
+ "futures",
+ "lru",
+ "outbox-relay",
+ "rdkafka",
+ "sea-query",
+ "serde",
+ "serde_json",
+ "thalo-macros",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "thalo-macros"
+version = "0.1.0"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

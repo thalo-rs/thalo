@@ -44,7 +44,7 @@ impl PgRepository {
 
         quote!(
             #[::async_trait::async_trait]
-            impl ::awto_es::postgres::PgRepository for #repository_ident {
+            impl ::thalo::postgres::PgRepository for #repository_ident {
                 type View = #ident;
 
                 fn new(
@@ -73,12 +73,12 @@ impl PgRepository {
                     view: &Self::View,
                     event_id: i64,
                     event_sequence: i64,
-                ) -> ::std::result::Result<(), ::awto_es::Error> {
+                ) -> ::std::result::Result<(), ::thalo::Error> {
                     let conn = self
                         .pool
                         .get()
                         .await
-                        .map_err(::awto_es::Error::GetDbPoolConnectionError)?;
+                        .map_err(::thalo::Error::GetDbPoolConnectionError)?;
 
                     #expanded_save
                 }
@@ -88,42 +88,42 @@ impl PgRepository {
                     id: &str,
                     event_id: i64,
                     event_sequence: i64,
-                ) -> ::std::result::Result<(), ::awto_es::Error> {
+                ) -> ::std::result::Result<(), ::thalo::Error> {
                     let conn = self
                         .pool
                         .get()
                         .await
-                        .map_err(::awto_es::Error::GetDbPoolConnectionError)?;
+                        .map_err(::thalo::Error::GetDbPoolConnectionError)?;
 
                     #expanded_update_last_event
                 }
 
-                async fn load_with_last_event_id(&self, id: &str) -> ::std::result::Result<::std::option::Option<(Self::View, i64)>, ::awto_es::Error> {
+                async fn load_with_last_event_id(&self, id: &str) -> ::std::result::Result<::std::option::Option<(Self::View, i64)>, ::thalo::Error> {
                     let conn = self
                         .pool
                         .get()
                         .await
-                        .map_err(::awto_es::Error::GetDbPoolConnectionError)?;
+                        .map_err(::thalo::Error::GetDbPoolConnectionError)?;
 
                     #expanded_load_with_last_event_id
                 }
 
-                async fn last_event_id(&self) -> ::std::result::Result<::std::option::Option<i64>, ::awto_es::Error> {
+                async fn last_event_id(&self) -> ::std::result::Result<::std::option::Option<i64>, ::thalo::Error> {
                     let conn = self
                         .pool
                         .get()
                         .await
-                        .map_err(::awto_es::Error::GetDbPoolConnectionError)?;
+                        .map_err(::thalo::Error::GetDbPoolConnectionError)?;
 
                     #expanded_last_event_id
                 }
 
-                async fn delete(&self, id: &str) -> ::std::result::Result<(), ::awto_es::Error> {
+                async fn delete(&self, id: &str) -> ::std::result::Result<(), ::thalo::Error> {
                     let conn = self
                         .pool
                         .get()
                         .await
-                        .map_err(::awto_es::Error::GetDbPoolConnectionError)?;
+                        .map_err(::thalo::Error::GetDbPoolConnectionError)?;
 
                     #expanded_delete
                 }

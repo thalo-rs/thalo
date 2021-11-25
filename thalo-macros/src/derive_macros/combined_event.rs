@@ -12,10 +12,10 @@ impl CombinedEvent {
         let Self { event_types, ident } = self;
 
         quote!(
-            impl ::awto_es::CombinedEvent for #ident {
+            impl ::thalo::CombinedEvent for #ident {
                 fn aggregate_types() -> ::std::vec::Vec<&'static str> {
                     vec![
-                        #( <#event_types as ::awto_es::Event>::Aggregate::aggregate_type(), )*
+                        #( <#event_types as ::thalo::Event>::Aggregate::aggregate_type(), )*
                     ]
                 }
             }

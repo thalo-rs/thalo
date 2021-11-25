@@ -13,11 +13,11 @@ impl CommandMessage {
             impl ::actix::Message for #ident {
                 type Result = ::std::result::Result<
                     ::std::vec::Vec<
-                        ::awto_es::EventEnvelope<
-                            <<Self as ::awto_es::Command>::Aggregate as ::awto_es::Aggregate>::Event,
+                        ::thalo::EventEnvelope<
+                            <<Self as ::thalo::Command>::Aggregate as ::thalo::Aggregate>::Event,
                         >,
                     >,
-                    ::awto_es::Error,
+                    ::thalo::Error,
                 >;
             }
         ))

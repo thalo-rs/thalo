@@ -13,7 +13,7 @@ impl StreamTopic {
         let stream_topic_string = ident.to_string().to_snake_case();
 
         Ok(quote!(
-            impl ::awto_es::StreamTopic for #ident {
+            impl ::thalo::StreamTopic for #ident {
                 fn stream_topic() -> &'static str {
                     #stream_topic_string
                 }

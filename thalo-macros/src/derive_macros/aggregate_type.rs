@@ -13,7 +13,7 @@ impl AggregateType {
         let aggregate_type_string = ident.to_string().to_snake_case();
 
         Ok(quote!(
-            impl ::awto_es::AggregateType for #ident {
+            impl ::thalo::AggregateType for #ident {
                 fn aggregate_type() -> &'static str {
                     #aggregate_type_string
                 }

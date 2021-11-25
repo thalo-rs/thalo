@@ -76,11 +76,11 @@ impl AggregateEvents {
 
         Ok(quote!(
             #(
-                #[derive(Clone, Debug, PartialEq, ::awto_es::EventIdentity, ::serde::Deserialize, ::serde::Serialize)]
+                #[derive(Clone, Debug, PartialEq, ::thalo::EventIdentity, ::serde::Deserialize, ::serde::Serialize)]
                 #structs
             )*
 
-            #[derive(Clone, Debug, PartialEq, ::awto_es::Event, ::awto_es::StreamTopic, ::serde::Deserialize, ::serde::Serialize)]
+            #[derive(Clone, Debug, PartialEq, ::thalo::Event, ::thalo::StreamTopic, ::serde::Deserialize, ::serde::Serialize)]
             #[aggregate = #ident]
             pub enum #event_ident {
                 #( #variants, )*
@@ -112,7 +112,7 @@ impl AggregateEvents {
             });
 
         Ok(quote!(
-            impl ::awto_es::AggregateEventHandler for #ident {
+            impl ::thalo::AggregateEventHandler for #ident {
                 type Event = #event_ident;
 
                 fn apply(&mut self, event: Self::Event) {
@@ -136,10 +136,10 @@ impl AggregateEvents {
             let variant_ident = &method.variant_ident;
 
             quote!(
-                impl ::awto_es::EventView<#struct_ident> for ::std::vec::Vec<::awto_es::EventEnvelope<#event_ident>> {
-                    fn view(&self) -> ::std::result::Result<&#struct_ident, ::awto_es::Error> {
+                impl ::thalo::EventView<#struct_ident> for ::std::vec::Vec<::thalo::EventEnvelope<#event_ident>> {
+                    fn view(&self) -> ::std::result::Result<&#struct_ident, ::thalo::Error> {
                         self.view_opt()
-                            .ok_or_else(|| ::awto_es::Error::EventMissing(<#struct_ident as ::awto_es::EventIdentity>::event_type()))
+                            .ok_or_else(|| ::thalo::Error::EventMissing(<#struct_ident as ::thalo::EventIdentity>::event_type()))
                     }
                     
                     fn view_opt(&self) -> ::std::option::Option<&#struct_ident> {

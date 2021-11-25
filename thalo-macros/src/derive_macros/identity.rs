@@ -16,7 +16,7 @@ impl Identity {
         let field_ident = identity_field.ident.as_ref().unwrap();
 
         Ok(quote!(
-            impl ::awto_es::Identity for #ident {
+            impl ::thalo::Identity for #ident {
                 fn identity(&self) -> &str {
                     &self.#field_ident
                 }

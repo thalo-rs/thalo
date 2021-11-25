@@ -1,4 +1,4 @@
-use awto_es::{aggregate_commands, aggregate_events, AggregateType, Error, Identity};
+use thalo::{aggregate_commands, aggregate_events, AggregateType, Error, Identity};
 
 #[derive(Identity, AggregateType, Clone, Debug, Default)]
 pub struct BankAccount {

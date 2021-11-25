@@ -57,7 +57,7 @@ impl AggregateCommands {
         });
 
         Ok(quote!(
-            #[derive(Clone, Debug, PartialEq, ::awto_es::Command, ::awto_es::StreamTopic, ::awto_es::CommandMessage, ::serde::Deserialize, ::serde::Serialize)]
+            #[derive(Clone, Debug, PartialEq, ::thalo::Command, ::thalo::StreamTopic, ::thalo::CommandMessage, ::serde::Deserialize, ::serde::Serialize)]
             #[aggregate = #ident]
             pub enum #command_ident {
                 #( #variants, )*
@@ -96,11 +96,11 @@ impl AggregateCommands {
             });
 
         Ok(quote!(
-            impl ::awto_es::AggregateCommandHandler for #ident {
+            impl ::thalo::AggregateCommandHandler for #ident {
                 type Command = #command_ident;
                 type Event = #event_ident;
 
-                fn execute(&self, command: Self::Command) -> Result<Vec<Self::Event>, ::awto_es::Error> {
+                fn execute(&self, command: Self::Command) -> Result<Vec<Self::Event>, ::thalo::Error> {
                     match command {
                         #( #matches, )*
                     }
@@ -237,13 +237,13 @@ impl AggregateCommands {
                     Some(err_ty) => {
                         let err_ty_string = quote!(#err_ty).to_string().replace(' ', "");
                         if err_ty_string != "Error"
-                            && err_ty_string != "awto_es::Error"
-                            && err_ty_string != "::awto_es::Error"
+                            && err_ty_string != "thalo::Error"
+                            && err_ty_string != "::thalo::Error"
                         {
                             return Err(syn::Error::new(
                                 err_ty.span(),
                                 format!(
-                                    "method must return `Result<Vec<{}>, awto_es::Error>`",
+                                    "method must return `Result<Vec<{}>, thalo::Error>`",
                                     event_ident.to_string(),
                                 ),
                             ));
@@ -253,7 +253,7 @@ impl AggregateCommands {
                         return Err(syn::Error::new(
                             method.sig.output.span(),
                             format!(
-                                "method must return `Result<Vec<{}>, awto_es::Error>`",
+                                "method must return `Result<Vec<{}>, thalo::Error>`",
                                 event_ident.to_string(),
                             ),
                         ))

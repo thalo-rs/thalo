@@ -1,4 +1,4 @@
-use awto_es::PgRepository;
+use thalo::PgRepository;
 
 #[derive(PgRepository)]
 pub struct BankAccountView {

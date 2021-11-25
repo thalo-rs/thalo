@@ -1,6 +1,6 @@
-use awto::*;
+use app::*;
 #[doc(hidden)]
-pub use awto_es_macros::*;
+pub use thalo_macros::*;
 #[doc(inline)]
 pub use command::*;
 pub use error::Error;
@@ -8,17 +8,17 @@ pub use topic::*;
 #[doc(inline)]
 pub use query::*;
 
-mod awto;
+mod app;
 mod command;
 mod error;
 mod topic;
 pub mod postgres;
 mod query;
 
-/// Builds an awto app.
-pub fn build<ES>(event_store: ES, redpanda_host: impl Into<String> + Clone) -> AwtoBuilder<ES>
+/// Builds a thalo app.
+pub fn build<ES>(event_store: ES, redpanda_host: impl Into<String> + Clone) -> AppBuilder<ES>
 where
     ES: EventStore + Clone + Send + Sync + Unpin + 'static,
 {
-    Awto::build(event_store, redpanda_host)
+    App::build(event_store, redpanda_host)
 }
