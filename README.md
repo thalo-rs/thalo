@@ -1,6 +1,6 @@
 ## Thalo
 
-Ecosystem for building event sourced applications in Rust.
+Thalo is a framework for building large-scale event sourced applications with CQRS.
 
 > 🚧 Stay rusty, something frosty is on it's way 🐻‍❄️
 
