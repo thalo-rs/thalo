@@ -1,4 +1,4 @@
-pub use bb8_postgres::tokio_postgres::tls;
+pub use bb8_postgres::*;
 pub use event_store::PgEventStore;
 pub use view::PgRepository;
 

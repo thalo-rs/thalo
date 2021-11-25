@@ -1,10 +1,10 @@
-use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use thalo::{
+    async_trait,
     postgres::PgEventStore,
-    postgres::{tls::NoTls, PgRepository},
+    postgres::{tokio_postgres::tls::NoTls, PgRepository},
     Error, EventHandler, Projection,
 };
-use serde::{Deserialize, Serialize};
 
 use crate::command::bank_account::{
     AccountOpenedEvent, BankAccountEvent, FundsDepositedEvent, FundsWithdrawnEvent,

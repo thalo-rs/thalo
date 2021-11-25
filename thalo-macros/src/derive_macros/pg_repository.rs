@@ -22,8 +22,8 @@ impl PgRepository {
         quote!(
             #[derive(Clone)]
             pub struct #repository_ident {
-                pool: ::bb8_postgres::bb8::Pool<
-                    ::bb8_postgres::PostgresConnectionManager<::bb8_postgres::tokio_postgres::NoTls>,
+                pool: ::thalo::postgres::bb8::Pool<
+                    ::thalo::postgres::PostgresConnectionManager<::thalo::postgres::tokio_postgres::NoTls>,
                 >,
             }
         )
@@ -43,13 +43,13 @@ impl PgRepository {
         let expanded_delete = self.expand_delete();
 
         quote!(
-            #[::async_trait::async_trait]
+            #[::thalo::async_trait]
             impl ::thalo::postgres::PgRepository for #repository_ident {
                 type View = #ident;
 
                 fn new(
-                    pool: ::bb8_postgres::bb8::Pool<
-                        ::bb8_postgres::PostgresConnectionManager<::bb8_postgres::tokio_postgres::NoTls>,
+                    pool: ::thalo::postgres::bb8::Pool<
+                        ::thalo::postgres::PostgresConnectionManager<::thalo::postgres::tokio_postgres::NoTls>,
                     >,
                 ) -> Self {
                     Self { pool }
@@ -57,10 +57,10 @@ impl PgRepository {
 
                 async fn connect(
                     conn: &str,
-                    tls: ::bb8_postgres::tokio_postgres::NoTls,
-                ) -> ::std::result::Result<Self, ::bb8_postgres::tokio_postgres::Error> {
-                    let manager = ::bb8_postgres::PostgresConnectionManager::new_from_stringlike(conn, tls)?;
-                    let pool = ::bb8_postgres::bb8::Pool::builder()
+                    tls: ::thalo::postgres::tokio_postgres::NoTls,
+                ) -> ::std::result::Result<Self, ::thalo::postgres::tokio_postgres::Error> {
+                    let manager = ::thalo::postgres::PostgresConnectionManager::new_from_stringlike(conn, tls)?;
+                    let pool = ::thalo::postgres::bb8::Pool::builder()
                         .build(manager)
                         .await
                         .unwrap();

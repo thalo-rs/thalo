@@ -26,12 +26,12 @@
 
 pub use actix::Message;
 use app::*;
+pub use async_trait::async_trait;
 #[doc(inline)]
 pub use command::*;
 pub use error::Error;
 #[doc(inline)]
 pub use query::*;
-#[doc(hidden)]
 pub use thalo_macros::*;
 pub use topic::*;
 
