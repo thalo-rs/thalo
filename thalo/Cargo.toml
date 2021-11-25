@@ -18,7 +18,7 @@ bb8-postgres = { version = "0.7", features = [
 chrono = "0.4"
 futures = "0.3"
 lru = "0.7"
-outbox-relay = { path = "../outbox-relay", optional = true }
+outbox-relay = { version = "0.1.0", path = "../outbox-relay", optional = true }
 rdkafka = "0.27"
 sea-query = { git = "https://github.com/SeaQL/sea-query.git", rev = "db6dc7e86a73f811275c563dd88077b8cfe6b98e", features = [
   "backend-postgres",
