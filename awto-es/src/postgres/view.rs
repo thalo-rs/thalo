@@ -21,6 +21,14 @@ pub trait PgRepository: Sized {
         event_sequence: i64,
     ) -> Result<(), Error>;
 
+    /// Update view last_event_id and last_event_sequence only.
+    async fn update_last_event(
+        &self,
+        id: &str,
+        event_id: i64,
+        event_sequence: i64,
+    ) -> Result<(), Error>;
+
     /// Load an existing view with a given `event_id` ensuring the event hasn't already been handled.
     /// If the resource is not found, [Error::ResourceNotFound] error will be returned.
     ///
@@ -71,4 +79,7 @@ pub trait PgRepository: Sized {
 
     /// Load the latest event version number.
     async fn last_event_id(&self) -> Result<Option<i64>, Error>;
+
+    /// Delete a view with a given id.
+    async fn delete(&self, id: &str) -> Result<(), Error>;
 }

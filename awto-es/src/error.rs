@@ -13,6 +13,8 @@ pub enum Error {
     DbError(#[from] bb8_postgres::tokio_postgres::Error),
     #[error("event {0} already handled")]
     EventAlreadyHandled(i64),
+    #[error("event '{0}' missing from view")]
+    EventMissing(&'static str),
     #[error("fetch topic metadata error: {0}")]
     FetchTopicMetadataError(rdkafka::error::KafkaError),
     #[error("get connection from database pool error: {0}")]
@@ -79,6 +81,7 @@ impl Error {
             DeserializeDbEventError(_) => LevelFilter::ERROR,
             DbError(_) => LevelFilter::ERROR,
             EventAlreadyHandled(_) => LevelFilter::DEBUG,
+            EventMissing(_) => LevelFilter::ERROR,
             FetchTopicMetadataError(_) => LevelFilter::ERROR,
             GetDbPoolConnectionError(_) => LevelFilter::ERROR,
             Invariant(_) => LevelFilter::WARN,

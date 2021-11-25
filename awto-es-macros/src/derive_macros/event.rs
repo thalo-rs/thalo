@@ -27,7 +27,7 @@ impl Event {
 
                 fn event_type(&self) -> &'static str {
                     match self {
-                        #( Self::#variant_idents { .. } => #variant_strings, )*
+                        #( Self::#variant_idents(_) => #variant_strings, )*
                     }
                 }
 

@@ -14,6 +14,10 @@ pub trait Event:
     fn aggregate_event<'a>(&'a self, aggregate_id: &'a str) -> AggregateEvent<'a, Self::Aggregate>;
 }
 
+pub trait EventIdentity {
+    fn event_type() -> &'static str;
+}
+
 pub trait CombinedEvent:
     serde::de::DeserializeOwned + serde::ser::Serialize + Clone + fmt::Debug + PartialEq + Send + Sync
 {
@@ -24,6 +28,12 @@ impl<E: Event> CombinedEvent for E {
     fn aggregate_types() -> Vec<&'static str> {
         vec![<E as Event>::Aggregate::aggregate_type()]
     }
+}
+
+pub trait EventView<E> {
+    fn view(&self) -> Result<&E, Error>;
+
+    fn view_opt(&self) -> Option<&E>;
 }
 
 /// EventHandler must run once only when multiple nodes of the

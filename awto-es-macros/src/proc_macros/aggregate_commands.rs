@@ -16,6 +16,7 @@ struct Method {
     args: Vec<Arg>,
     docs: Vec<Literal>,
     ident: syn::Ident,
+    is_vec: bool,
 }
 
 struct Arg {
@@ -67,7 +68,6 @@ impl AggregateCommands {
     fn expand_impl_aggregate_command_handler(&self) -> syn::Result<TokenStream> {
         let Self {
             command_ident,
-            // error_ty,
             event_ident,
             ident,
             methods,
@@ -84,9 +84,15 @@ impl AggregateCommands {
                     &arg.ident
                 }).collect();
 
-                quote!(
-                    #command_ident::#variant_ident { #( #fields, )* } => self.#method_ident(#( #fields ),*)
-                )
+                if method.is_vec {
+                    quote!(
+                        #command_ident::#variant_ident { #( #fields, )* } => Ok(self.#method_ident(#( #fields ),*)?.into_iter().map(|event| event.into()).collect())
+                    )
+                } else {
+                    quote!(
+                        #command_ident::#variant_ident { #( #fields, )* } => self.#method_ident(#( #fields ),*).map(|event| vec![event.into()])
+                    )
+                }
             });
 
         Ok(quote!(
@@ -153,6 +159,7 @@ impl AggregateCommands {
                     .collect();
 
                 let mut inputs = method.sig.inputs.into_iter();
+                let mut is_vec = false;
 
                 let self_input = inputs.next().ok_or_else(|| {
                     syn::Error::new(method.sig.ident.span(), "method must take &self")
@@ -215,11 +222,7 @@ impl AggregateCommands {
                                 };
                                 let mut args = arguments.args.iter();
                                 let first_argument = args.next()?;
-                                if quote!(#first_argument).to_string()
-                                    != format!("Vec < {} >", event_ident.to_string())
-                                {
-                                    return None;
-                                }
+                                is_vec = quote!(#first_argument).to_string().starts_with("Vec <");
                                 match args.next()? {
                                     syn::GenericArgument::Type(ty) => Some(ty),
                                     _ => None,
@@ -261,6 +264,7 @@ impl AggregateCommands {
                     args,
                     docs,
                     ident: method.sig.ident,
+                    is_vec,
                 })
             })
             .collect::<Result<_, _>>()?;
