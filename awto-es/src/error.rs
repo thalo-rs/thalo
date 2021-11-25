@@ -17,7 +17,7 @@ pub enum Error {
     FetchTopicMetadataError(rdkafka::error::KafkaError),
     #[error("get connection from database pool error: {0}")]
     GetDbPoolConnectionError(bb8_postgres::bb8::RunError<bb8_postgres::tokio_postgres::Error>),
-    #[error("invariant: {0}")]
+    #[error("{0}")]
     Invariant(Cow<'static, str>),
     #[error(transparent)]
     MailboxError(#[from] actix::MailboxError),
@@ -79,12 +79,14 @@ impl Error {
             DeserializeDbEventError(_) => LevelFilter::ERROR,
             DbError(_) => LevelFilter::ERROR,
             EventAlreadyHandled(_) => LevelFilter::DEBUG,
+            FetchTopicMetadataError(_) => LevelFilter::ERROR,
             GetDbPoolConnectionError(_) => LevelFilter::ERROR,
             Invariant(_) => LevelFilter::WARN,
             MailboxError(_) => LevelFilter::ERROR,
             MessageKeyUtf8Error(_) => LevelFilter::ERROR,
             MessageJsonDeserializeError(_) => LevelFilter::WARN,
             MessageKeyMissing => LevelFilter::WARN,
+            MissingActixSystem => LevelFilter::ERROR,
             #[cfg(feature = "outbox_relay")]
             OutboxRelayError(_) => LevelFilter::ERROR,
             RecieveMessageError(_) => LevelFilter::ERROR,
