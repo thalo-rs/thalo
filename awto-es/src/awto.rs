@@ -278,7 +278,7 @@ where
                             }
                         }
                         None
-                    }).and_then(|msg_type| std::str::from_utf8(msg_type).ok());// .map(|msg_type| "OPEN_ACCOUNT".as_bytes() == msg_type);
+                    }).and_then(|msg_type| std::str::from_utf8(msg_type).ok());
                     info!(?msg_type, "message type");
                     let topic = msg.topic();
                     let offset = msg.offset();
@@ -413,9 +413,11 @@ where
                             "received event"
                         );
 
+
+                        let mut projection = projection.clone();
+                        let view = projection.handle(key.to_string(), event).await?;
                         projection
-                            .clone()
-                            .handle(key.to_string(), event, event_id, event_sequence)
+                            .commit(key, view, event_id, event_sequence)
                             .await?;
 
                         trace!(projection = projection_type, key, event_id, "handled projectoion");
