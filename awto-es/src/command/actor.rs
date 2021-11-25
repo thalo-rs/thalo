@@ -8,7 +8,7 @@ use lru::LruCache;
 use tokio::sync::Mutex;
 
 use crate::{
-    message::StreamTopic, Aggregate, AggregateCommandHandler, Error, Event, EventEnvelope,
+    StreamTopic, Aggregate, AggregateCommandHandler, Error, Event, EventEnvelope,
     EventStore,
 };
 

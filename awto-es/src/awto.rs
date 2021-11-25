@@ -24,7 +24,7 @@ use tokio::{
 use tracing::{debug, info, trace};
 
 use crate::{
-    message::{MultiStreamTopic, StreamTopic},
+    MultiStreamTopic, StreamTopic,
     Aggregate, AggregateActor, AggregateActorPool, BaseAggregateActor, Error, EventEnvelope,
     EventHandler, EventStore, Projection,
 };

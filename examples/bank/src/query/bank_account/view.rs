@@ -1,4 +1,4 @@
-use awto_es::macros::PgRepository;
+use awto_es::PgRepository;
 
 #[derive(PgRepository)]
 pub struct BankAccountView {

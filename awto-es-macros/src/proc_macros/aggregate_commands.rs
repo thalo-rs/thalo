@@ -57,7 +57,7 @@ impl AggregateCommands {
         });
 
         Ok(quote!(
-            #[derive(Clone, Debug, PartialEq, ::awto_es::macros::Command, ::awto_es::macros::StreamTopic, ::awto_es::macros::CommandMessage, ::serde::Deserialize, ::serde::Serialize)]
+            #[derive(Clone, Debug, PartialEq, ::awto_es::Command, ::awto_es::StreamTopic, ::awto_es::CommandMessage, ::serde::Deserialize, ::serde::Serialize)]
             #[aggregate = #ident]
             pub enum #command_ident {
                 #( #variants, )*
