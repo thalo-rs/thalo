@@ -399,7 +399,7 @@ where
 
 
                         let mut projection = projection.clone();
-                        let view = projection.handle(key.to_string(), event).await?;
+                        let view = projection.handle(key.to_string(), event, event_id, event_sequence).await?;
                         projection
                             .commit(key, view, event_id, event_sequence)
                             .await?;

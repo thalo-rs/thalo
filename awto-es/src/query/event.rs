@@ -49,7 +49,13 @@ pub trait EventHandler {
     /// Handle an event and return an updated view.
     ///
     /// ```
-    async fn handle(&mut self, id: String, event: Self::Event) -> Result<Self::View, Error>;
+    async fn handle(
+        &mut self,
+        id: String,
+        event: Self::Event,
+        event_id: i64,
+        event_sequence: i64,
+    ) -> Result<Self::View, Error>;
 
     /// Commits an event handler from a previously handled view.
     ///

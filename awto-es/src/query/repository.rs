@@ -99,6 +99,8 @@ pub trait EventStore {
                     .handle(
                         missing_event.aggregate_id.clone(),
                         missing_event.event.clone(),
+                        missing_event.id,
+                        missing_event.sequence,
                     )
                     .await?;
                 projection
