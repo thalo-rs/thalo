@@ -379,7 +379,7 @@ where
                         let event_id = event_envelope.id;
                         let event_sequence = event_envelope.sequence;
                         let event = event_envelope.event;
-                        debug!(
+                        trace!(
                             projection = projection_type,
                             topic,
                             offset,

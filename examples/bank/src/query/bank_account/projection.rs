@@ -71,12 +71,14 @@ impl EventHandler for BankAccountProjector {
 
     async fn commit(
         &mut self,
-        _id: &str,
+        id: &str,
         view: Self::View,
         event_id: i64,
         event_sequence: i64,
     ) -> Result<(), Error> {
-        self.repository.save(&view, event_id, event_sequence).await
+        self.repository
+            .save(id, Some(&view), event_id, event_sequence)
+            .await
     }
 }
 
