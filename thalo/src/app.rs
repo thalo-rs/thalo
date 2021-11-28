@@ -20,15 +20,15 @@ use futures::{stream::FuturesUnordered, Future, FutureExt, StreamExt};
 use rdkafka::{
     config::RDKafkaLogLevel,
     consumer::{Consumer, StreamConsumer},
-    message::Headers,
     ClientConfig, Message,
 };
 use tokio::{select, signal, sync::Notify};
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, trace};
 
 use crate::{
-    Aggregate, AggregateActor, AggregateActorPool, BaseAggregateActor, Error, EventEnvelope,
-    EventHandler, EventStore, MultiStreamTopic, Projection, StreamTopic,
+    Aggregate, AggregateActor, AggregateActorPool, AggregateChannel, BaseAggregateActor, Error,
+    EventEnvelope, EventHandler, EventStore, MultiStreamTopic, Projection, SharedGlobal,
+    StreamTopic,
 };
 
 type WorkerFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
@@ -201,7 +201,15 @@ where
 
     pub fn aggregate<A>(self, cache_cap: usize) -> Self
     where
-        A: Aggregate + Clone + Unpin + 'static,
+        A: Aggregate
+            + AggregateChannel<BaseAggregateActor<ES, A>, ES>
+            + SharedGlobal<
+                BaseAggregateActor<ES, A>,
+                ES,
+                Value = AggregateActorPool<BaseAggregateActor<ES, A>, ES, A>,
+            > + Clone
+            + Unpin
+            + 'static,
         <A as Aggregate>::Command: actix::Message<Result = Result<Vec<EventEnvelope<<A as Aggregate>::Event>>, Error>>
             + StreamTopic
             + Clone
@@ -214,7 +222,12 @@ where
     pub fn aggregate_actor<Act, A>(mut self, cache_cap: usize) -> Self
     where
         Act: AggregateActor<ES, A> + Clone,
-        A: Aggregate + Clone + Unpin + 'static,
+        A: Aggregate
+            + AggregateChannel<Act, ES>
+            + SharedGlobal<Act, ES, Value = AggregateActorPool<Act, ES, A>>
+            + Clone
+            + Unpin
+            + 'static,
         <A as Aggregate>::Command: actix::Message<Result = Result<Vec<EventEnvelope<<A as Aggregate>::Event>>, Error>>
             + StreamTopic
             + Clone
@@ -227,7 +240,7 @@ where
             let event_store = ctx.event_store.to_owned();
             let on_error = ctx.on_error.to_owned();
 
-            let agg_actor_pool = AggregateActorPool::< Act, _, _>::new_in_arbiter(ctx.arbiter.clone(), event_store, cache_cap);
+            <A as SharedGlobal<Act, ES>>::set(AggregateActorPool::<Act, ES, A>::new_in_arbiter(ctx.arbiter.clone(), event_store, cache_cap));
 
             let topic = <A as Aggregate>::Command::stream_topic();
 
@@ -254,22 +267,10 @@ where
 
             Ok(async move {
                 loop_result_async(on_error, || async {
-                    let agg_actor_pool = agg_actor_pool.clone();
                     let msg = consumer
                         .recv()
                         .await
                         .map_err(Error::RecieveMessageError)?;
-                    let msg_type = msg.headers().and_then(|headers| {
-                        for i in 0..headers.count() {
-                            if let Some((k, v)) = headers.get(i) {
-                                if k == "type" {
-                                    return Some(v)
-                                }
-                            }
-                        }
-                        None
-                    }).and_then(|msg_type| std::str::from_utf8(msg_type).ok());
-                    info!(?msg_type, "message type");
                     let topic = msg.topic();
                     let offset = msg.offset();
                     let key_dbg = msg
@@ -291,7 +292,7 @@ where
                             .map_err(Error::MessageJsonDeserializeError)?;
                         debug!(topic, offset, key, ?command, "received command");
 
-                        agg_actor_pool.handle(key, command).await?;
+                        A::send(key, command).await?;
                     }
 
                     Ok(())
@@ -396,7 +397,7 @@ where
                             .commit(key, view, event_id, event_sequence)
                             .await?;
 
-                        trace!(projection = projection_type, key, event_id, "handled projectoion");
+                        trace!(projection = projection_type, key, event_id, "handled projection");
                     }
 
                     Ok(())

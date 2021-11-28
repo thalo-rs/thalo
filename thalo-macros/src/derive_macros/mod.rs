@@ -1,4 +1,5 @@
 pub use aggregate_type::AggregateType;
+pub use aggregate_channel::AggregateChannel;
 pub use combined_event::CombinedEvent;
 pub use command::Command;
 pub use command_message::CommandMessage;
@@ -10,6 +11,7 @@ pub use pg_repository::PgRepository;
 pub use stream_topic::StreamTopic;
 
 mod aggregate_type;
+mod aggregate_channel;
 mod combined_event;
 mod command;
 mod command_message;

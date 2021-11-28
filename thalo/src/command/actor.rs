@@ -6,9 +6,11 @@ use actix::{
 };
 use lru::LruCache;
 use tokio::sync::Mutex;
+use tracing::{debug, trace};
 
 use crate::{
-    Aggregate, AggregateCommandHandler, Error, Event, EventEnvelope, EventStore, StreamTopic,
+    Aggregate, AggregateCommandHandler, AggregateType, Error, Event, EventEnvelope, EventStore,
+    StreamTopic,
 };
 
 pub trait AggregateActor<ES, A>
@@ -81,11 +83,21 @@ where
         Box::pin(
             async move {
                 let mut aggregate = match aggregate_opt {
-                    Some(aggregate) => aggregate,
-                    None => event_store.load_aggregate(id.clone()).await?,
+                    Some(aggregate) => {
+                        trace!(%id, aggregate_type = %<A as AggregateType>::aggregate_type(), "loaded aggregate from cache");
+                        aggregate
+                    }
+                    None => {
+                        let aggregate = event_store.load_aggregate(id.clone()).await?;
+                        trace!(%id, aggregate_type = %<A as AggregateType>::aggregate_type(), "loaded aggregate from event store");
+                        aggregate
+                    }
                 };
 
-                let events = aggregate.execute(msg)?;
+                let events = aggregate.execute(msg).map_err(|err| {
+                    debug!(%id, %err, "aggregate command failed");
+                    err
+                })?;
                 let agg_events: Vec<_> = events
                     .iter()
                     .map(|event| event.aggregate_event(&id))
@@ -98,7 +110,7 @@ where
             .into_actor(self)
             .map(|res, act, _ctx| {
                 let (aggregate, events) = res?;
-                act.aggregate = Some(aggregate);
+                act.aggregate = Some(aggregate); // TODO: This doesnt work
                 Ok(events)
             }),
         )
@@ -116,7 +128,7 @@ where
 {
     actors_cache: Arc<Mutex<LruCache<String, Addr<Act>>>>,
     aggregate: PhantomData<A>,
-    arbiter: Option<ArbiterHandle>,
+    arbiter: ArbiterHandle,
     event_store: ES,
 }
 
@@ -131,16 +143,19 @@ where
         + 'static,
     <A as Aggregate>::Event: Event<Aggregate = A> + StreamTopic + Unpin + 'static,
 {
-    pub fn new(event_store: ES, cache_cap: usize) -> Self {
+    pub fn new(event_store: ES, cache_cap: usize) -> Result<Self, Error> {
         let actors_cache: Arc<Mutex<LruCache<String, Addr<Act>>>> =
             Arc::new(Mutex::new(LruCache::new(cache_cap)));
 
-        AggregateActorPool {
+        Ok(AggregateActorPool {
             actors_cache,
             aggregate: PhantomData,
-            arbiter: None,
+            arbiter: System::try_current()
+                .ok_or(Error::MissingActixSystem)?
+                .arbiter()
+                .clone(),
             event_store,
-        }
+        })
     }
 
     pub fn new_in_arbiter(arbiter: ArbiterHandle, event_store: ES, cache_cap: usize) -> Self {
@@ -150,12 +165,32 @@ where
         AggregateActorPool {
             actors_cache,
             aggregate: PhantomData,
-            arbiter: Some(arbiter),
+            arbiter,
             event_store,
         }
     }
 
-    pub async fn handle(
+    /// Send a command without waiting for the response.
+    pub async fn do_send(&self, id: &str, command: <A as Aggregate>::Command) -> Result<(), Error> {
+        let mut guard = self.actors_cache.lock().await;
+        let actor = match guard.get(id) {
+            Some(actor) => actor,
+            None => {
+                let id_string = id.to_string();
+                let event_store = self.event_store.clone();
+                let addr =
+                    Act::start_in_arbiter(&self.arbiter, move |_| Act::new(id_string, event_store));
+
+                guard.put(id.to_string(), addr);
+                guard.get(id).expect("item should exist")
+            }
+        };
+        actor.do_send(command);
+        Ok(())
+    }
+
+    /// Send a command and wait for the response.
+    pub async fn send(
         &self,
         id: &str,
         command: <A as Aggregate>::Command,
@@ -165,25 +200,16 @@ where
             let actor = match guard.get(id) {
                 Some(actor) => actor,
                 None => {
-                    let current_system = System::try_current();
-                    let arbiter = match (&self.arbiter, &current_system) {
-                        (Some(arbiter), _) => arbiter,
-                        (None, Some(system)) => system.arbiter(),
-                        (None, None) => {
-                            return Err(Error::MissingActixSystem);
-                        }
-                    };
-
                     let id_string = id.to_string();
                     let event_store = self.event_store.clone();
-                    let addr =
-                        Act::start_in_arbiter(arbiter, move |_| Act::new(id_string, event_store));
+                    let addr = Act::start_in_arbiter(&self.arbiter, move |_| {
+                        Act::new(id_string, event_store)
+                    });
 
                     guard.put(id.to_string(), addr);
                     guard.get(id).expect("item should exist")
                 }
             };
-
             actor.send(command)
         }
         .await?

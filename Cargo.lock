@@ -249,6 +249,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "dashmap"
+version = "4.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e77a43b28d0668df09411cb0bc9a8c2adc40f9a048afe863e05fd43251e8e39c"
+dependencies = [
+ "cfg-if",
+ "num_cpus",
+]
+
+[[package]]
 name = "derivative"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1081,7 +1091,7 @@ dependencies = [
 
 [[package]]
 name = "thalo"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "actix",
  "async-trait",
@@ -1089,6 +1099,7 @@ dependencies = [
  "chrono",
  "futures",
  "lru",
+ "once_cell",
  "outbox-relay",
  "rdkafka",
  "sea-query",
@@ -1098,6 +1109,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+ "typedmap",
 ]
 
 [[package]]
@@ -1300,6 +1312,15 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-log",
+]
+
+[[package]]
+name = "typedmap"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "548441b775897c0e8e50d5e8f0409907eb703091d953ac744936cda5a079a01c"
+dependencies = [
+ "dashmap",
 ]
 
 [[package]]

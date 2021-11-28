@@ -1,4 +1,9 @@
-use crate::{Command, Error, Event};
+use std::fmt;
+
+use actix::Message;
+use async_trait::async_trait;
+
+use crate::{AggregateActor, Error, Event, EventEnvelope, EventStore};
 
 pub trait Identity {
     /// Identifier
@@ -8,8 +13,34 @@ pub trait Identity {
     fn new_with_id(id: String) -> Self;
 }
 
+pub trait Command:
+    serde::de::DeserializeOwned + serde::ser::Serialize + fmt::Debug + Send + Sync
+{
+    type Aggregate: Aggregate;
+
+    fn command_type(&self) -> &'static str;
+}
+
 pub trait AggregateType {
     fn aggregate_type() -> &'static str;
+}
+
+#[async_trait]
+pub trait AggregateChannel<Act, ES>
+where
+    Self: Aggregate + Sized,
+    Act: AggregateActor<ES, Self>,
+    ES: EventStore,
+    <Self as Aggregate>::Command:
+        Message<Result = Result<Vec<EventEnvelope<<Self as Aggregate>::Event>>, Error>>,
+    <Self as Aggregate>::Event: 'static,
+{
+    async fn do_send(id: &str, command: <Self as Aggregate>::Command) -> Result<(), Error>;
+
+    async fn send(
+        id: &str,
+        command: <Self as Aggregate>::Command,
+    ) -> Result<Vec<EventEnvelope<<Self as Aggregate>::Event>>, Error>;
 }
 
 pub trait AggregateCommandHandler {

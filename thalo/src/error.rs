@@ -5,10 +5,12 @@ use tracing::{metadata::LevelFilter, Level};
 
 #[derive(Error, Debug)]
 pub enum Error {
+    #[error("aggregate '{0}' channel not initialised")]
+    AggregateChannelNotInitialised(&'static str),
     #[error("create consumer error: {0}")]
     CreateConsumerError(rdkafka::error::KafkaError),
-    #[error("deserialize database event error: {0}")]
-    DeserializeDbEventError(serde_json::Error),
+    #[error("deserialize database event {}error: {1}", .0.as_ref().map(|ty| format!("'{}' ", ty)).unwrap_or_default())]
+    DeserializeDbEventError(Option<String>, serde_json::Error),
     #[error(transparent)]
     DbError(#[from] bb8_postgres::tokio_postgres::Error),
     #[error("event {0} already handled")]
@@ -77,8 +79,9 @@ impl Error {
         use Error::*;
 
         match self {
+            AggregateChannelNotInitialised(_) => LevelFilter::ERROR,
             CreateConsumerError(_) => LevelFilter::ERROR,
-            DeserializeDbEventError(_) => LevelFilter::ERROR,
+            DeserializeDbEventError(_, _) => LevelFilter::ERROR,
             DbError(_) => LevelFilter::ERROR,
             EventAlreadyHandled(_) => LevelFilter::DEBUG,
             EventMissing(_) => LevelFilter::ERROR,

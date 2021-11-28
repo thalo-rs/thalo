@@ -25,13 +25,14 @@
 //! An example can be seen at <https://github.com/awto-rs/thalo/tree/main/examples/bank>.
 
 pub use actix::Message;
-use app::*;
+pub use app::*;
 pub use async_trait::async_trait;
 #[doc(inline)]
 pub use command::*;
 pub use error::Error;
 #[doc(inline)]
 pub use query::*;
+pub use shared_global::*;
 pub use thalo_macros::*;
 pub use topic::*;
 
@@ -40,6 +41,7 @@ mod command;
 mod error;
 pub mod postgres;
 mod query;
+mod shared_global;
 mod topic;
 
 /// Builds a thalo app.
