@@ -112,7 +112,7 @@ pub trait EventStore {
                     )
                     .await?;
                 last_event_version = missing_event.id;
-                debug!(?missing_event, "handled missing event");
+                debug!(%projection_type, last_event_version, ?missing_event, "handled missing event");
             }
         }
 

@@ -240,6 +240,7 @@ where
                 EventTable::AggregateType,
                 EventTable::AggregateId,
                 EventTable::Sequence,
+                EventTable::EventType,
                 EventTable::EventData,
             ])
             .from(EventTable::Table)
@@ -278,9 +279,9 @@ where
 
         rows.into_iter()
             .map(|row| {
-                let event_json = row.get(5);
-                let event =
-                    serde_json::from_value(event_json).map_err(Error::DeserializeDbEventError)?;
+                let event_json = row.get(6);
+                let event = serde_json::from_value(event_json)
+                    .map_err(|err| Error::DeserializeDbEventError(Some(row.get(5)), err))?;
                 Ok(EventEnvelope {
                     id: row.get(0),
                     created_at: row.get(1),
@@ -311,6 +312,7 @@ where
                 EventTable::AggregateType,
                 EventTable::AggregateId,
                 EventTable::Sequence,
+                EventTable::EventType,
                 EventTable::EventData,
             ])
             .from(EventTable::Table)
@@ -341,9 +343,9 @@ where
 
         rows.into_iter()
             .map(|row| {
-                let event_json = row.get(5);
-                let event =
-                    serde_json::from_value(event_json).map_err(Error::DeserializeDbEventError)?;
+                let event_json = row.get(6);
+                let event = serde_json::from_value(event_json)
+                    .map_err(|err| Error::DeserializeDbEventError(row.get(5), err))?;
                 Ok(EventEnvelope {
                     id: row.get(0),
                     created_at: row.get(1),
@@ -373,6 +375,7 @@ where
                 EventTable::AggregateType,
                 EventTable::AggregateId,
                 EventTable::Sequence,
+                EventTable::EventType,
                 EventTable::EventData,
             ])
             .from(EventTable::Table)
@@ -382,9 +385,9 @@ where
         let row = conn.query_opt(&query, &params.as_params()).await?;
 
         row.map(|row| {
-            let event_json = row.get(5);
-            let event =
-                serde_json::from_value(event_json).map_err(Error::DeserializeDbEventError)?;
+            let event_json = row.get(6);
+            let event = serde_json::from_value(event_json)
+                .map_err(|err| Error::DeserializeDbEventError(row.get(5), err))?;
             Ok(EventEnvelope {
                 id: row.get(0),
                 created_at: row.get(1),
@@ -405,7 +408,7 @@ where
             .map_err(Error::GetDbPoolConnectionError)?;
 
         let (query, params) = Query::select()
-            .column(EventTable::EventData)
+            .columns([EventTable::EventType, EventTable::EventData])
             .from(EventTable::Table)
             .and_where(Expr::col(EventTable::AggregateType).eq(A::aggregate_type()))
             .and_where(Expr::col(EventTable::AggregateId).eq(id.as_str()))
@@ -415,8 +418,9 @@ where
         let events: Vec<<A as AggregateEventHandler>::Event> = rows
             .into_iter()
             .map(|row| {
-                let event_data = row.get(0);
-                serde_json::from_value(event_data).map_err(Error::DeserializeDbEventError)
+                let event_data = row.get(1);
+                serde_json::from_value(event_data)
+                    .map_err(|err| Error::DeserializeDbEventError(Some(row.get(0)), err))
             })
             .collect::<Result<_, _>>()?;
 
