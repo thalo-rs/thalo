@@ -14,11 +14,10 @@ help() {
   echo "    push"
 }
 
-if [ -z "$1" ]
-  then
-    echo "no argument specified"
-    help
-    exit 1
+if [ -z "$1" ]; then
+  echo "no argument specified"
+  help
+  exit 1
 fi
 
 if [ $1 = "build" ]; then
