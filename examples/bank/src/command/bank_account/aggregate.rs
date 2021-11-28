@@ -11,15 +11,13 @@ pub struct BankAccount {
 #[aggregate_commands]
 impl BankAccount {
     /// Creates a command for opening an account
-    pub fn open_account(&self, initial_balance: f64) -> Result<BankAccountEvent, Error> {
+    pub fn open_account(&self, initial_balance: f64) -> Result<AccountOpenedEvent, Error> {
         if self.opened {
             return Err(Error::invariant("account already opened"));
         }
 
         // Reference the event created by the BankAccount::account_opened method
-        Ok(BankAccountEvent::AccountOpened(AccountOpenedEvent {
-            initial_balance,
-        }))
+        Ok(AccountOpenedEvent { initial_balance })
     }
 
     /// Deposit funds
