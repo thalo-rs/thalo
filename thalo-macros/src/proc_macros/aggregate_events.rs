@@ -22,6 +22,7 @@ struct Method {
 }
 
 struct Arg {
+    attrs: Vec<syn::Attribute>,
     ident: syn::Ident,
     ty: syn::Type,
 }
@@ -48,16 +49,18 @@ impl AggregateEvents {
                 let variant_ident_upper = method.ident.to_string().TO_SHOUTY_SNEK_CASE();
 
                 let fields = method.args.iter().map(|arg| {
+                    let attrs = &arg.attrs;
                     let ident = &arg.ident;
                     let ty = &arg.ty;
-                    quote!(#ident: #ty)
+                    quote!(#( #attrs )* pub #ident: #ty)
                 });
 
                 (
                     quote!(
+                        #[derive(Clone, Debug, PartialEq, ::thalo::EventIdentity, ::serde::Deserialize, ::serde::Serialize)]
                         #(#[doc = #docs])*
                         pub struct #struct_ident {
-                            #( pub #fields, )*
+                            #( #fields, )*
                         }
 
                         impl ::std::convert::From<#struct_ident> for #event_ident {
@@ -76,7 +79,6 @@ impl AggregateEvents {
 
         Ok(quote!(
             #(
-                #[derive(Clone, Debug, PartialEq, ::thalo::EventIdentity, ::serde::Deserialize, ::serde::Serialize)]
                 #structs
             )*
 
@@ -159,7 +161,7 @@ impl AggregateEvents {
 }
 
 impl AggregateEvents {
-    pub fn new(input: syn::ItemImpl) -> syn::Result<Self> {
+    pub fn new(mut input: syn::ItemImpl) -> syn::Result<Self> {
         let ident = match &*input.self_ty {
             syn::Type::Path(type_path) => type_path.path.get_ident().unwrap().clone(),
             _ => {
@@ -235,6 +237,7 @@ impl AggregateEvents {
                             syn::FnArg::Typed(arg) => arg,
                             _ => unreachable!("methods cannot take self more than once"),
                         };
+                        let attrs = arg.attrs.clone();
                         let ident = match &*arg.pat {
                             syn::Pat::Ident(ident_pat) => format_ident!(
                                 "{}",
@@ -249,7 +252,7 @@ impl AggregateEvents {
                         };
                         let ty = *arg.ty;
 
-                        Ok(Arg { ident, ty })
+                        Ok(Arg { attrs, ident, ty })
                     })
                     .collect::<Result<_, _>>()?;
 
@@ -262,6 +265,24 @@ impl AggregateEvents {
                 })
             })
             .collect::<Result<_, _>>()?;
+
+        for item in &mut input.items {
+            let method = match item {
+                syn::ImplItem::Method(method) => method,
+                _ => return Err(syn::Error::new(
+                    item.span(),
+                    "unexpected item: only methods are allowed in aggregate_events",
+                )),
+            };
+
+            for arg in &mut method.sig.inputs {
+                let arg = match arg {
+                    syn::FnArg::Typed(arg) => {arg},
+                    _ => continue,
+                };
+                arg.attrs = vec![];
+            }
+        }
 
         Ok(AggregateEvents {
             event_ident,
