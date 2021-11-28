@@ -18,7 +18,7 @@
 //! ## Get in touch
 //!
 //! If you'd like to ask/discuss or learn more, you can reach out via Discord.
-//! <https://github.com/Acidic9>
+//! <https://github.com/Acidic9> <https://discord.gg/4Cq8NnPYPA>
 //!
 //! ## Example
 //!
