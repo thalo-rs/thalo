@@ -1,5 +1,4 @@
 use proc_macro2::TokenStream;
-use quote::quote;
 
 use crate::derive_macros::{AggregateChannel, AggregateType, Identity};
 
@@ -15,7 +14,11 @@ impl Aggregate {
         let aggregate_type = AggregateType::new(input.clone())?;
         let identity = Identity::new(input)?;
 
-        Ok(Aggregate { aggregate_channel, aggregate_type, identity })
+        Ok(Aggregate {
+            aggregate_channel,
+            aggregate_type,
+            identity,
+        })
     }
 
     pub fn expand(self) -> syn::Result<TokenStream> {
