@@ -7,6 +7,7 @@ mod proc_macros;
 derive_macro!(Identity, identity);
 derive_macro!(Command, aggregate);
 derive_macro!(Event, aggregate);
+derive_macro!(Aggregate, identity);
 derive_macro!(StreamTopic);
 derive_macro!(CommandMessage);
 derive_macro!(AggregateType);

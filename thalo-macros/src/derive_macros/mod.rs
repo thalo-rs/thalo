@@ -1,3 +1,4 @@
+pub use aggregate::Aggregate;
 pub use aggregate_type::AggregateType;
 pub use aggregate_channel::AggregateChannel;
 pub use combined_event::CombinedEvent;
@@ -10,6 +11,7 @@ pub use multi_stream_topic::MultiStreamTopic;
 pub use pg_repository::PgRepository;
 pub use stream_topic::StreamTopic;
 
+mod aggregate;
 mod aggregate_type;
 mod aggregate_channel;
 mod combined_event;
