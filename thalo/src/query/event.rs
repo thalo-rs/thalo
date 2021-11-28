@@ -59,7 +59,7 @@ pub trait EventHandler {
 
     /// Commits an event handler from a previously handled view.
     ///
-    /// Commit is where you would save/update the view, or just update the `last_event_id` and `last_sequence_id`s.
+    /// Commit is where you would save/update the view, or just update the `event_id` and `event_sequence`s.
     ///
     /// # Example
     ///
@@ -71,15 +71,9 @@ pub trait EventHandler {
     ///     event_id: i64,
     ///     event_sequence: i64,
     /// ) -> Result<(), Error> {
-    ///     if let Some(view) = view {
-    ///         self.repository
-    ///             .save(&view, event_id, event_sequence)
-    ///             .await?;
-    ///     } else {
-    ///         self.repository
-    ///             .update_last_event(id, event_id, event_sequence)
-    ///             .await?;
-    ///     }
+    ///     self.repository
+    ///         .save(id, &view, event_id, event_sequence)
+    ///         .await?;
     ///     Ok(())
     /// }
     /// ```

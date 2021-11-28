@@ -16,7 +16,8 @@ pub trait PgRepository: Sized {
     /// Insert or update view.
     async fn save(
         &self,
-        view: &Self::View,
+        id: &str,
+        view: Option<&Self::View>,
         event_id: i64,
         event_sequence: i64,
     ) -> Result<(), Error>;

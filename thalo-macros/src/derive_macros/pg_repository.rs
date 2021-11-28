@@ -70,11 +70,12 @@ impl PgRepository {
 
                 async fn save(
                     &self,
-                    view: &Self::View,
+                    id: &str,
+                    view: Option<&Self::View>,
                     event_id: i64,
                     event_sequence: i64,
                 ) -> ::std::result::Result<(), ::thalo::Error> {
-                    let conn = self
+                    let mut conn = self
                         .pool
                         .get()
                         .await
@@ -141,42 +142,77 @@ impl PgRepository {
         } = self;
 
         let mut q = String::new();
+        write!(q, r#"INSERT INTO "{}" "#, table_name).unwrap();
         write!(
             q,
-            r#"INSERT INTO "{}" ("last_event_id", "last_event_sequence""#,
-            table_name
+            "({}) ",
+            columns
+                .iter()
+                .map(|column| format!(r#""{}""#, column))
+                .collect::<Vec<_>>()
+                .join(", ")
         )
         .unwrap();
-        for column in columns {
-            write!(q, r#", "{}""#, column).unwrap();
-        }
-        write!(q, ") ").unwrap();
-        write!(q, "VALUES ($1, $2").unwrap();
-        for i in 0..columns.len() {
-            write!(q, ", ${}", i + 3).unwrap();
-        }
-        write!(q, ") ").unwrap();
+        write!(q, "VALUES ").unwrap();
         write!(
             q,
-            r#"ON CONFLICT ("{}") DO UPDATE SET "last_event_id" = $1, "last_event_sequence" = $2"#,
-            primary_key
+            "({}) ",
+            (0..columns.len())
+                .map(|i| format!(r#"${}"#, i + 1))
+                .collect::<Vec<_>>()
+                .join(", ")
         )
         .unwrap();
-        for (i, column) in columns.iter().skip(1).enumerate() {
-            write!(q, r#", "{}" = ${}"#, column, i + 4).unwrap();
-        }
+        write!(q, r#"ON CONFLICT ("{}") DO UPDATE SET "#, primary_key).unwrap();
+        write!(
+            q,
+            "{}",
+            columns
+                .iter()
+                .filter(|column| *column != primary_key)
+                .enumerate()
+                .map(|(i, column)| { format!(r#""{}" = ${}"#, column, i + 2) })
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+        .unwrap();
 
         let field_idents = fields.iter().map(|field| field.ident.as_ref().unwrap());
 
         quote!(
-            conn.execute(#q,
+            let t = conn
+                .build_transaction()
+                .isolation_level(::thalo::postgres::tokio_postgres::IsolationLevel::Serializable)
+                .start()
+                .await?;
+
+            if let Some(view) = view {
+                t.execute(
+                    #q,
+                    &[
+                        #( &view.#field_idents, )*
+                    ],
+                )
+                .await?;
+            }
+
+            t.execute(
+                r#"
+                    INSERT INTO "projection" ("id", "type", "event_id", "event_sequence")
+                    VALUES ($1, $2, $3, $4)
+                    ON CONFLICT ("id", "type") DO UPDATE SET
+                    "event_id" = $3, "event_sequence" = $4
+                "#,
                 &[
+                    &id,
+                    &#table_name,
                     &event_id,
                     &event_sequence,
-                    #( &view.#field_idents, )*
                 ],
             )
             .await?;
+
+            t.commit().await?;
 
             Ok(())
         )
@@ -186,13 +222,15 @@ impl PgRepository {
         let Self { table_name, .. } = self;
 
         let q = format!(
-            r#"UPDATE "{}" SET "last_event_id" = $1, "last_event_sequence" = $2"#,
+            r#"UPDATE "projection" SET "event_id" = $2, "event_sequence" = $3 WHERE "id" = $1 AND "type" = '{}'"#,
             table_name
         );
 
         quote!(
-            conn.execute(#q,
+            conn.execute(
+                #q,
                 &[
+                    &id,
                     &event_id,
                     &event_sequence,
                 ],
@@ -213,7 +251,7 @@ impl PgRepository {
         } = self;
 
         let mut q = String::new();
-        write!(q, r#"SELECT "last_event_id""#).unwrap();
+        write!(q, r#"SELECT (SELECT "projection"."event_id" FROM "projection" WHERE "projection"."id" = $1 AND "projection"."type" = '{}')"#, table_name).unwrap();
         for column in columns.iter().skip(1) {
             write!(q, r#", "{}""#, column).unwrap();
         }
@@ -248,10 +286,10 @@ impl PgRepository {
     fn expand_last_event_id(&self) -> TokenStream {
         let Self { table_name, .. } = self;
 
-        let q = format!(r#"SELECT MAX("last_event_id") FROM "{}""#, table_name);
+        let q = r#"SELECT MAX("event_id") FROM "projection" WHERE "type" = $1"#;
 
         quote!(
-            let row = conn.query_one(#q, &[]).await?;
+            let row = conn.query_one(#q, &[&#table_name]).await?;
 
             Ok(row.get(0))
         )
