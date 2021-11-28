@@ -1,6 +1,6 @@
-use thalo::{aggregate_commands, aggregate_events, AggregateType, Error, Identity};
+use thalo::{aggregate_commands, aggregate_events, Aggregate, AggregateType, Error};
 
-#[derive(Identity, AggregateType, Clone, Debug, Default)]
+#[derive(Aggregate, Clone, Debug, Default)]
 pub struct BankAccount {
     #[identity]
     account_number: String,
@@ -8,37 +8,18 @@ pub struct BankAccount {
     opened: bool,
 }
 
-#[aggregate_events]
-impl BankAccount {
-    /// Creates an event for when a user opened an account
-    pub fn account_opened(&mut self, initial_balance: f64) {
-        self.balance = initial_balance;
-        self.opened = true;
-    }
-
-    /// Account funds were deposited
-    pub fn funds_deposited(&mut self, amount: f64) {
-        self.balance += amount;
-    }
-
-    /// Account funds were withdrawn
-    pub fn funds_withdrawn(&mut self, amount: f64) {
-        self.balance -= amount;
-    }
-}
-
 #[aggregate_commands]
 impl BankAccount {
     /// Creates a command for opening an account
-    pub fn open_account(&self, initial_balance: f64) -> Result<Vec<BankAccountEvent>, Error> {
+    pub fn open_account(&self, initial_balance: f64) -> Result<BankAccountEvent, Error> {
         if self.opened {
             return Err(Error::invariant("account already opened"));
         }
 
         // Reference the event created by the BankAccount::account_opened method
-        Ok(vec![BankAccountEvent::AccountOpened(AccountOpenedEvent {
+        Ok(BankAccountEvent::AccountOpened(AccountOpenedEvent {
             initial_balance,
-        })])
+        }))
     }
 
     /// Deposit funds
@@ -62,5 +43,24 @@ impl BankAccount {
         }
 
         Ok(FundsWithdrawnEvent { amount })
+    }
+}
+
+#[aggregate_events]
+impl BankAccount {
+    /// Creates an event for when a user opened an account
+    pub fn account_opened(&mut self, initial_balance: f64) {
+        self.balance = initial_balance;
+        self.opened = true;
+    }
+
+    /// Account funds were deposited
+    pub fn funds_deposited(&mut self, amount: f64) {
+        self.balance += amount;
+    }
+
+    /// Account funds were withdrawn
+    pub fn funds_withdrawn(&mut self, amount: f64) {
+        self.balance -= amount;
     }
 }

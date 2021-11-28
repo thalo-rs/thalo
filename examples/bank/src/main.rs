@@ -1,24 +1,16 @@
-use std::error;
-
-use serde::Deserialize;
 use thalo::postgres::{tokio_postgres::tls::NoTls, PgEventStore};
-use tracing::error;
 use tracing_subscriber::fmt::format::Format;
 
-use crate::{command::bank_account::BankAccount, query::bank_account::BankAccountProjector};
+use crate::command::bank_account::BankAccount;
+use crate::config::Config;
+use crate::query::bank_account::BankAccountProjector;
 
 mod command;
+mod config;
 mod query;
 
-#[derive(Deserialize, Debug)]
-struct Config {
-    rust_log: Option<String>,
-    database_url: String,
-    redpanda_host: String,
-}
-
 #[actix::main]
-async fn main() -> Result<(), Box<dyn error::Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load environment variables
     let cfg = envy::from_env::<Config>()?;
 
@@ -39,7 +31,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     // Build and run app
     thalo::new(event_store.clone(), &cfg.redpanda_host)
         .on_error(|err| {
-            error!("{}", err);
+            tracing::error!("{}", err);
         })
         .aggregate::<BankAccount>(500)
         .projection(BankAccountProjector::new(event_store))
