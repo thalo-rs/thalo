@@ -133,6 +133,12 @@ where
     }
 
     Command::new("pg_recvlogical")
+        .args(&["-d", database_url, "--slot", slot, "--drop-slot"])
+        .spawn()?
+        .wait()
+        .await?;
+
+    Command::new("pg_recvlogical")
         .args(&[
             "-d",
             database_url,
