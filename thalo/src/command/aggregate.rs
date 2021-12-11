@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, str};
 
 use actix::Message;
 use async_trait::async_trait;
@@ -6,11 +6,13 @@ use async_trait::async_trait;
 use crate::{AggregateActor, Error, Event, EventEnvelope, EventStore};
 
 pub trait Identity {
+    type ID: str::FromStr + ToString + Send;
+
     /// Identifier
-    fn identity(&self) -> &str;
+    fn identity(&self) -> &Self::ID;
 
     /// Initialise with identity
-    fn new_with_id(id: String) -> Self;
+    fn new_with_id(id: Self::ID) -> Self;
 }
 
 pub trait Command:

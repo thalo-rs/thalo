@@ -272,14 +272,14 @@ impl PgRepository {
                 .await?;
 
             Ok(row.map(|row| {
-                (
+                Result::<_, ::thalo::Error>::Ok((
                     Self::View {
-                        #primary_key_ident: id.to_string(),
+                        #primary_key_ident: id.parse().map_err(|_| ::thalo::Error::ParseIdentity)?,
                         #( #field_idents: row.get(#field_indexes + 1), )*
                     },
                     row.get(0)
-                )
-            }))
+                ))
+            }).transpose()?)
         )
     }
 

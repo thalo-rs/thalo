@@ -127,9 +127,10 @@ where
         events: Vec<<A as AggregateEventHandler>::Event>,
         agg: &mut A,
     ) -> Result<(), Error> {
+        let id = Identity::identity(agg).to_string();
         let agg_events: Vec<_> = events
             .iter()
-            .map(|event| event.aggregate_event(Identity::identity(agg)))
+            .map(|event| event.aggregate_event(&id))
             .collect();
         self.save_events(agg_events).await?;
 
@@ -400,7 +401,7 @@ where
         .transpose()
     }
 
-    async fn load_aggregate<A: Aggregate>(&self, id: String) -> Result<A, Error> {
+    async fn load_aggregate<A: Aggregate>(&self, id: &str) -> Result<A, Error> {
         let conn = self
             .pool
             .get()
@@ -411,7 +412,7 @@ where
             .columns([EventTable::EventType, EventTable::EventData])
             .from(EventTable::Table)
             .and_where(Expr::col(EventTable::AggregateType).eq(A::aggregate_type()))
-            .and_where(Expr::col(EventTable::AggregateId).eq(id.as_str()))
+            .and_where(Expr::col(EventTable::AggregateId).eq(id))
             .order_by(EventTable::Sequence, Order::Asc)
             .build(PostgresQueryBuilder);
         let rows = conn.query(&query, &params.as_params()).await?;
@@ -424,7 +425,7 @@ where
             })
             .collect::<Result<_, _>>()?;
 
-        let mut aggregate = A::new_with_id(id);
+        let mut aggregate = A::new_with_id(id.parse().map_err(|_| Error::ParseIdentity)?);
         for event in events {
             aggregate.apply(event);
         }

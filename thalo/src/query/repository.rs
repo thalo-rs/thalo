@@ -70,7 +70,7 @@ pub trait EventStore {
         sequence: i64,
     ) -> Result<Option<EventEnvelope<<A as Aggregate>::Event>>, Error>;
 
-    async fn load_aggregate<A: Aggregate>(&self, id: String) -> Result<A, Error>;
+    async fn load_aggregate<A: Aggregate>(&self, id: &str) -> Result<A, Error>;
 
     async fn resync_projection<P>(&self, projection: &mut P) -> Result<(), Error>
     where

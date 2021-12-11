@@ -88,7 +88,7 @@ where
                         aggregate
                     }
                     None => {
-                        let aggregate = event_store.load_aggregate(id.clone()).await?;
+                        let aggregate = event_store.load_aggregate(&id).await?;
                         trace!(%id, aggregate_type = %<A as AggregateType>::aggregate_type(), "loaded aggregate from event store");
                         aggregate
                     }

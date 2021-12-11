@@ -68,10 +68,11 @@ pub trait PgRepository: Sized {
     where
         Self::View: Identity,
     {
+        let view_id: <Self::View as Identity>::ID = id.parse().map_err(|_| Error::ParseIdentity)?;
         Ok(self
             .load_opt(id, event_id)
             .await?
-            .unwrap_or_else(|| Self::View::new_with_id(id.to_string())))
+            .unwrap_or_else(|| Self::View::new_with_id(view_id)))
     }
 
     /// Load an existing view and it's last event id without checking if it's already been handled.

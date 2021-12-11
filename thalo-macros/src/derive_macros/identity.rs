@@ -14,14 +14,17 @@ impl Identity {
         } = self;
 
         let field_ident = identity_field.ident.as_ref().unwrap();
+        let field_ty = &identity_field.ty;
 
         Ok(quote!(
             impl ::thalo::Identity for #ident {
-                fn identity(&self) -> &str {
+                type ID = #field_ty;
+
+                fn identity(&self) -> &Self::ID {
                     &self.#field_ident
                 }
 
-                fn new_with_id(id: String) -> Self {
+                fn new_with_id(id: Self::ID) -> Self {
                     #[allow(clippy::needless_update)]
                     Self {
                         #field_ident: id,
