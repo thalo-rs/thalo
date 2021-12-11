@@ -7,7 +7,7 @@ use std::{
 };
 
 use actix::{dev::ToEnvelope, Actor, ArbiterHandle, System};
-#[cfg(feature = "outbox_relay")]
+#[cfg(feature = "outbox-relay")]
 use bb8_postgres::{
     bb8::Pool,
     tokio_postgres::{
@@ -47,9 +47,9 @@ pub struct App<ES: EventStore> {
     consumer_config: ClientConfig,
     event_store: ES,
     on_error: Option<for<'e> fn(Error)>,
-    #[cfg(feature = "outbox_relay")]
+    #[cfg(feature = "outbox-relay")]
     redpanda_host: String,
-    #[cfg(feature = "outbox_relay")]
+    #[cfg(feature = "outbox-relay")]
     outbox_handler: Option<OutboxHandler>,
     workers: Vec<WorkerFn<ES>>,
 }
@@ -66,18 +66,18 @@ where
             .set("enable.auto.commit", "true")
             .set("auto.offset.reset", "earliest")
             .set_log_level(RDKafkaLogLevel::Debug);
-        #[cfg(not(feature = "outbox_relay"))]
+        #[cfg(not(feature = "outbox-relay"))]
         consumer_config.set("bootstrap.servers", redpanda_host);
-        #[cfg(feature = "outbox_relay")]
+        #[cfg(feature = "outbox-relay")]
         consumer_config.set("bootstrap.servers", redpanda_host.clone());
 
         Self {
             consumer_config,
             event_store,
             on_error: None,
-            #[cfg(feature = "outbox_relay")]
+            #[cfg(feature = "outbox-relay")]
             redpanda_host: redpanda_host.into(),
-            #[cfg(feature = "outbox_relay")]
+            #[cfg(feature = "outbox-relay")]
             outbox_handler: None,
             workers: Vec::new(),
         }
@@ -124,9 +124,9 @@ where
 
         actix::spawn(async move { while workers.next().await.is_some() {} });
 
-        #[cfg(feature = "outbox_relay")]
+        #[cfg(feature = "outbox-relay")]
         let outbox_handler = self.outbox_handler.take();
-        #[cfg(not(feature = "outbox_relay"))]
+        #[cfg(not(feature = "outbox-relay"))]
         let outbox_handler: Option<OutboxHandler> = None;
         match outbox_handler {
             Some(outbox_handler) => {
@@ -147,7 +147,7 @@ where
         std::process::exit(0);
     }
 
-    #[cfg(feature = "outbox_relay")]
+    #[cfg(feature = "outbox-relay")]
     pub fn with_outbox_relay<Tls>(
         mut self,
         pool: Pool<PostgresConnectionManager<Tls>>,
@@ -175,7 +175,7 @@ where
         self
     }
 
-    #[cfg(feature = "outbox_relay")]
+    #[cfg(feature = "outbox-relay")]
     pub async fn with_outbox_relay_from_stringlike<Tls>(
         self,
         conn: &str,

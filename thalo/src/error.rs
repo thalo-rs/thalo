@@ -33,9 +33,11 @@ pub enum Error {
     MessageKeyMissing,
     #[error("missing actix system")]
     MissingActixSystem,
-    #[cfg(feature = "outbox_relay")]
+    #[cfg(feature = "outbox-relay")]
     #[error(transparent)]
     OutboxRelayError(#[from] outbox_relay::error::Error),
+    #[error("could not parse identity")]
+    ParseIdentity,
     #[error("receive message error: {0}")]
     RecieveMessageError(rdkafka::error::KafkaError),
     #[error("resource not found{}", .0.as_ref().map(|msg| format!(": {}", msg.as_ref())).unwrap_or_default())]
@@ -93,8 +95,9 @@ impl Error {
             MessageJsonDeserializeError(_) => LevelFilter::WARN,
             MessageKeyMissing => LevelFilter::WARN,
             MissingActixSystem => LevelFilter::ERROR,
-            #[cfg(feature = "outbox_relay")]
+            #[cfg(feature = "outbox-relay")]
             OutboxRelayError(_) => LevelFilter::ERROR,
+            ParseIdentity => LevelFilter::ERROR,
             RecieveMessageError(_) => LevelFilter::ERROR,
             ResourceNotFound(_) => LevelFilter::WARN,
             SendShutdownNotificationError(_) => LevelFilter::WARN,
