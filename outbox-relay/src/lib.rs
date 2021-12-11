@@ -155,7 +155,16 @@ where
         .await?;
 
     let out = Command::new("pg_recvlogical")
-        .args(&["-d", database_url, "--slot", slot, "--start", "-f", "-"])
+        .args(&[
+            "-d",
+            database_url,
+            "--slot",
+            slot,
+            "--start",
+            "--no-loop",
+            "-f",
+            "-",
+        ])
         .stdout(Stdio::piped())
         .spawn()?
         .stdout
