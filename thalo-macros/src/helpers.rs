@@ -19,12 +19,13 @@ macro_rules! attribute_macro {
     ($name: ident, $name_camel: ident) => {
         #[proc_macro_attribute]
         pub fn $name(
-            _args: proc_macro::TokenStream,
+            args: proc_macro::TokenStream,
             input: proc_macro::TokenStream,
         ) -> proc_macro::TokenStream {
+            let args = syn::parse::Parser::parse(<syn::punctuated::Punctuated<syn::Ident, syn::Token![,]>>::parse_terminated, args).unwrap();
             let input = syn::parse_macro_input!(input as syn::ItemImpl);
 
-            match proc_macros::$name_camel::new(input) {
+            match proc_macros::$name_camel::new(args, input) {
                 Ok(proc) => proc_macros::$name_camel::expand(proc)
                     .unwrap_or_else(syn::Error::into_compile_error)
                     .into(),

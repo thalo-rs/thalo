@@ -161,7 +161,7 @@ impl AggregateEvents {
 }
 
 impl AggregateEvents {
-    pub fn new(mut input: syn::ItemImpl) -> syn::Result<Self> {
+    pub fn new(_args: syn::punctuated::Punctuated<syn::Ident, syn::Token![,]>, mut input: syn::ItemImpl) -> syn::Result<Self> {
         let ident = match &*input.self_ty {
             syn::Type::Path(type_path) => type_path.path.get_ident().unwrap().clone(),
             _ => {

@@ -5,11 +5,13 @@ use syn::spanned::Spanned;
 
 pub struct AggregateCommands {
     command_ident: syn::Ident,
-    // error_ty: syn::Type,
     event_ident: syn::Ident,
+    has_tarpc_arg: bool,
     ident: syn::Ident,
     input: syn::ItemImpl,
     methods: Vec<Method>,
+    server_ident: syn::Ident,
+    service_ident: syn::Ident,
 }
 
 struct Method {
@@ -113,10 +115,90 @@ impl AggregateCommands {
             }
         ))
     }
+
+    fn expand_tarpc_service(&self) -> TokenStream {
+        let Self {
+            command_ident,
+            event_ident,
+            ident,
+            methods,
+            server_ident,
+            service_ident,
+            ..
+        } = self;
+
+        let service_methods = methods.iter().map(|method| {
+            let method_ident = &method.ident;
+            let method_args = method.args.iter().map(|arg| {
+                let arg_ident = &arg.ident;
+                let arg_type = &arg.ty;
+                quote!(#arg_ident: #arg_type)
+            });
+
+            quote!(
+                async fn #method_ident(
+                    id: ::std::string::String,
+                    #( #method_args, )*
+                ) -> ::std::result::Result<::std::vec::Vec<::thalo::EventEnvelope<#event_ident>>, ::std::string::String>;
+            )
+        });
+
+        let server_methods = methods.iter().map(|method| {
+            let method_ident = &method.ident;
+            let method_args = method.args.iter().map(|arg| {
+                let arg_ident = &arg.ident;
+                let arg_type = &arg.ty;
+                quote!(#arg_ident: #arg_type)
+            });
+            let method_command_ident =
+                format_ident!("{}", method_ident.to_string().to_camel_case());
+            let method_command_args = method.args.iter().map(|arg| &arg.ident);
+
+            quote!(
+                async fn #method_ident(
+                    self,
+                    _: ::tarpc::context::Context,
+                    id: ::std::string::String,
+                    #( #method_args, )*
+                ) -> ::std::result::Result<
+                    ::std::vec::Vec<::thalo::EventEnvelope<#event_ident>>,
+                    ::std::string::String,
+                > {
+                    <#ident as ::thalo::postgres::SendCommand<#command_ident>>::send_command(
+                        &id,
+                        #command_ident::#method_command_ident {
+                            #( #method_command_args ),*
+                        },
+                    )
+                    .await
+                    .map_err(|err| err.to_string())
+                }
+            )
+        });
+
+        quote!(
+            #[::tarpc::service]
+            pub trait #service_ident {
+                #( #service_methods )*
+            }
+
+            #[derive(Clone, Copy)]
+            pub struct #server_ident;
+
+            #[::tarpc::server]
+            impl #service_ident for #server_ident {
+                #( #server_methods )*
+            }
+        )
+    }
 }
 
 impl AggregateCommands {
-    pub fn new(input: syn::ItemImpl) -> syn::Result<Self> {
+    pub fn new(
+        args: syn::punctuated::Punctuated<syn::Ident, syn::Token![,]>,
+        input: syn::ItemImpl,
+    ) -> syn::Result<Self> {
+        let has_tarpc_arg = args.into_iter().any(|arg| arg == "tarpc");
         let ident = match &*input.self_ty {
             syn::Type::Path(type_path) => type_path.path.get_ident().unwrap().clone(),
             _ => {
@@ -129,6 +211,8 @@ impl AggregateCommands {
 
         let event_ident = format_ident!("{}Event", ident);
         let command_ident = format_ident!("{}Command", ident);
+        let server_ident = format_ident!("{}Server", ident);
+        let service_ident = format_ident!("{}Service", ident);
 
         let methods = input
             .items
@@ -280,16 +364,13 @@ impl AggregateCommands {
 
         Ok(AggregateCommands {
             command_ident,
-            // error_ty: error_ty.unwrap_or_else(|| {
-            //     syn::Type::Tuple(syn::TypeTuple {
-            //         elems: syn::punctuated::Punctuated::new(),
-            //         paren_token: syn::token::Paren::default(),
-            //     })
-            // }),
             event_ident,
+            has_tarpc_arg,
             ident,
             input,
             methods,
+            server_ident,
+            service_ident,
         })
     }
 
@@ -299,11 +380,17 @@ impl AggregateCommands {
         let expanded_input = quote!(#input);
         let expanded_events_enum = self.expand_command_enum()?;
         let expanded_impl_aggregate_command = self.expand_impl_aggregate_command_handler()?;
+        let expanded_tarpc_service = if self.has_tarpc_arg {
+            self.expand_tarpc_service()
+        } else {
+            quote!()
+        };
 
         Ok(TokenStream::from_iter([
             expanded_input,
             expanded_events_enum,
             expanded_impl_aggregate_command,
+            expanded_tarpc_service,
         ]))
     }
 }
