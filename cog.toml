@@ -35,4 +35,4 @@ template = "remote"
 remote = "github.com"
 repository = "thalo"
 owner = "thalo-rs"
-authors = [{ signature = "Ari Seyhun", username = "Acidic9" }]
+authors = [{ signature = "Ari Seyhun", username = "tqwewe" }]

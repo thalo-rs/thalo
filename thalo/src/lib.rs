@@ -18,11 +18,11 @@
 //! ## Get in touch
 //!
 //! If you'd like to ask/discuss or learn more, you can reach out via Discord.
-//! <https://github.com/Acidic9> <https://discord.gg/4Cq8NnPYPA>
+//! <https://github.com/tqwewe> <https://discord.gg/4Cq8NnPYPA>
 //!
 //! ## Example
 //!
-//! An example can be seen at <https://github.com/awto-rs/thalo/tree/main/examples/bank>.
+//! An example can be seen at <https://github.com/thalo-rs/thalo/tree/main/examples/bank>.
 
 pub use actix::Message;
 pub use app::*;
