@@ -2,6 +2,14 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [0.2.1](https://github.com/thalo-rs/thalo/compare/0.2.0..0.2.1) - 2021-12-15
+#### Build system
+- fix invalid links - ([3cb1519](https://github.com/thalo-rs/thalo/commit/3cb15198781d4720263ee3a0bf113c5b89326443)) - [@tqwewe](https://github.com/tqwewe)
+- add sleep between publishing packages - ([2af0708](https://github.com/thalo-rs/thalo/commit/2af07083d1cc501ed1f7995ddaf5c100bc5d85c0)) - [@tqwewe](https://github.com/tqwewe)
+#### Miscellaneous Chores
+- merge branch 'main' of github.com:thalo-rs/thalo into dev - ([0a13f0b](https://github.com/thalo-rs/thalo/commit/0a13f0b2cf5d07a8cad5ac54326e76d89e74ac43)) - [@tqwewe](https://github.com/tqwewe)
+- - -
+
 ## [0.2.0](https://github.com/thalo-rs/thalo/compare/0.1.2..0.2.0) - 2021-12-15
 #### Bug Fixes
 - **(examples/bank)** outbox relay feature flag typo - ([e43aca4](https://github.com/thalo-rs/thalo/commit/e43aca477abf8b960ca8d6f1bb66282917d4aee0)) - [@tqwewe](https://github.com/tqwewe)
