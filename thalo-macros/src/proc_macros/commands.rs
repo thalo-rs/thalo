@@ -3,7 +3,7 @@ use proc_macro2::{Literal, TokenStream, TokenTree};
 use quote::{format_ident, quote};
 use syn::spanned::Spanned;
 
-pub struct AggregateCommands {
+pub struct Commands {
     command_ident: syn::Ident,
     event_ident: syn::Ident,
     has_tarpc_arg: bool,
@@ -27,7 +27,7 @@ struct Arg {
     ty: syn::Type,
 }
 
-impl AggregateCommands {
+impl Commands {
     fn expand_command_enum(&self) -> syn::Result<TokenStream> {
         let Self {
             command_ident,
@@ -193,7 +193,7 @@ impl AggregateCommands {
     }
 }
 
-impl AggregateCommands {
+impl Commands {
     pub fn new(
         args: syn::punctuated::Punctuated<syn::Ident, syn::Token![,]>,
         input: syn::ItemImpl,
@@ -362,7 +362,7 @@ impl AggregateCommands {
             })
             .collect::<Result<_, _>>()?;
 
-        Ok(AggregateCommands {
+        Ok(Commands {
             command_ident,
             event_ident,
             has_tarpc_arg,

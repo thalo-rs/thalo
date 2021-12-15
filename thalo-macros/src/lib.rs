@@ -17,5 +17,5 @@ derive_macro!(CombinedEvent);
 derive_macro!(MultiStreamTopic);
 derive_macro!(AggregateChannel);
 
-attribute_macro!(aggregate_events, AggregateEvents);
-attribute_macro!(aggregate_commands, AggregateCommands);
+attribute_macro!(events, Events);
+attribute_macro!(commands, Commands);

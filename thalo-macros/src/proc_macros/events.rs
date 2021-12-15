@@ -6,7 +6,7 @@ use proc_macro2::TokenTree;
 use quote::{format_ident, quote};
 use syn::spanned::Spanned;
 
-pub struct AggregateEvents {
+pub struct Events {
     event_ident: syn::Ident,
     ident: syn::Ident,
     input: syn::ItemImpl,
@@ -27,7 +27,7 @@ struct Arg {
     ty: syn::Type,
 }
 
-impl AggregateEvents {
+impl Events {
     fn expand_event_enum(&self) -> syn::Result<TokenStream> {
         let Self {
             event_ident,
@@ -160,7 +160,7 @@ impl AggregateEvents {
     }
 }
 
-impl AggregateEvents {
+impl Events {
     pub fn new(_args: syn::punctuated::Punctuated<syn::Ident, syn::Token![,]>, mut input: syn::ItemImpl) -> syn::Result<Self> {
         let ident = match &*input.self_ty {
             syn::Type::Path(type_path) => type_path.path.get_ident().unwrap().clone(),
@@ -284,7 +284,7 @@ impl AggregateEvents {
             }
         }
 
-        Ok(AggregateEvents {
+        Ok(Events {
             event_ident,
             ident,
             input,

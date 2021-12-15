@@ -1,5 +1,5 @@
-pub use aggregate_commands::AggregateCommands;
-pub use aggregate_events::AggregateEvents;
+pub use commands::Commands;
+pub use events::Events;
 
-mod aggregate_commands;
-mod aggregate_events;
+mod commands;
+mod events;

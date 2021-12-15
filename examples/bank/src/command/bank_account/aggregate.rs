@@ -1,4 +1,4 @@
-use thalo::{aggregate_commands, aggregate_events, Aggregate, AggregateType, Error};
+use thalo::{commands, events, Aggregate, AggregateType, Error};
 
 #[derive(Aggregate, Clone, Debug, Default)]
 pub struct BankAccount {
@@ -8,7 +8,7 @@ pub struct BankAccount {
     opened: bool,
 }
 
-#[aggregate_commands]
+#[commands]
 impl BankAccount {
     /// Creates a command for opening an account
     pub fn open_account(&self, initial_balance: f64) -> Result<AccountOpenedEvent, Error> {
@@ -44,7 +44,7 @@ impl BankAccount {
     }
 }
 
-#[aggregate_events]
+#[events]
 impl BankAccount {
     /// Creates an event for when a user opened an account
     pub fn account_opened(&mut self, initial_balance: f64) {
