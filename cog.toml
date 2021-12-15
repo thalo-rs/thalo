@@ -18,11 +18,13 @@ pre_bump_hooks = [
   """,
   "cargo build --workspace --release",
 ]
+
 post_bump_hooks = [
   "git push",
   "git push origin {{version}}",
   "echo 'publishing thalo-macros {{version}}'",
   "cargo publish -p thalo-macros",
+  "sleep 5",
   "echo 'publishing thalo {{version}}'",
   "cargo publish -p thalo",
 ]
