@@ -24,7 +24,7 @@ post_bump_hooks = [
   "git push origin {{version}}",
   "echo 'publishing thalo-macros {{version}}'",
   "cargo publish -p thalo-macros",
-  "sleep 5",
+  "sleep 10",
   "echo 'publishing thalo {{version}}'",
   "cargo publish -p thalo",
 ]
