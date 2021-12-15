@@ -1,10 +1,36 @@
-pre_bump_hooks = []
-post_bump_hooks = []
-
-[commit_types]
+pre_bump_hooks = [
+  # Prevent bumping from non-main branch
+  """
+  sh -c "if [[ \\"$(git rev-parse --abbrev-ref HEAD)\\" != \\"main\\" ]]; then echo \\"[error] you can only bump version on main branch\\"; exit 1; fi"
+  """,
+  "echo 'bumping from {{latest}} to {{version}}'",
+  # Update thalo version in thalo/Cargo.toml
+  """
+  sh -c "sed -i '' -e 's/^version.*$/version = \\"{{version}}\\"/' ./thalo/Cargo.toml"
+  """,
+  # Update thalo-macros dependency version in thalo/Cargo.toml
+  """
+  sh -c "sed -i '' -e 's/^thalo-macros [^,]*,/thalo-macros = { version = \\"{{version}}\\",/' ./thalo/Cargo.toml"
+  """,
+  # Update thalo-macros version in thalo-macros/Cargo.toml
+  """
+  sh -c "sed -i '' -e 's/^version.*$/version = \\"{{version}}\\"/' ./thalo-macros/Cargo.toml"
+  """,
+  "cargo build --workspace --release",
+]
+post_bump_hooks = [
+  "git push",
+  "git push origin {{version}}",
+  "echo 'publishing thalo-macros {{version}}'",
+  "cargo publish -p thalo-macros",
+  "echo 'publishing thalo {{version}}'",
+  "cargo publish -p thalo",
+]
 
 [changelog]
 path = "CHANGELOG.md"
-authors = []
-
-[bump_profiles]
+template = "remote"
+remote = "github.com"
+repository = "thalo"
+owner = "thalo-rs"
+authors = [{ signature = "Ari Seyhun", username = "Acidic9" }]
