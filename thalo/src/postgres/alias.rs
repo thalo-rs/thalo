@@ -50,16 +50,3 @@ where
         .await
     }
 }
-
-#[macro_export]
-macro_rules! send {
-    ($id: expr, $command: expr) => {
-        ::thalo::AggregateChannel::<
-            ::thalo::BaseAggregateActor<
-                ::thalo::postgres::PgEventStore<::thalo::postgres::tokio_postgres::NoTls>,
-                <$command as ::thalo::Command>::Aggregate,
-            >,
-            ::thalo::postgres::PgEventStore<::thalo::postgres::tokio_postgres::NoTls>,
-        >::send($id, $command)
-    };
-}
