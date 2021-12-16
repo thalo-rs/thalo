@@ -1,8 +1,8 @@
-pub use alias::*;
+pub use command::*;
 pub use bb8_postgres::*;
 pub use event_store::PgEventStore;
 pub use view::PgRepository;
 
-mod alias;
+mod command;
 mod event_store;
 mod view;
