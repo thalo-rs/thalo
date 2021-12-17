@@ -21,8 +21,8 @@ pub enum Error {
     FetchTopicMetadataError(rdkafka::error::KafkaError),
     #[error("get connection from database pool error: {0}")]
     GetDbPoolConnectionError(bb8_postgres::bb8::RunError<bb8_postgres::tokio_postgres::Error>),
-    #[error("{0}")]
-    Invariant(Cow<'static, str>),
+    #[error("{0}{}", .1.as_ref().map(|msg| format!(": {}", msg)).unwrap_or_default())]
+    Invariant(Cow<'static, str>, Option<Cow<'static, str>>),
     #[error(transparent)]
     MailboxError(#[from] actix::MailboxError),
     #[error("message key utf8 error: {0}")]
@@ -53,17 +53,31 @@ pub enum Error {
 }
 
 impl Error {
-    /// Invariant (or business rule) was not satisfied.
+    /// Invariant error code and message.
     ///
     /// Returns the [Error::Invariant] variant.
     ///
     /// Typically used in aggregate command handlers to indicate
     /// the failure of a command due to business rules.
-    pub fn invariant<M>(msg: M) -> Self
+    pub fn invariant<C, M>(code: C, msg: M) -> Self
     where
+        C: Into<Cow<'static, str>>,
         M: Into<Cow<'static, str>>,
     {
-        Self::Invariant(msg.into())
+        Self::Invariant(code.into(), Some(msg.into()))
+    }
+
+    /// Invariant error code only.
+    ///
+    /// Returns the [Error::Invariant] variant.
+    ///
+    /// Typically used in aggregate command handlers to indicate
+    /// the failure of a command due to business rules.
+    pub fn invariant_code<C>(code: C) -> Self
+    where
+        C: Into<Cow<'static, str>>,
+    {
+        Self::Invariant(code.into(), None)
     }
 
     /// Resource not found.
@@ -89,7 +103,7 @@ impl Error {
             EventMissing(_) => LevelFilter::ERROR,
             FetchTopicMetadataError(_) => LevelFilter::ERROR,
             GetDbPoolConnectionError(_) => LevelFilter::ERROR,
-            Invariant(_) => LevelFilter::WARN,
+            Invariant(_, _) => LevelFilter::WARN,
             MailboxError(_) => LevelFilter::ERROR,
             MessageKeyUtf8Error(_) => LevelFilter::ERROR,
             MessageJsonDeserializeError(_) => LevelFilter::WARN,

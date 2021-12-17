@@ -13,7 +13,7 @@ impl BankAccount {
     /// Creates a command for opening an account
     pub fn open_account(&self, initial_balance: f64) -> Result<AccountOpenedEvent, Error> {
         if self.opened {
-            return Err(Error::invariant("account already opened"));
+            return Err(Error::invariant_code("ACCOUNT_ALREADY_OPENED"));
         }
 
         // Reference the event created by the BankAccount::account_opened method
@@ -23,7 +23,7 @@ impl BankAccount {
     /// Deposit funds
     pub fn deposit_funds(&self, amount: f64) -> Result<FundsDepositedEvent, Error> {
         if !self.opened {
-            return Err(Error::invariant("account does not exist"));
+            return Err(Error::invariant_code("ACCOUNT_DOES_NOT_EXIST"));
         }
 
         Ok(FundsDepositedEvent { amount })
@@ -32,12 +32,12 @@ impl BankAccount {
     /// Withdraw funds
     pub fn withdraw_funds(&self, amount: f64) -> Result<FundsWithdrawnEvent, Error> {
         if !self.opened {
-            return Err(Error::invariant("account does not exist"));
+            return Err(Error::invariant_code("ACCOUNT_DOES_NOT_EXIST"));
         }
 
         let new_balance = self.balance - amount;
         if new_balance < 0.0 {
-            return Err(Error::invariant("insufficient funds for withdrawal"));
+            return Err(Error::invariant_code("INSUFFICIENT_FUNDS"));
         }
 
         Ok(FundsWithdrawnEvent { amount })

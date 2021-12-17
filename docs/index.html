@@ -38,15 +38,27 @@
       }
 
       .logo {
-        width: 120px;
+        width: 70px;
         height: auto;
         text-align: center;
       }
 
+      @media (min-width: 640px) {
+        .logo {
+          width: 120px;
+        }
+      }
+
       .primary-heading {
         color: #fff;
-        font-size: 58px;
+        font-size: 38px;
         text-align: center;
+      }
+
+      @media (min-width: 640px) {
+        .primary-heading {
+          font-size: 58px;
+        }
       }
 
       .primary-heading span {
@@ -58,30 +70,50 @@
       .subtext {
         text-align: center;
         font-weight: 300;
-        font-size: 20px;
+        font-size: 15px;
         color: #989898;
         max-width: 800px;
         padding: 0;
         margin: 20px auto;
       }
 
+      @media (min-width: 640px) {
+        .subtext {
+          font-size: 20px;
+        }
+      }
+
       .buttons-container {
         display: flex;
+        flex-direction: column;
         justify-content: center;
         align-items: center;
         padding: 8px;
       }
 
+      @media (min-width: 640px) {
+        .buttons-container {
+          flex-direction: column;
+        }
+      }
+
       .buttons-container a {
         color: #fff;
         margin: 8px;
-        padding: 16px 0;
-        width: 200px;
+        padding: 12px 0;
+        width: 100%;
         text-decoration: none;
         border: 2px solid #fff;
         border-radius: 4px;
         font-size: 18px;
         transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+      }
+
+      @media (min-width: 640px) {
+        .buttons-container a {
+          padding: 16px 0;
+          width: 200px;
+        }
       }
 
       .buttons-container a:hover {
