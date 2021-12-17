@@ -53,18 +53,31 @@ pub enum Error {
 }
 
 impl Error {
-    /// Invariant (or business rule) was not satisfied.
+    /// Invariant error code and message.
     ///
     /// Returns the [Error::Invariant] variant.
     ///
     /// Typically used in aggregate command handlers to indicate
     /// the failure of a command due to business rules.
-    pub fn invariant<C, M>(code: C, msg: Option<M>) -> Self
+    pub fn invariant<C, M>(code: C, msg: M) -> Self
     where
         C: Into<Cow<'static, str>>,
         M: Into<Cow<'static, str>>,
     {
-        Self::Invariant(code.into(), msg.map(|m| m.into()))
+        Self::Invariant(code.into(), Some(msg.into()))
+    }
+
+    /// Invariant error code only.
+    ///
+    /// Returns the [Error::Invariant] variant.
+    ///
+    /// Typically used in aggregate command handlers to indicate
+    /// the failure of a command due to business rules.
+    pub fn invariant_code<C>(code: C) -> Self
+    where
+        C: Into<Cow<'static, str>>,
+    {
+        Self::Invariant(code.into(), None)
     }
 
     /// Resource not found.
