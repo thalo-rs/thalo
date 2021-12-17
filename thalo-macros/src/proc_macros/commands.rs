@@ -171,7 +171,20 @@ impl Commands {
                         },
                     )
                     .await
-                    .map_err(|err| err.to_string())
+                    .map_err(|err| ::serde_json::to_string(&match err {
+                        ::thalo::Error::Invariant(code, msg) => {
+                            ::serde_json::json!({
+                                "code": code,
+                                "message": msg,
+                            })
+                        }
+                        _ => {
+                            ::serde_json::json!({
+                                "code": "THALO_ERROR",
+                                "message": err.to_string(),
+                            })
+                        }
+                    }).unwrap_or_default())
                 }
             )
         });
