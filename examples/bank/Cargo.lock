@@ -1148,7 +1148,7 @@ dependencies = [
 
 [[package]]
 name = "thalo"
-version = "0.1.2"
+version = "0.2.1"
 dependencies = [
  "actix",
  "async-trait",
@@ -1171,7 +1171,7 @@ dependencies = [
 
 [[package]]
 name = "thalo-macros"
-version = "0.1.2"
+version = "0.2.1"
 dependencies = [
  "heck",
  "proc-macro2",
