@@ -43,6 +43,20 @@ struct WorkerContext<'a, ES: EventStore> {
     shutdown_recv: &'a Arc<Notify>,
 }
 
+/// An app is responsible for spawning aggregate actors and sending/receiving
+/// messages through the event broker.
+///
+/// #### Example
+///
+/// This example shows the quickest way to get started with a Thalo app.
+///
+/// ```
+/// thalo::new(event_store.clone(), &cfg.redpanda_host)
+///     .aggregate::<BankAccount>(500)
+///     .projection(bank_account_projection)
+///     .run()
+///     .await?;
+/// ```
 pub struct App<ES: EventStore> {
     consumer_config: ClientConfig,
     event_store: ES,
@@ -58,6 +72,7 @@ impl<ES> App<ES>
 where
     ES: EventStore + Clone + Send + Sync + Unpin + 'static,
 {
+    /// Creates a new App instance.
     pub fn new(event_store: ES, redpanda_host: impl Into<String> + Clone) -> App<ES> {
         let mut consumer_config = ClientConfig::new();
         consumer_config
@@ -147,6 +162,14 @@ where
         std::process::exit(0);
     }
 
+    /// Starts a relay for forwarding events from the outbox table
+    /// to the event broker.
+    ///
+    /// This is useful for ensuring events saved to the database
+    /// are guaranteed to be also sent to the event broker via
+    /// a tansaction.
+    ///
+    /// See <https://microservices.io/patterns/data/transactional-outbox.html>
     #[cfg(feature = "outbox-relay")]
     pub fn with_outbox_relay<Tls>(
         mut self,
@@ -175,6 +198,9 @@ where
         self
     }
 
+    /// Starts a relay from a database string connection.
+    ///
+    /// For more information, see documentation for [`App::with_outbox_relay()`].
     #[cfg(feature = "outbox-relay")]
     pub async fn with_outbox_relay_from_stringlike<Tls>(
         self,
@@ -194,11 +220,13 @@ where
         Ok(self.with_outbox_relay(pool, conn, slot))
     }
 
+    /// Sets a function to handle events that occur within the spawned workers.
     pub fn on_error(mut self, cb: fn(Error)) -> Self {
         self.on_error = Some(cb);
         self
     }
 
+    /// Adds an aggregate to be handled in the system through an aggregate actor pool.
     pub fn aggregate<A>(self, cache_cap: usize) -> Self
     where
         A: Aggregate
@@ -219,6 +247,7 @@ where
         self.aggregate_actor::<BaseAggregateActor<ES, A>, A>(cache_cap)
     }
 
+    /// Adds an aggregate to be handled in the system through an aggregate actor pool.
     pub fn aggregate_actor<Act, A>(mut self, cache_cap: usize) -> Self
     where
         Act: AggregateActor<ES, A> + Clone,
@@ -305,6 +334,9 @@ where
         self
     }
 
+    /// Adds a projection to be handled in the system by listening to events on the event broker.
+    ///
+    /// Projections are initially resynced with [`EventStore::resync_projection`].
     pub fn projection<P>(mut self, projection: P) -> Self
     where
         P: Projection + Clone + Send + Sync + 'static,
