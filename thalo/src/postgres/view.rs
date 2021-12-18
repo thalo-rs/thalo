@@ -34,7 +34,7 @@ pub trait PgRepository: Sized {
     /// If the resource is not found, [Error::ResourceNotFound] error will be returned.
     ///
     /// If the event has been handled already (ie. view's last_event_id is >= event_id),
-    /// then [ErrorKind::AlreadyHandledEvent] error will be returned.
+    /// then [Error::EventAlreadyHandled] error will be returned.
     async fn load(&self, id: &str, event_id: i64) -> Result<Self::View, Error> {
         Ok(self
             .load_opt(id, event_id)
@@ -45,7 +45,7 @@ pub trait PgRepository: Sized {
     /// Load a view as an [Option] with a given `event_id` ensuring the event hasn't already been handled.
     ///
     /// If the event has been handled already (ie. view's last_event_id is >= event_id),
-    /// then [ErrorKind::AlreadyHandledEvent] error will be returned.
+    /// then [Error::EventAlreadyHandled] error will be returned.
     async fn load_opt(&self, id: &str, event_id: i64) -> Result<Option<Self::View>, Error> {
         let result = self.load_with_last_event_id(id).await?;
         match result {
@@ -63,7 +63,7 @@ pub trait PgRepository: Sized {
     /// If the view does not exist, a new one will be created with [Identity::new_with_id].
     ///
     /// If the event has been handled already (ie. view's last_event_id is >= event_id),
-    /// then [ErrorKind::AlreadyHandledEvent] error will be returned.
+    /// then [Error::EventAlreadyHandled] error will be returned.
     async fn load_or_new(&self, id: &str, event_id: i64) -> Result<Self::View, Error>
     where
         Self::View: Identity,

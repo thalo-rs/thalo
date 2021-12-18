@@ -47,8 +47,6 @@ pub trait EventHandler {
     type View: Send;
 
     /// Handle an event and return an updated view.
-    ///
-    /// ```
     async fn handle(
         &mut self,
         id: String,

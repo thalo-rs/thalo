@@ -89,8 +89,6 @@ pub trait Aggregate:
 /// typically listen on it's own command stream. Eg `user-commands`, `bank-account-commands`.
 /// Once a command is processed, it's result should be pushed to a `command-results` stream,
 /// and events to an aggregate specific events stream (`user-events`, `bank-account-events`).
-///
-/// See a diagram here: https://youtu.be/b17l7LvrTco?t=1510 at 25:10
 impl<T, C, E> Aggregate for T
 where
     T: Identity
