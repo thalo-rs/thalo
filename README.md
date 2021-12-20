@@ -1,4 +1,9 @@
-<p align="center"><a href="http://thalo.rs" target="_blank" rel="noopener noreferrer"><img width="124" src="logo.png" alt="Thalo logo"></a></p>
+<p align="center">
+  <a href="http://thalo.rs" target="_blank" rel="noopener noreferrer"><img width="124" src="logo.png" alt="Thalo logo"></a>
+</p>
+
+<h1 align="center">Thalo</h1>
+<p align="center">Event sourcing framework for building microservices.</p>
 
 <p align="center">
   <a href="https://crates.io/crates/thalo"><img src="https://img.shields.io/crates/v/thalo?style=flat-square" alt="Crates.io"></a>
@@ -9,16 +14,6 @@
   <a href="https://github.com/thalo-rs/thalo/commits"><img src="https://img.shields.io/github/last-commit/thalo-rs/thalo?style=flat-square" alt="Last Commit"></a>
   <a href="https://discord.gg/4Cq8NnPYPA"><img src="https://img.shields.io/discord/913402468895965264?color=%23414EED&label=Discord&logo=Discord&logoColor=%23FFFFFF&style=flat-square" alt="Discord"></a>
 </p>
-
-# Thalo
-
-Event sourcing framework for building microservices on an event broker.
-
-- **Fast**: Built with Rust, designed for high throughput and performance.
-
-- **Reliable**: Tollerant to inconsistencies, built for reliability.
-
-- **Scalable**: Follows the CQRS pattern and designed to integrate with Kafka/Redpanda.
 
 ## Overview
 
