@@ -3,7 +3,7 @@
 //! Thalo is a framework for creating applications with an event driven approach following
 //! concepts including [**event sourcing**](https://microservices.io/patterns/data/event-sourcing.html), [**CQRS**](https://microservices.io/patterns/data/cqrs.html), [**transactional outbox**](https://microservices.io/patterns/data/transactional-outbox.html), [**event driven**](https://martinfowler.com/articles/201701-event-driven.html), [**DDD**](https://martinfowler.com/bliki/DomainDrivenDesign.html).
 //!
-//! It is build around some core features including:
+//! It is built around some core features including:
 //! - Event Store
 //! - Aggregates
 //! - Commands & Events
@@ -18,15 +18,14 @@
 //!
 //! **Thalo is still under heavy development and is not production ready.**
 //!
-//! Documentation is extremely lacking, but will improve once the API begins
-//! to stabilise.
+//! Documentation is lacking, but will improve once the API begins to stabilise.
 //!
 //! ## Get in touch
 //!
 //! If you'd like to ask/discuss or learn more, you can reach via the liks below:
 //!
-//! - Github: <https://github.com/tqwewe>
-//! - Discord: <https://discord.gg/4Cq8NnPYPA>
+//! - [Github](https://github.com/tqwewe)
+//! - [Discord Server](https://discord.gg/4Cq8NnPYPA)
 //!
 //! ## Example
 //!
@@ -90,7 +89,7 @@
 //! }
 //! ```
 //!
-//! A full example can be seen at <https://github.com/thalo-rs/thalo/tree/main/examples/bank>.
+//! A full example can be seen at [examples/bank](https://github.com/thalo-rs/thalo/tree/main/examples/bank).
 
 pub use actix::Message;
 pub use app::*;
