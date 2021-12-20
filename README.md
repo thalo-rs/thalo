@@ -23,7 +23,7 @@ Thalo is an event-driven framework for building large scale systems based on the
 - [**CQRS**](https://microservices.io/patterns/data/cqrs.html)
 - [**Transactional Outbox**](https://microservices.io/patterns/data/transactional-outbox.html)
 - [**Event Driven**](https://martinfowler.com/articles/201701-event-driven.html)
-- [**DDD**](https://martinfowler.com/bliki/DomainDrivenDesign.html).
+- [**DDD**](https://martinfowler.com/bliki/DomainDrivenDesign.html)
 
 It's designed to be used with [Kafka](https://kafka.apache.org/)/[Redpanda](https://github.com/vectorizedio/redpanda), and intends to keep the API simple with the use of macros.
 
