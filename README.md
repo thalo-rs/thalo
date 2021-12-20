@@ -1,4 +1,4 @@
-<p align="center"><a href="http://thalo.rs" target="_blank" rel="noopener noreferrer"><img width="80" src="logo.png" alt="Thalo logo"></a></p>
+<p align="center"><a href="http://thalo.rs" target="_blank" rel="noopener noreferrer"><img width="124" src="logo.png" alt="Thalo logo"></a></p>
 
 <p align="center">
   <a href="https://crates.io/crates/thalo"><img src="https://img.shields.io/crates/v/thalo?style=flat-square" alt="Crates.io"></a>
