@@ -1,3 +1,15 @@
+<p align="center"><a href="http://thalo.rs" target="_blank" rel="noopener noreferrer"><img width="124" src="logo.png" alt="Thalo logo"></a></p>
+
+<p align="center">
+  <a href="https://crates.io/crates/thalo"><img src="https://img.shields.io/crates/v/thalo?style=flat-square" alt="Crates.io"></a>
+  <a href="https://docs.rs/thalo/latest/thalo/"><img src="https://img.shields.io/docsrs/thalo?style=flat-square" alt="Docs.io"></a>
+  <img src="https://img.shields.io/crates/l/thalo?style=flat-square" alt="License">
+  <a href="http://makeapullrequest.com"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square" alt="Pull Requests Welcome"></a>
+  <a href="https://github.com/thalo-rs/thalo/stargazers"><img src="https://img.shields.io/github/stars/thalo-rs/thalo?style=flat-square" alt="Stargazers"></a>
+  <a href="https://github.com/thalo-rs/thalo/commits"><img src="https://img.shields.io/github/last-commit/thalo-rs/thalo?style=flat-square" alt="Last Commit"></a>
+  <a href="https://discord.gg/4Cq8NnPYPA"><img src="https://img.shields.io/discord/913402468895965264?color=%23414EED&label=Discord&logo=Discord&logoColor=%23FFFFFF&style=flat-square" alt="Discord"></a>
+</p>
+
 # Thalo
 
 Event sourcing framework for building microservices on an event broker.
@@ -7,26 +19,6 @@ Event sourcing framework for building microservices on an event broker.
 - **Reliable**: Tollerant to inconsistencies, built for reliability.
 
 - **Scalable**: Follows the CQRS pattern and designed to integrate with Kafka/Redpanda.
-
-[![Crates.io][crates-badge]][crates-url]
-![MIT & Apache licensed][license-badge]
-[![Pull Requests Welcome][pr-badge]][pr-url]
-[![Stargazers][stars-badge]][stars-url]
-[![Last Commit][commit-badge]][commit-url]
-[![Discord][discord-badge]][discord-url]
-
-[crates-badge]: https://img.shields.io/crates/v/thalo?style=flat-square
-[crates-url]: https://crates.io/crates/thalo
-[license-badge]: https://img.shields.io/crates/l/thalo?style=flat-square
-[license-url]: https://img.shields.io/crates/l/thalo?style=flat-square
-[pr-badge]: https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square
-[pr-url]: http://makeapullrequest.com
-[stars-badge]: https://img.shields.io/github/stars/thalo-rs/thalo?style=flat-square
-[stars-url]: https://github.com/thalo-rs/thalo/stargazers
-[commit-badge]: https://img.shields.io/github/last-commit/thalo-rs/thalo?style=flat-square
-[commit-url]: https://github.com/thalo-rs/thalo/commits/main
-[discord-badge]: https://img.shields.io/discord/913402468895965264?color=%23414EED&label=Discord&logo=Discord&logoColor=%23FFFFFF&style=flat-square
-[discord-url]: https://discord.gg/4Cq8NnPYPA
 
 ## Overview
 
@@ -122,7 +114,7 @@ to get started using Thalo, you can checkout the [examples] directory, or chat w
 you! As we don't currently have a contributing guide, you can ping us on the
 Discord server or open an issue for any questions/discussions.
 
-## Release schedule
+## Release Schedule
 
 Thalo doesn't follow a fixed release schedule, but as the project is in pre-release and active development,
 you can expect commits on a near daily basis, and version updates evey few days.
