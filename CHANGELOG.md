@@ -2,6 +2,35 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [0.2.2](https://github.com/thalo-rs/thalo/compare/0.2.1..0.2.2) - 2021-12-18
+#### Build system
+- **(examples/bank)** update Cargo.lock - ([bda7bde](https://github.com/thalo-rs/thalo/commit/bda7bde119e96d26c8ebff96790e7b93a79c3bc4)) - [@tqwewe](https://github.com/tqwewe)
+- increase delay between publishing packages - ([d254b3a](https://github.com/thalo-rs/thalo/commit/d254b3ac997fa93f81cd2467fa0fc6024a42bd2c)) - [@tqwewe](https://github.com/tqwewe)
+- delete cargo-puglic script - ([39cbc53](https://github.com/thalo-rs/thalo/commit/39cbc530dc48fc46e1e7827fcb3fb5db442d2fc6)) - [@tqwewe](https://github.com/tqwewe)
+#### Documentation
+- **(docs)** add index.html - ([6345cd1](https://github.com/thalo-rs/thalo/commit/6345cd15729b05eb4590ae8b3fd2718ebb4a2c26)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo)** add information example to documentation - ([6f78420](https://github.com/thalo-rs/thalo/commit/6f784208be661b439b7660d88a4692beeb3702b4)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo)** add and fix documentation - ([bd5c732](https://github.com/thalo-rs/thalo/commit/bd5c732de7ac70c469ede91bcb96887ab0d9ffb8)) - [@tqwewe](https://github.com/tqwewe)
+#### Features
+- **(docs)** add responsive styles - ([911f4d2](https://github.com/thalo-rs/thalo/commit/911f4d21970a6cb0ebfe7921f50e95784d71be4f)) - [@tqwewe](https://github.com/tqwewe)
+- **(docs)** add favicon and description - ([e57ea29](https://github.com/thalo-rs/thalo/commit/e57ea2944ef7babe8494b63b0ae1a9347b626b5d)) - [@tqwewe](https://github.com/tqwewe)
+- **(examples/bank)** use invariant codes without message - ([2280c1f](https://github.com/thalo-rs/thalo/commit/2280c1f6c2a853b39286ac03b5d8c2ce4f5d5812)) - [@tqwewe](https://github.com/tqwewe)
+- **(examples/bank)** add invairant codes - ([7f83823](https://github.com/thalo-rs/thalo/commit/7f83823413d9393799eed0387a595da6ddfd15a4)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo)** add `Error::invariant_code` method - ([3e312fa](https://github.com/thalo-rs/thalo/commit/3e312fac0720fb7e54c211888cf5730ed0fbd6a4)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo)** add code to `Error::Invariant` - ([971ca8c](https://github.com/thalo-rs/thalo/commit/971ca8cbd06047836a163f280a83b386016cded2)) - [@tqwewe](https://github.com/tqwewe)
+- add `code` and `message` to tarpc error response - ([4cb13cf](https://github.com/thalo-rs/thalo/commit/4cb13cf1e8349c21e676196f62ed7d222f5ddd6d)) - [@tqwewe](https://github.com/tqwewe)
+#### Miscellaneous Chores
+- **(docs)** create CNAME - ([2130eac](https://github.com/thalo-rs/thalo/commit/2130eac1ca9d0f40b4a65e44adae89e7efcec844)) - [@tqwewe](https://github.com/tqwewe)
+- merge branch 'dev' - ([32231e8](https://github.com/thalo-rs/thalo/commit/32231e8ce8e78061982d549c0bf68bac4e63b918)) - [@tqwewe](https://github.com/tqwewe)
+- merge branch 'dev' of github.com:thalo-rs/thalo - ([d8aca78](https://github.com/thalo-rs/thalo/commit/d8aca782fac2b9444f20efae1a697d6f49a76250)) - [@tqwewe](https://github.com/tqwewe)
+- merge branch 'dev' of github.com:thalo-rs/thalo - ([eacee47](https://github.com/thalo-rs/thalo/commit/eacee474379c9b76bab08a7ef29329a904e7c8de)) - [@tqwewe](https://github.com/tqwewe)
+- merge branch 'main' of github.com:thalo-rs/thalo into dev - ([a2efb1e](https://github.com/thalo-rs/thalo/commit/a2efb1ecb0ea53bff9857acd40d3ba8567cb4bd9)) - [@tqwewe](https://github.com/tqwewe)
+- create CNAME - ([b7fe556](https://github.com/thalo-rs/thalo/commit/b7fe556f35bf45526b76e9e3103cd0c7f6e15254)) - [@tqwewe](https://github.com/tqwewe)
+#### Refactoring
+- **(thalo)** rename file `alias.rs` to `command.rs` - ([716d046](https://github.com/thalo-rs/thalo/commit/716d0469c4cc92096951fe6e61fd819638986485)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo)** remove unused macro `send` - ([ac52b26](https://github.com/thalo-rs/thalo/commit/ac52b26e3599a3b8660803966d9b153f76f1271c)) - [@tqwewe](https://github.com/tqwewe)
+- - -
+
 ## [0.2.1](https://github.com/thalo-rs/thalo/compare/0.2.0..0.2.1) - 2021-12-15
 #### Build system
 - fix invalid links - ([3cb1519](https://github.com/thalo-rs/thalo/commit/3cb15198781d4720263ee3a0bf113c5b89326443)) - [@tqwewe](https://github.com/tqwewe)
