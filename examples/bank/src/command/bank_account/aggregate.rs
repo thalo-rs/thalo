@@ -1,4 +1,4 @@
-use thalo::{commands, events, Aggregate, AggregateType, Error};
+use thalo::{commands, events, Aggregate, Error};
 
 #[derive(Aggregate, Clone, Debug, Default)]
 pub struct BankAccount {
