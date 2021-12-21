@@ -36,7 +36,7 @@ impl AggregateChannel {
                     command: <Self as ::thalo::Aggregate>::Command,
                 ) -> Result<(), ::thalo::Error> {
                     let value = <Self as ::thalo::SharedGlobal<Act, ES>>::get()
-                        .ok_or_else(|| ::thalo::Error::AggregateChannelNotInitialised(Self::aggregate_type()))?;
+                        .ok_or_else(|| ::thalo::Error::AggregateChannelNotInitialised(<Self as ::thalo::AggregateType>::aggregate_type()))?;
                     let value = value.value();
 
                     <<Self as ::thalo::SharedGlobal<Act, ES>>::Value>::do_send(value, id, command).await
@@ -47,7 +47,7 @@ impl AggregateChannel {
                     command: <Self as ::thalo::Aggregate>::Command,
                 ) -> Result<Vec<::thalo::EventEnvelope<<Self as ::thalo::Aggregate>::Event>>, ::thalo::Error> {
                     let value = <Self as ::thalo::SharedGlobal<Act, ES>>::get()
-                        .ok_or_else(|| ::thalo::Error::AggregateChannelNotInitialised(Self::aggregate_type()))?;
+                        .ok_or_else(|| ::thalo::Error::AggregateChannelNotInitialised(<Self as ::thalo::AggregateType>::aggregate_type()))?;
                     let value = value.value();
 
                     <<Self as ::thalo::SharedGlobal<Act, ES>>::Value>::send(value, id, command).await
