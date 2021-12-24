@@ -1141,6 +1141,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "thaloto"
+version = "0.3.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "serde",
+]
+
+[[package]]
+name = "thaloto-postgres"
+version = "0.3.0"
+dependencies = [
+ "async-trait",
+ "bb8-postgres",
+ "serde",
+ "serde_json",
+ "thaloto",
+ "thiserror",
+]
+
+[[package]]
 name = "thiserror"
 version = "1.0.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
