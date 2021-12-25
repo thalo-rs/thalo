@@ -1,10 +1,12 @@
 //! Event store
 
 use async_trait::async_trait;
-use chrono::{DateTime, FixedOffset};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Serialize};
 
-use crate::aggregate::Aggregate;
+use crate::{
+    aggregate::Aggregate,
+    event::{AggregateEventEnvelope, EventEnvelope},
+};
 
 /// Used to store & load events.
 #[async_trait]
@@ -80,50 +82,4 @@ pub trait EventStore {
     where
         A: Aggregate,
         <A as Aggregate>::Event: Serialize;
-}
-
-/// An aggregate event envelope.
-pub type AggregateEventEnvelope<A> = EventEnvelope<<A as Aggregate>::Event>;
-
-/// A stored event with additional metadata.
-#[derive(Debug, Deserialize, Serialize)]
-pub struct EventEnvelope<E> {
-    /// Auto-incrementing event id.
-    pub id: usize,
-    /// Event timestamp.
-    // TODO: this shouldn't be here, it should be in the thalo-postgres crate
-    #[serde(with = "created_at_format")]
-    pub created_at: DateTime<FixedOffset>,
-    /// Aggregate type identifier.
-    pub aggregate_type: String,
-    /// Aggregate instance identifier.
-    pub aggregate_id: String,
-    /// Incrementing number unique where each aggregate instance starts from 0.
-    pub sequence: usize,
-    /// Event data
-    pub event: E,
-}
-
-mod created_at_format {
-    use chrono::{DateTime, FixedOffset};
-    use serde::{self, Deserialize, Deserializer, Serializer};
-
-    const FORMAT_SER: &str = "%F %T.%f%z";
-    const FORMAT_DE: &str = "%F %T.%f%#z";
-
-    pub fn serialize<S>(date: &DateTime<FixedOffset>, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let s = format!("{}", date.format(FORMAT_SER));
-        serializer.serialize_str(&s)
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<DateTime<FixedOffset>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        DateTime::parse_from_str(&s, FORMAT_DE).map_err(serde::de::Error::custom)
-    }
 }

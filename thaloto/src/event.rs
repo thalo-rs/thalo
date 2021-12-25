@@ -1,6 +1,26 @@
 //! Events
 
+use chrono::{DateTime, FixedOffset};
+use serde::{Deserialize, Serialize};
+
 use crate::aggregate::Aggregate;
+
+/// An event with additional metadata.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct EventEnvelope<E> {
+    /// Auto-incrementing event id.
+    pub id: usize,
+    /// Event timestamp.
+    pub created_at: DateTime<FixedOffset>,
+    /// Aggregate type identifier.
+    pub aggregate_type: String,
+    /// Aggregate instance identifier.
+    pub aggregate_id: String,
+    /// Incrementing number unique where each aggregate instance starts from 0.
+    pub sequence: usize,
+    /// Event data
+    pub event: E,
+}
 
 /// A unique identifier for an event type.
 ///
@@ -33,6 +53,9 @@ pub trait EventType {
     /// Unique identifier for the active event variant.
     fn event_type(&self) -> &'static str;
 }
+
+/// An aggregate event envelope.
+pub type AggregateEventEnvelope<A> = EventEnvelope<<A as Aggregate>::Event>;
 
 /// A type which implements `IntoEvents` is used to convert into
 /// a list of `Self::Event`.
