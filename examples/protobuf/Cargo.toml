@@ -1,0 +1,26 @@
+[package]
+name = "server"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+serde_json = "1.0"
+text_io = "0.1"
+thaloto = { path = "../../thaloto", features = ["tests-cfg"] }
+thaloto-inmemory = { path = "../../thaloto-inmemory" }
+tokio = { version = "1.15", features = ["macros", "rt", "rt-multi-thread"] }
+tonic = "0.6"
+prost = "0.9"
+
+[build-dependencies]
+tonic-build = "0.6"
+
+[[bin]]
+name = "client"
+path = "src/client.rs"
+
+[[bin]]
+name = "server"
+path = "src/server.rs"
