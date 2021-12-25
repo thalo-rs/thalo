@@ -1,5 +1,6 @@
 //! Events
 
+use async_trait::async_trait;
 use chrono::{DateTime, FixedOffset};
 use serde::{Deserialize, Serialize};
 
@@ -56,6 +57,20 @@ pub trait EventType {
 
 /// An aggregate event envelope.
 pub type AggregateEventEnvelope<A> = EventEnvelope<<A as Aggregate>::Event>;
+
+/// TODO Docs
+#[async_trait]
+pub trait EventHandler<Event> {
+    /// TODO Docs
+    type Error;
+
+    /// TODO Docs
+    async fn handle(&self, event: EventEnvelope<Event>) -> Result<(), Self::Error>;
+}
+
+/// An infallible error type typically used for event handlers that do not fail.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Infallible;
 
 /// A type which implements `IntoEvents` is used to convert into
 /// a list of `Self::Event`.

@@ -13,8 +13,8 @@ use bb8_postgres::{
 use serde::{de::DeserializeOwned, Serialize};
 use thaloto::{
     aggregate::{Aggregate, TypeId},
-    event::EventType,
-    event_store::{AggregateEventEnvelope, EventStore},
+    event::{AggregateEventEnvelope, EventType},
+    event_store::EventStore,
 };
 
 use crate::error::Error;

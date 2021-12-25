@@ -14,18 +14,25 @@ impl BankAccountCommand for BankAccount {
     type Error = BankAccountError;
 
     // Doesn't have &self parameter, so it is the entry command.
-    fn open_account(id: String, initial_balance: f64) -> (BankAccount, BankAccountEvent) {
+    fn open_account(
+        id: String,
+        initial_balance: f64,
+    ) -> Result<(BankAccount, BankAccountEvent), BankAccountError> {
+        if initial_balance < 0.0 {
+            return Err(BankAccountError::NegativeAmount);
+        }
+
         let bank_account = BankAccount {
             id,
             balance: initial_balance,
         };
 
-        (
+        Ok((
             bank_account,
             BankAccountEvent::OpenedAccount {
                 balance: initial_balance,
             },
-        )
+        ))
     }
 
     fn deposit_funds(&self, amount: f64) -> Result<BankAccountEvent, BankAccountError> {

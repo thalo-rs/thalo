@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::event::{EventType, IntoEvents};
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum BankAccountEvent {
     OpenedAccount { balance: f64 },
     DepositedFunds { amount: f64 },

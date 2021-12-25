@@ -1,4 +1,2 @@
-autoexamples = false
-
 [workspace]
-members = ["thaloto-*", "outbox-relay"]
+members = ["thaloto*", "outbox-relay"]
