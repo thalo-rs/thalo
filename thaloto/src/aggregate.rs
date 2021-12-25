@@ -1,14 +1,16 @@
+//! Aggregates
+
 use std::string;
 
-use crate::{event::EventType, TypeId};
+use crate::event::EventType;
 
 /// Consistency boundary around a domain entity responsible for handling commands and applying events.
 pub trait Aggregate: TypeId {
     /// The ID type of the aggregate.
-    type ID: string::ToString;
+    type ID: string::ToString + Send + Sync;
 
     /// The event type resulted by a command.
-    type Event: EventType;
+    type Event: EventType + Send + Sync;
 
     /// Create a new instance from a given ID.
     ///
@@ -20,4 +22,10 @@ pub trait Aggregate: TypeId {
 
     /// Applies an event to update internal state.
     fn apply(&mut self, event: Self::Event);
+}
+
+/// Unique type identifier
+pub trait TypeId {
+    /// Returns a unique identifier for the given type
+    fn type_id() -> &'static str;
 }

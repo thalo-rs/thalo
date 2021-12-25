@@ -1,3 +1,5 @@
+//! Event store
+
 use async_trait::async_trait;
 use chrono::{DateTime, FixedOffset};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -5,7 +7,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use crate::aggregate::Aggregate;
 
 /// Used to store & load events.
-#[async_trait(?Send)]
+#[async_trait]
 pub trait EventStore {
     /// The error type.
     type Error;
@@ -22,26 +24,29 @@ pub trait EventStore {
         <A as Aggregate>::Event: DeserializeOwned;
 
     /// Loads an aggregate by replaying all events.
-    async fn load_aggregate<A>(&self, id: <A as Aggregate>::ID) -> Result<A, Self::Error>
+    async fn load_aggregate<A>(&self, id: <A as Aggregate>::ID) -> Result<Option<A>, Self::Error>
     where
         A: Aggregate,
         <A as Aggregate>::Event: DeserializeOwned,
     {
         let events = self.load_events::<A>(Some(&id)).await?;
+        if events.is_empty() {
+            return Ok(None);
+        }
 
         let mut aggregate = <A as Aggregate>::new(id);
         for EventEnvelope { event, .. } in events {
             aggregate.apply(event);
         }
 
-        Ok(aggregate)
+        Ok(Some(aggregate))
     }
 
     /// Loads an aggregates latest sequence.
     async fn load_aggregate_sequence<A>(
         &self,
         id: &<A as Aggregate>::ID,
-    ) -> Result<i64, Self::Error>
+    ) -> Result<Option<usize>, Self::Error>
     where
         A: Aggregate;
 
@@ -49,8 +54,8 @@ pub trait EventStore {
     async fn save_events<A>(
         &self,
         id: &<A as Aggregate>::ID,
-        events: &[&<A as Aggregate>::Event],
-    ) -> Result<Vec<i64>, Self::Error>
+        events: &[<A as Aggregate>::Event],
+    ) -> Result<Vec<usize>, Self::Error>
     where
         A: Aggregate,
         <A as Aggregate>::Event: Serialize;
@@ -63,8 +68,9 @@ pub type AggregateEventEnvelope<A> = EventEnvelope<<A as Aggregate>::Event>;
 #[derive(Debug, Deserialize, Serialize)]
 pub struct EventEnvelope<E> {
     /// Auto-incrementing event id.
-    pub id: i64,
+    pub id: usize,
     /// Event timestamp.
+    // TODO: this shouldn't be here, it should be in the thalo-postgres crate
     #[serde(with = "created_at_format")]
     pub created_at: DateTime<FixedOffset>,
     /// Aggregate type identifier.
@@ -72,7 +78,7 @@ pub struct EventEnvelope<E> {
     /// Aggregate instance identifier.
     pub aggregate_id: String,
     /// Incrementing number unique where each aggregate instance starts from 0.
-    pub sequence: i64,
+    pub sequence: usize,
     /// Event data
     pub event: E,
 }

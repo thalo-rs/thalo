@@ -1,3 +1,5 @@
+//! Events
+
 use crate::aggregate::Aggregate;
 
 /// A unique identifier for an event type.
@@ -5,6 +7,8 @@ use crate::aggregate::Aggregate;
 /// # Example
 ///
 /// ```
+/// # use thaloto::event::EventType;
+/// #
 /// enum BankAccountEvent {
 ///     DepositedFunds {
 ///         amount: f64,

@@ -1,4 +1,7 @@
-use crate::{aggregate::Aggregate, TypeId};
+use thiserror::Error;
+use tonic::{metadata::MetadataMap, Code, Status};
+
+use crate::aggregate::{Aggregate, TypeId};
 
 use super::{BankAccountCommand, BankAccountEvent};
 
@@ -51,9 +54,13 @@ impl BankAccountCommand for BankAccount {
     }
 }
 
+#[derive(Debug, Error)]
 pub enum BankAccountError {
+    #[error("insufficient funds")]
     InsufficientFunds,
+    #[error("negative amount")]
     NegativeAmount,
+    #[error("zero amount")]
     ZeroAmount,
 }
 
@@ -89,5 +96,34 @@ impl Aggregate for BankAccount {
 impl TypeId for BankAccount {
     fn type_id() -> &'static str {
         "bank_account"
+    }
+}
+
+impl BankAccountError {
+    pub fn code(&self) -> &'static str {
+        use BankAccountError::*;
+
+        match self {
+            InsufficientFunds => "INSUFFICIENT_FUNDS",
+            NegativeAmount => "NEGATIVE_AMOUNT",
+            ZeroAmount => "ZERO_AMOUNT",
+        }
+    }
+}
+
+impl From<BankAccountError> for Status {
+    fn from(err: BankAccountError) -> Self {
+        use BankAccountError::*;
+
+        let mut metadata = MetadataMap::new();
+        metadata.insert("code", err.code().parse().unwrap());
+
+        let code = match err {
+            InsufficientFunds => Code::FailedPrecondition,
+            NegativeAmount => Code::InvalidArgument,
+            ZeroAmount => Code::InvalidArgument,
+        };
+
+        Status::with_metadata(code, err.to_string(), metadata)
     }
 }

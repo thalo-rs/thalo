@@ -1,10 +1,4 @@
+autoexamples = false
 
 [workspace]
-default-members = ["thalo"]
-members = [
-  "thalo",
-  "thaloto",
-  "thaloto-postgres",
-  "thalo-macros",
-  "outbox-relay",
-]
+members = ["thaloto-*", "outbox-relay"]

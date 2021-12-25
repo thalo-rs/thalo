@@ -103,6 +103,13 @@ to get started using Thalo, you can checkout the [examples] directory, or chat w
 [examples]: https://github.com/thalo-rs/thalo/tree/main/examples
 [discord server]: https://discord.gg/4Cq8NnPYPA
 
+## Project Layout
+
+- thalo
+- thalo-inmemory
+- thalo-kafka
+- thalo-postgres
+
 ## Contributing
 
 :balloon: Thanks for your help improving the project! We are so happy to have
