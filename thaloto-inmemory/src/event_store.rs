@@ -10,13 +10,19 @@ use thaloto::{
 
 use crate::Error;
 
+/// An in memory event store.
+///
+/// This is useful for testing, but is not recommended
+/// for production as the data does not persist to disk.
+///
+/// See [crate] documentation for more info.
 #[derive(Debug, Default)]
 pub struct InMemoryEventStore {
     events: RwLock<Vec<EventRecord>>,
 }
 
 #[derive(Debug)]
-pub struct EventRecord {
+struct EventRecord {
     created_at: DateTime<Utc>,
     aggregate_type: &'static str,
     aggregate_id: String,
