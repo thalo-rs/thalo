@@ -1,8 +1,9 @@
-use std::io::Write;
+use std::io::{stdout, Write};
 use std::{fmt, io, str};
 
 use api::bank_account_client::BankAccountClient;
 use api::{DepositFundsCommand, OpenAccountCommand, WithdrawFundsCommand};
+use crossterm::{cursor, execute};
 use text_io::{read, try_read};
 use tonic::{transport::Channel, Status};
 
@@ -12,33 +13,42 @@ mod api;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut client = BankAccountClient::connect("http://[::1]:50051").await?;
 
+    print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
+
     loop {
         println!("Choose a command:");
         println!("  1) Open an account");
         println!("  2) Deposit funds");
         println!("  3) Withdraw funds");
+        execute!(stdout(), cursor::SavePosition).ok();
         let input: String = read("");
         let response = match input.as_str() {
-            "1" => open_account(&mut client).await,
-            "2" => deposit_funds(&mut client).await,
-            "3" => withdraw_funds(&mut client).await,
+            "1" => {
+                execute!(stdout(), cursor::RestorePosition).ok();
+                println!("Open an account");
+                open_account(&mut client).await
+            }
+            "2" => {
+                execute!(stdout(), cursor::RestorePosition).ok();
+                println!("Deposit funds");
+                deposit_funds(&mut client).await
+            }
+            "3" => {
+                execute!(stdout(), cursor::RestorePosition).ok();
+                println!("Deposit funds");
+                withdraw_funds(&mut client).await
+            }
             _ => {
                 println!("[error] invalid input\n");
                 continue;
             }
         };
 
+        print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
+
         match response {
-            Ok(_) => println!("ok"),
-            Err(status) => {
-                let code = status
-                    .metadata()
-                    .get("code")
-                    .and_then(|code| code.to_str().ok())
-                    .unwrap_or_else(|| status.code().description());
-                let message = status.message();
-                println!("{}: {}", code, message);
-            }
+            Ok(_) => println!("[ok]"),
+            Err(status) => println!("Command failed: {}\n", status.message()),
         }
     }
 }
@@ -79,12 +89,14 @@ async fn withdraw_funds(
     client.withdraw_funds(command).await
 }
 
-fn read<T>(msg: impl fmt::Display) -> T
+fn read<T>(msg: &str) -> T
 where
     T: fmt::Display + str::FromStr,
     <T as std::str::FromStr>::Err: fmt::Debug,
 {
-    print!("{}: ", msg);
+    if !msg.is_empty() {
+        print!("{}: ", msg);
+    }
     io::stdout().flush().unwrap();
     read!()
 }
@@ -99,7 +111,7 @@ where
         io::stdout().flush().unwrap();
         match try_read!() {
             Ok(val) => return val,
-            Err(_) => println!("\nInvalid input"),
+            Err(_) => println!("Invalid input"),
         }
     }
 }

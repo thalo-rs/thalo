@@ -2,18 +2,30 @@ use std::sync::Arc;
 
 use thaloto::{
     aggregate::Aggregate,
-    event::IntoEvents,
+    event::{AggregateEventEnvelope, IntoEvents},
     event_store::EventStore,
     tests_cfg::bank_account::{BankAccount, BankAccountCommand},
 };
 use thaloto_inmemory::InMemoryEventStore;
+use tokio::sync::broadcast::Sender;
 use tonic::{Request, Status};
 
 tonic::include_proto!("bank_account");
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct BankAccountService {
-    event_store: Arc<InMemoryEventStore>,
+    pub(crate) event_store: Arc<InMemoryEventStore>,
+    event_stream: Sender<AggregateEventEnvelope<BankAccount>>,
+}
+
+impl BankAccountService {
+    #[allow(unused)]
+    pub fn new(event_stream: Sender<AggregateEventEnvelope<BankAccount>>) -> Self {
+        BankAccountService {
+            event_store: Arc::new(InMemoryEventStore::default()),
+            event_stream,
+        }
+    }
 }
 
 #[tonic::async_trait]
@@ -34,13 +46,16 @@ impl bank_account_server::BankAccount for BankAccountService {
             return Err(Status::already_exists("account already opened"));
         }
 
-        let (bank_account, event) = BankAccount::open_account(command.id, command.initial_balance);
+        let (bank_account, event) = BankAccount::open_account(command.id, command.initial_balance)?;
         let events = event.into_events();
 
-        self.event_store
+        let event_ids = self
+            .event_store
             .save_events::<BankAccount>(bank_account.id(), &events)
             .await
             .map_err(|err| Status::internal(err.to_string()))?;
+
+        broadcast_events(&self.event_store, &self.event_stream, &event_ids).await?;
 
         let events_json = serde_json::to_string(&events)
             .map_err(|_| Status::internal("failed to serialize events"))?;
@@ -65,10 +80,13 @@ impl bank_account_server::BankAccount for BankAccountService {
 
         let events = bank_account.deposit_funds(command.amount)?.into_events();
 
-        self.event_store
+        let event_ids = self
+            .event_store
             .save_events::<BankAccount>(bank_account.id(), &events)
             .await
             .map_err(|err| Status::internal(err.to_string()))?;
+
+        broadcast_events(&self.event_store, &self.event_stream, &event_ids).await?;
 
         let events_json = serde_json::to_string(&events)
             .map_err(|_| Status::internal("failed to serialize events"))?;
@@ -93,10 +111,13 @@ impl bank_account_server::BankAccount for BankAccountService {
 
         let events = bank_account.withdraw_funds(command.amount)?.into_events();
 
-        self.event_store
+        let event_ids = self
+            .event_store
             .save_events::<BankAccount>(bank_account.id(), &events)
             .await
             .map_err(|err| Status::internal(err.to_string()))?;
+
+        broadcast_events(&self.event_store, &self.event_stream, &event_ids).await?;
 
         let events_json = serde_json::to_string(&events)
             .map_err(|_| Status::internal("failed to serialize events"))?;
@@ -105,4 +126,23 @@ impl bank_account_server::BankAccount for BankAccountService {
             events: events_json,
         }))
     }
+}
+
+async fn broadcast_events(
+    event_store: &InMemoryEventStore,
+    event_stream: &Sender<AggregateEventEnvelope<BankAccount>>,
+    event_ids: &[usize],
+) -> Result<(), Status> {
+    let event_envelopes = event_store
+        .load_events_by_id::<BankAccount>(event_ids)
+        .await
+        .map_err(|err| Status::internal(err.to_string()))?;
+
+    for event_envelope in event_envelopes {
+        event_stream
+            .send(event_envelope)
+            .map_err(|err| Status::internal(err.to_string()))?;
+    }
+
+    Ok(())
 }
