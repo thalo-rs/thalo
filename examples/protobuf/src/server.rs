@@ -1,9 +1,9 @@
 use api::bank_account_server::BankAccountServer;
 use api::BankAccountService;
 use futures_util::stream::StreamExt;
-use thaloto::tests_cfg::bank_account::{BankAccount, BankAccountProjection};
-use thaloto::{event::EventHandler, event_stream::EventStream};
-use thaloto_inmemory::InMemoryEventStore;
+use thalo::tests_cfg::bank_account::{BankAccount, BankAccountProjection};
+use thalo::{event::EventHandler, event_stream::EventStream};
+use thalo_inmemory::InMemoryEventStore;
 use tokio::sync::broadcast;
 use tonic::transport::Server;
 

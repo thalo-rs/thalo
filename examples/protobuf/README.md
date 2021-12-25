@@ -5,15 +5,13 @@ A client & server demonstrating an in-memory bank account app with an aggregate 
 ## Run Server
 
 ```bash
-$ cd ./examples/protobuf
-$ cargo run --bin server
+$ cargo run -p example-protobuf --bin server
 ```
 
 ## Run Client
 
 ```bash
-$ cd ./examples/protobuf
-$ cargo run --bin client
+$ cargo run -p example-protobuf --bin client
 ```
 
 ### Screenshot

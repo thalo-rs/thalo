@@ -996,8 +996,8 @@ dependencies = [
  "prost",
  "serde_json",
  "text_io",
- "thaloto",
- "thaloto-inmemory",
+ "thalo",
+ "thalo-inmemory",
  "tokio",
  "tonic",
  "tonic-build",
@@ -1098,7 +1098,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee74b5019b48991b09803402aaf9e65a053b3993fe9d9c475ab67a395358ba76"
 
 [[package]]
-name = "thaloto"
+name = "thalo"
 version = "0.3.0"
 dependencies = [
  "actix",
@@ -1114,7 +1114,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "thaloto-inmemory"
+name = "thalo-inmemory"
 version = "0.1.0"
 dependencies = [
  "async-trait",
@@ -1122,7 +1122,7 @@ dependencies = [
  "prettytable-rs",
  "serde",
  "serde_json",
- "thaloto",
+ "thalo",
  "thiserror",
 ]
 
