@@ -17,98 +17,39 @@
 
 ## Overview
 
-Thalo is an event-driven framework for building large scale systems based on the following patterns:
+Thalo is an event-sourcing framework for building large scale systems based on the following patterns:
 
 - [**Event Sourcing**](https://microservices.io/patterns/data/event-sourcing.html)
 - [**CQRS**](https://microservices.io/patterns/data/cqrs.html)
-- [**Transactional Outbox**](https://microservices.io/patterns/data/transactional-outbox.html)
 - [**Event Driven**](https://martinfowler.com/articles/201701-event-driven.html)
+- [**Transactional Outbox**](https://microservices.io/patterns/data/transactional-outbox.html)
 - [**DDD**](https://martinfowler.com/bliki/DomainDrivenDesign.html)
 
-It's designed to be used with [Kafka](https://kafka.apache.org/)/[Redpanda](https://github.com/vectorizedio/redpanda), and intends to keep the API simple with the use of macros.
+It's designed to be modular with additional crates implementing most functionality.
+
+**Official Crates**
+
+- [thalo](https://docs.rs/thalo) - Core framework.
+- [thalo-postgres](https://docs.rs/thalo-kafka) - Postgres implementation of [`EventStore`](https://docs.rs/thalo/latest/thalo/event_store/trait.EventStore.html).
+- [thalo-inmemory](https://docs.rs/thalo-inmemory) - In-memory implementation of [`EventStore`](https://docs.rs/thalo/latest/thalo/event_store/trait.EventStore.html).
+- [thalo-kafka](https://docs.rs/thalo-kafka) - Kafka implementation of [`EventStream`](https://docs.rs/thalo/latest/thalo/event_stream/trait.EventStream.html).
 
 ## Why
 
-With Rust being a little behind when it comes to maturity, the ecosystem is lacking Event Sourcing & CQRS frameworks. Many of which are abandoned, or just not feature rich. Thalo aims to provide everything needed to build event sourced services with an opinionated approach.
+With Rust being a younger language than most, the ecosystem is lacking Event Sourcing & CQRS frameworks. Many of which are abandoned, or just not feature rich. Thalo aims to provide a backbone and some core crates to build robust event sourced systems.
 
-## Example
+## Examples
 
-The following is an example of a bank, showing how to define a single command and event.
-
-```rust
-use thalo::{commands, events, Aggregate, AggregateType, Error};
-
-#[derive(Aggregate, Clone, Debug, Default)]
-pub struct BankAccount {
-    #[identity]
-    account_number: String,
-    balance: f64,
-    opened: bool,
-}
-
-#[commands]
-impl BankAccount {
-    /// Creates a command for opening an account
-    pub fn open_account(&self, initial_balance: f64) -> Result<AccountOpenedEvent, Error> {
-        if self.opened {
-            return Err(Error::invariant_code("ACCOUNT_ALREADY_OPENED"));
-        }
-
-        // Reference the event created by the BankAccount::account_opened method
-        Ok(AccountOpenedEvent { initial_balance })
-    }
-}
-
-#[events]
-impl BankAccount {
-    /// Creates an event for when a user opened an account
-    pub fn account_opened(&mut self, initial_balance: f64) {
-        self.balance = initial_balance;
-        self.opened = true;
-    }
-}
-```
-
-The `#[commands]` and `#[events]` attribute macros generate a lot based on your implementations including:
-
-- `BankAccountCommand` enum
-- `BankAccountEvent` enum
-- `AccountOpenedEvent` struct
-
-_Below are the enums & structs generated:_
-
-```rust
-pub enum BankAccountCommand {
-    OpenAccount {
-        initial_balance: f64,
-    },
-}
-
-pub enum BankAccountEvent {
-    AccountOpened(AccountOpenedEvent),
-}
-
-pub struct AccountOpenedEvent {
-    initial_balance: f64,
-}
-```
-
-A full example can be seen at [examples/bank](https://github.com/thalo-rs/thalo/tree/main/examples/bank).
+Examples can be seen in the [`examples`](/examples) directory.
 
 ## Getting Help
 
-As Thalo is in pre-release, its API is not stable and documentation is lacking. If you'd like
-to get started using Thalo, you can checkout the [examples] directory, or chat with us on our [Discord server].
+As Thalo is in pre-release, the API is not stable yet.
+If you'd like to get started using Thalo, you can checkout the [examples] directory,
+or chat with us on our [Discord server].
 
 [examples]: https://github.com/thalo-rs/thalo/tree/main/examples
 [discord server]: https://discord.gg/4Cq8NnPYPA
-
-## Project Layout
-
-- thalo
-- thalo-inmemory
-- thalo-kafka
-- thalo-postgres
 
 ## Contributing
 
@@ -125,8 +66,8 @@ you can expect commits on a near daily basis, and version updates evey few days.
 
 This project is licensed under the [MIT] OR [Apache-2.0] license.
 
-[mit]: https://github.com/thalo-rs/thalo/blob/main/LICENSE-MIT
-[apache-2.0]: https://github.com/thalo-rs/thalo/blob/main/LICENSE-APACHE
+[mit]: /LICENSE-MIT
+[apache-2.0]: /LICENSE-APACHE
 
 ### Contribution
 
