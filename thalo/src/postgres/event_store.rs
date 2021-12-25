@@ -130,7 +130,7 @@ where
         let id = Identity::identity(agg).to_string();
         let agg_events: Vec<_> = events
             .iter()
-            .map(|event| event.aggregate_event(&id))
+            .map(|event| AggregateEvent::<'_, A>::new(&id, event))
             .collect();
         self.save_events(agg_events).await?;
 

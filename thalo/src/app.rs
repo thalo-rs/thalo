@@ -26,8 +26,8 @@ use tokio::{select, signal, sync::Notify};
 use tracing::{debug, error, trace};
 
 use crate::{
-    Aggregate, AggregateActor, AggregateActorPool, AggregateChannel, BaseAggregateActor, Error,
-    EventEnvelope, EventHandler, EventStore, MultiStreamTopic, Projection, SharedGlobal,
+    Aggregate, AggregateActor, AggregateActorPool, AggregateChannel, BaseAggregateActor, BatchSize,
+    Error, EventEnvelope, EventHandler, EventStore, MultiStreamTopic, Projection, SharedGlobal,
     StreamTopic,
 };
 
@@ -378,7 +378,7 @@ where
             }
 
             Ok(async move {
-                if let Err(err) = event_store.resync_projection(&mut projection).await {
+                if let Err(err) = event_store.resync_projection(&mut projection, BatchSize::default()).await {
                     if let Some(on_error) = on_error {
                         on_error(err);
                     }
@@ -424,9 +424,10 @@ where
 
 
                         let mut projection = projection.clone();
-                        let view = projection.handle(key.to_string(), event, event_id, event_sequence).await?;
+                        let mut view = projection.load_view(key).await?;
+                        projection.handle(&mut view, event, event_id, event_sequence).await?;
                         projection
-                            .commit(key, view, event_id, event_sequence)
+                            .commit(key, &view, event_id, event_sequence)
                             .await?;
 
                         trace!(projection = projection_type, key, event_id, "handled projection");

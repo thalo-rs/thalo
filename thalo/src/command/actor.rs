@@ -9,8 +9,8 @@ use tokio::sync::Mutex;
 use tracing::{debug, trace};
 
 use crate::{
-    Aggregate, AggregateCommandHandler, AggregateType, Error, Event, EventEnvelope, EventStore,
-    StreamTopic,
+    Aggregate, AggregateCommandHandler, AggregateEvent, AggregateType, Error, Event, EventEnvelope,
+    EventStore, StreamTopic,
 };
 
 pub trait AggregateActor<ES, A>
@@ -100,7 +100,7 @@ where
                 })?;
                 let agg_events: Vec<_> = events
                     .iter()
-                    .map(|event| event.aggregate_event(&id))
+                    .map(|event| AggregateEvent::<'_, <E as Event>::Aggregate>::new(&id, event))
                     .collect();
                 let inserted_events = event_store.save_events(agg_events).await?;
                 events.into_iter().for_each(|event| aggregate.apply(event));

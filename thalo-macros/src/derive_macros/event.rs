@@ -30,10 +30,6 @@ impl Event {
                         #( Self::#variant_idents(_) => #variant_strings, )*
                     }
                 }
-
-                fn aggregate_event<'a>(&'a self, aggregate_id: &'a str) -> ::thalo::AggregateEvent<'a, #aggregate> {
-                    ::thalo::AggregateEvent::new(aggregate_id, self)
-                }
             }
         ))
     }

@@ -106,6 +106,7 @@ pub use topic::*;
 mod app;
 mod command;
 mod error;
+mod event;
 pub mod postgres;
 mod query;
 mod shared_global;

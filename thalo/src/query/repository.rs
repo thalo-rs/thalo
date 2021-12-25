@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, ops::Range};
+use std::{collections::HashMap, marker::PhantomData, ops::Range};
 
 use async_trait::async_trait;
 use chrono::{DateTime, FixedOffset};
@@ -6,7 +6,8 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, trace};
 
 use crate::{
-    Aggregate, AggregateEventHandler, CombinedEvent, Error, Event, EventHandler, Projection,
+    Aggregate, AggregateEventHandler, CombinedEvent, Error, Event, EventHandler, Identity,
+    Projection,
 };
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -26,6 +27,25 @@ where
             aggregate_id,
             event,
         }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BatchSize(usize);
+
+impl BatchSize {
+    pub fn new(size: usize) -> Self {
+        BatchSize(size)
+    }
+
+    pub fn size(&self) -> usize {
+        self.0
+    }
+}
+
+impl Default for BatchSize {
+    fn default() -> Self {
+        BatchSize(10)
     }
 }
 
@@ -72,7 +92,63 @@ pub trait EventStore {
 
     async fn load_aggregate<A: Aggregate>(&self, id: &str) -> Result<A, Error>;
 
-    async fn resync_projection<P>(&self, projection: &mut P) -> Result<(), Error>
+    /// Replays a projection from it's first event to the latest event.
+    ///
+    /// `projection` should be a default instance of the projection which the events will be applied to.
+    ///
+    /// `batch_size` allows events to be queries in batches.
+    async fn replay_projection<P>(
+        &self,
+        id: <<P as EventHandler>::View as Identity>::ID,
+        projection: &mut P,
+        batch_size: BatchSize,
+    ) -> Result<<P as EventHandler>::View, Error>
+    where
+        P: Projection + Send + Sync,
+        <P as EventHandler>::View: Identity,
+    {
+        let aggregate_types = <<P as EventHandler>::Event as CombinedEvent>::aggregate_types();
+        let mut last_event_version = -1;
+        let projection_type = <P as Projection>::projection_type();
+        trace!(%projection_type, last_event_version, ?aggregate_types, "loading projection");
+
+        let mut view = <P as EventHandler>::View::new_with_id(id);
+
+        loop {
+            let events = self
+                .get_aggregate_events::<<P as EventHandler>::Event>(
+                    &aggregate_types,
+                    None,
+                    last_event_version + 1..last_event_version + 1 + batch_size.size() as i64,
+                )
+                .await?;
+
+            if events.is_empty() {
+                break;
+            }
+
+            for event in events {
+                projection
+                    .handle(&mut view, event.event.clone(), event.id, event.sequence)
+                    .await?;
+                last_event_version = event.id;
+            }
+        }
+
+        Ok(view)
+    }
+
+    /// Replays a projection and syncs it in the database based on the projections [`Projection::last_event_id`].
+    /// After every event is applied, [`EventHandler::commit`] is called which typically saves the projection to the database.
+    ///
+    /// `projection` should be a default instance of the projection which the events will be applied to.
+    ///
+    /// `batch_size` allows events to be queries in batches.
+    async fn resync_projection<P>(
+        &self,
+        projection: &mut P,
+        batch_size: BatchSize,
+    ) -> Result<(), Error>
     where
         P: Projection + Send + Sync,
     {
@@ -82,11 +158,13 @@ pub trait EventStore {
         trace!(%projection_type, last_event_version, ?aggregate_types, "resyncing projection");
 
         loop {
+            let mut views = HashMap::<String, <P as EventHandler>::View>::new();
+
             let missing_events = self
                 .get_aggregate_events::<<P as EventHandler>::Event>(
                     &aggregate_types,
                     None,
-                    last_event_version + 1..last_event_version + 10,
+                    last_event_version + 1..last_event_version + 1 + batch_size.size() as i64,
                 )
                 .await?;
 
@@ -95,9 +173,18 @@ pub trait EventStore {
             }
 
             for missing_event in missing_events {
-                let view = projection
+                let mut view = match views.get_mut(&missing_event.aggregate_id) {
+                    Some(view) => view,
+                    None => {
+                        let view = projection.load_view(&missing_event.aggregate_id).await?;
+                        let entry = views.entry(missing_event.aggregate_id.clone());
+                        entry.or_insert(view)
+                    }
+                };
+
+                projection
                     .handle(
-                        missing_event.aggregate_id.clone(),
+                        &mut view,
                         missing_event.event.clone(),
                         missing_event.id,
                         missing_event.sequence,
@@ -106,11 +193,12 @@ pub trait EventStore {
                 projection
                     .commit(
                         &missing_event.aggregate_id,
-                        view,
+                        &view,
                         missing_event.id,
                         missing_event.sequence,
                     )
                     .await?;
+
                 last_event_version = missing_event.id;
                 debug!(%projection_type, last_event_version, ?missing_event, "handled missing event");
             }
