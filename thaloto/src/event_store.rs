@@ -23,6 +23,27 @@ pub trait EventStore {
         A: Aggregate,
         <A as Aggregate>::Event: DeserializeOwned;
 
+    /// Load events by ids.
+    async fn load_event_by_id<A>(
+        &self,
+        id: usize,
+    ) -> Result<Option<AggregateEventEnvelope<A>>, Self::Error>
+    where
+        A: Aggregate,
+        <A as Aggregate>::Event: DeserializeOwned,
+    {
+        Ok(self.load_events_by_id::<A>(&[id]).await?.into_iter().next())
+    }
+
+    /// Load events by ids.
+    async fn load_events_by_id<A>(
+        &self,
+        ids: &[usize],
+    ) -> Result<Vec<AggregateEventEnvelope<A>>, Self::Error>
+    where
+        A: Aggregate,
+        <A as Aggregate>::Event: DeserializeOwned;
+
     /// Loads an aggregate by replaying all events.
     async fn load_aggregate<A>(&self, id: <A as Aggregate>::ID) -> Result<Option<A>, Self::Error>
     where
