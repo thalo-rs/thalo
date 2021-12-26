@@ -14,8 +14,8 @@ $ cargo run -p example-protobuf --bin server
 $ cargo run -p example-protobuf --bin client
 ```
 
-### Screenshot
+### Preview
 
-![Screenshot](/examples/protobuf/screenshot.png?raw=true "Screenshot")
+![Preview](/examples/protobuf/preview.gif?raw=true "Preview")
 
-_Screenshot of server on left and client on right._
+_Server on left & client on right._
