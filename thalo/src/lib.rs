@@ -34,9 +34,6 @@
 
 #![deny(missing_docs)]
 
-#[cfg(feature = "actor")]
-pub mod actor;
-
 pub mod aggregate;
 
 pub mod event;

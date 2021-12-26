@@ -17,7 +17,6 @@ categories = [
 ]
 
 [dependencies]
-actix = { version = "0.12", optional = true }
 async-trait = { version = "0.1" }
 async-stream = { version = "0.3", optional = true }
 chrono = { version = "0.4", features = ["serde"] }
@@ -34,8 +33,7 @@ thiserror = "1.0"
 tonic = { version = "0.6", default-features = false }
 
 [features]
-default = ["actor", "event-store", "event-stream", "with-tokio-stream"]
-actor = ["actix"]
+default = ["event-store", "event-stream", "with-tokio-stream"]
 event-store = []
 event-stream = ["futures-util"]
 with-tokio-stream = ["async-stream", "futures-util", "tokio-stream"]
