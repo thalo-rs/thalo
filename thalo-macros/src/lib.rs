@@ -107,6 +107,66 @@ pub fn aggregate(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     declare_derive_macro::<derives::Aggregate>(input)
 }
 
+/// Implements [`EventType`](thalo::event::EventType) for a given struct.
+///
+/// # Container Attributes
+///
+/// - `#[thalo(rename_all = "...")]`
+///
+///   Rename all variants according to the given case convention.
+///
+///   The possible values are:
+///   
+///   - `"lowercase"`
+///   - `"UPPERCASE"`
+///   - `"PascalCase"`
+///   - `"camelCase"`
+///   - `"snake_case"`
+///   - `"SCREAMING_SNAKE_CASE"`
+///   - `"kebab-case"`
+///   - `"SCREAMING-KEBAB-CASE"`
+///
+/// # Variant Attributes
+///
+/// - `#[thalo(rename = "name")]`
+///
+///   Use the given name as the event type instead of it's Rust name.
+///
+/// # Examples
+///
+/// Example without any attributes. All variants are used as [`EventType::event_type`](thalo::event::EventType::event_type) based on their Rust name.
+///
+/// ```
+/// #[derive(EventType)]
+/// pub enum BankAccountEvent {
+///     OpenedAccount { balance: f64 },
+///     DepositedFunds { amount: f64 },
+///     WithdrewFunds { amount: f64 },
+/// }
+///
+/// assert_eq!(BankAccountEvent::OpenedAccount { balance: 0.0 }.event_name(), "OpenedAccount");
+/// ```
+///
+/// Example without any attributes. All variants are used as [`EventType::event_type`](thalo::event::EventType::event_type) based on their Rust name.
+///
+/// ```
+/// #[derive(EventType)]
+/// #[thalo(rename_all = "SCREAMING_SNAKE_CASE")]
+/// pub enum BankAccountEvent {
+///     OpenedAccount { balance: f64 },
+///     DepositedFunds { amount: f64 },
+///     #[thalo(rename = "FUNDS_WITHDRAWN")]
+///     WithdrewFunds { amount: f64 },
+/// }
+///
+/// assert_eq!(BankAccountEvent::OpenedAccount { balance: 0.0 }.event_name(), "OPENED_ACCOUNT");
+/// ```
+#[proc_macro_derive(EventType, attributes(thalo))]
+#[allow(non_snake_case)]
+pub fn event_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    declare_derive_macro::<derives::EventType>(input)
+}
+
 /// Implements [`TypeId`](thalo::aggregate::TypeId) based on the struct/enum name as [snake_case](heck::ToSnakeCase).
 ///
 /// # Container Attributes
