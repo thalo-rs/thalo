@@ -1,2 +1,2 @@
 [workspace]
-members = ["thalo*", "examples/*", "outbox-relay"]
+members = ["thalo*", "examples/*"]
