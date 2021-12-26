@@ -9,7 +9,7 @@ futures-util = "0.3"
 prost = "0.9"
 serde_json = "1.0"
 text_io = "0.1"
-thalo = { path = "../../thalo", features = ["tests-cfg"] }
+thalo = { path = "../../thalo", features = ["tests-cfg", "with-tokio-stream"] }
 thalo-inmemory = { path = "../../thalo-inmemory", features = ["debug"] }
 tokio = { version = "1.15", features = [
   "macros",
@@ -17,6 +17,7 @@ tokio = { version = "1.15", features = [
   "rt-multi-thread",
   "sync",
 ] }
+tokio-stream = "0.1"
 tonic = "0.6"
 
 [build-dependencies]

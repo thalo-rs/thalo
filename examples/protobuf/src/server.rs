@@ -5,6 +5,7 @@ use thalo::tests_cfg::bank_account::{BankAccount, BankAccountProjection};
 use thalo::{event::EventHandler, event_stream::EventStream};
 use thalo_inmemory::InMemoryEventStore;
 use tokio::sync::broadcast;
+use tokio_stream::wrappers::BroadcastStream;
 use tonic::transport::Server;
 
 mod api;
@@ -14,18 +15,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "[::1]:50051".parse().unwrap();
 
     // Event stream channel
-    let (event_stream, mut event_stream_rx1) = broadcast::channel(16);
+    let (event_stream, event_stream_rx1) = broadcast::channel(16);
 
     let bank_account_service = BankAccountService::new(event_stream.clone());
 
     // Projection handler
     {
+        let mut broadcast_stream = BroadcastStream::new(event_stream_rx1);
         let bank_account_service2 = bank_account_service.clone();
         let bank_account_projection = BankAccountProjection::default();
         print_tables(&bank_account_service2.event_store, &bank_account_projection);
 
         tokio::spawn(async move {
-            let mut events = EventStream::<BankAccount>::listen_events(&mut event_stream_rx1);
+            let mut events = EventStream::<BankAccount>::listen_events(&mut broadcast_stream);
             while let Some(Ok(event)) = events.next().await {
                 bank_account_projection.handle(event).await.unwrap();
                 print_tables(&bank_account_service2.event_store, &bank_account_projection);
