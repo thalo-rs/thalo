@@ -4,17 +4,35 @@ pre_bump_hooks = [
   sh -c "if [[ \\"$(git rev-parse --abbrev-ref HEAD)\\" != \\"main\\" ]]; then echo \\"[error] you can only bump version on main branch\\"; exit 1; fi"
   """,
   "echo 'bumping from {{latest}} to {{version}}'",
-  # Update thalo version in thalo/Cargo.toml
+  # Update crate versions
   """
   sh -c "sed -i '' -e 's/^version.*$/version = \\"{{version}}\\"/' ./thalo/Cargo.toml"
   """,
-  # Update thalo-macros dependency version in thalo/Cargo.toml
   """
-  sh -c "sed -i '' -e 's/^thalo-macros [^,]*,/thalo-macros = { version = \\"{{version}}\\",/' ./thalo/Cargo.toml"
+  sh -c "sed -i '' -e 's/^version.*$/version = \\"{{version}}\\"/' ./thalo-inmemory/Cargo.toml"
   """,
-  # Update thalo-macros version in thalo-macros/Cargo.toml
+  # """
+  # sh -c "sed -i '' -e 's/^version.*$/version = \\"{{version}}\\"/' ./thalo-kafka/Cargo.toml"
+  # """,
   """
   sh -c "sed -i '' -e 's/^version.*$/version = \\"{{version}}\\"/' ./thalo-macros/Cargo.toml"
+  """,
+  """
+  sh -c "sed -i '' -e 's/^version.*$/version = \\"{{version}}\\"/' ./thalo-postgres/Cargo.toml"
+  """,
+  # Update thalo dependency version in crates
+  """
+  sh -c "sed -i '' -e 's/^thalo [^,]*,/thalo = { version = \\"{{version}}\\",/' ./thalo-inmemory/Cargo.toml"
+  """,
+  # """
+  # sh -c "sed -i '' -e 's/^thalo [^,]*,/thalo = { version = \\"{{version}}\\",/' ./thalo-kafka/Cargo.toml"
+  # """,
+  """
+  sh -c "sed -i '' -e 's/^thalo [^,]*,/thalo = { version = \\"{{version}}\\",/' ./thalo-postgres/Cargo.toml"
+  """,
+  # Update thalo-macros version in thalo/Cargo.toml
+  """
+  sh -c "sed -i '' -e 's/^thalo-macros [^,]*,/thalo-macros = { version = \\"{{version}}\\",/' ./thalo/Cargo.toml"
   """,
   "cargo build --workspace --release",
 ]
