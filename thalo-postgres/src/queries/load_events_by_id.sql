@@ -7,6 +7,5 @@ SELECT
   "event_data"
 FROM "event"
 WHERE
-  "aggregate_type" = $1 AND
-  (CAST($2 as TEXT) IS NULL OR "aggregate_id" = $2)
+  "id" = ANY($1::INT[])
 ORDER BY "sequence" ASC;

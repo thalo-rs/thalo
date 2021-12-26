@@ -22,6 +22,7 @@ use crate::error::Error;
 const INSERT_OUTBOX_EVENTS_QUERY: &str = include_str!("queries/insert_outbox_events.sql");
 const LOAD_AGGREGATE_SEQUENCE_QUERY: &str = include_str!("queries/load_aggregate_sequence.sql");
 const LOAD_EVENTS_QUERY: &str = include_str!("queries/load_events.sql");
+const LOAD_EVENTS_BY_ID_QUERY: &str = include_str!("queries/load_events_by_id.sql");
 const SAVE_EVENTS_QUERY: &str = include_str!("queries/save_events.sql");
 
 /// Postgres event store implementation.
@@ -85,12 +86,56 @@ where
         Ok(rows
             .into_iter()
             .map(|row| {
-                let event_json = row.get(6);
+                let event_id = row.get::<_, i64>(0) as usize;
+
+                let event_json = row.get(5);
                 let event = serde_json::from_value(event_json)
-                    .map_err(|err| Error::DeserializeDbEvent(Some(row.get(5)), err))?;
+                    .map_err(|err| Error::DeserializeDbEvent(event_id, err))?;
 
                 Result::<_, Self::Error>::Ok(AggregateEventEnvelope::<A> {
-                    id: row.get::<_, i64>(0) as usize,
+                    id: event_id,
+                    created_at: row.get(1),
+                    aggregate_type: row.get(2),
+                    aggregate_id: row.get(3),
+                    sequence: row.get::<_, i64>(4) as usize,
+                    event,
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?)
+    }
+
+    async fn load_events_by_id<A>(
+        &self,
+        ids: &[usize],
+    ) -> Result<Vec<AggregateEventEnvelope<A>>, Self::Error>
+    where
+        A: Aggregate,
+        <A as Aggregate>::Event: DeserializeOwned,
+    {
+        let conn = self.pool.get().await.map_err(Error::GetDbPoolConnection)?;
+
+        let rows = conn
+            .query(
+                LOAD_EVENTS_BY_ID_QUERY,
+                &[&ids
+                    .iter()
+                    .map(|id| id.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",")],
+            )
+            .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|row| {
+                let event_id = row.get::<_, i64>(0) as usize;
+
+                let event_json = row.get(5);
+                let event = serde_json::from_value(event_json)
+                    .map_err(|err| Error::DeserializeDbEvent(event_id, err))?;
+
+                Result::<_, Self::Error>::Ok(AggregateEventEnvelope::<A> {
+                    id: event_id,
                     created_at: row.get(1),
                     aggregate_type: row.get(2),
                     aggregate_id: row.get(3),
