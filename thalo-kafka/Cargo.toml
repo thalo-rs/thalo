@@ -1,7 +1,20 @@
 [package]
 name = "thalo-kafka"
 version = "0.3.0"
+authors = ["Ari Seyhun <ariseyhun@live.com.au>"]
 edition = "2021"
+description = "Kafka event stream for crates.io/thalo"
+readme = "../README.md"
+repository = "https://github.com/thalo-rs/thalo"
+license = "MIT OR Apache-2.0"
+keywords = ["event-sourcing", "cqrs", "event-driven", "actors", "macros"]
+categories = [
+  "database",
+  "data-structures",
+  "development-tools",
+  "rust-patterns",
+  "web-programming::http-server",
+]
 
 [dependencies]
 async-stream = "0.3"
@@ -9,5 +22,5 @@ futures = "0.3"
 rdkafka = "0.28"
 serde = "1.0"
 serde_json = "1.0"
-thalo = { path = "../thalo", features = ["event-stream"] }
+thalo = { version = "0.3.0", path = "../thalo", features = ["event-stream"] }
 thiserror = "1.0"

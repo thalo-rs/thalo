@@ -1,7 +1,20 @@
 [package]
 name = "thalo-inmemory"
 version = "0.3.0"
+authors = ["Ari Seyhun <ariseyhun@live.com.au>"]
 edition = "2021"
+description = "In-memory event store for crates.io/thalo"
+readme = "../README.md"
+repository = "https://github.com/thalo-rs/thalo"
+license = "MIT OR Apache-2.0"
+keywords = ["event-sourcing", "cqrs", "event-driven", "actors", "macros"]
+categories = [
+  "database",
+  "data-structures",
+  "development-tools",
+  "rust-patterns",
+  "web-programming::http-server",
+]
 
 [dependencies]
 async-trait = "0.1"
@@ -9,7 +22,10 @@ chrono = "0.4"
 prettytable-rs = { version = "0.8", optional = true }
 serde = "1.0"
 serde_json = "1.0"
-thalo = { path = "../thalo", features = ["event-store", "tests-cfg"] }
+thalo = { version = "0.3.0", path = "../thalo", features = [
+  "event-store",
+  "tests-cfg",
+] }
 thiserror = "1.0"
 
 [features]
