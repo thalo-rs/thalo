@@ -1,3 +1,2 @@
 [workspace]
-exclude = ["thalo-kafka", "thalo-postgres"]
-members = ["thalo*", "outbox-relay", "examples/protobuf"]
+members = ["thalo*", "examples/*", "outbox-relay"]
