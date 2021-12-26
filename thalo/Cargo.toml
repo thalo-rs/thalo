@@ -23,6 +23,7 @@ chrono = { version = "0.4", features = ["serde"] }
 futures-util = { version = "0.3", optional = true }
 prettytable-rs = { version = "0.8", optional = true }
 serde = { version = "1.0", features = ["derive"] }
+thalo-macros = { path = "../thalo-macros", optional = true }
 thiserror = { version = "1.0", optional = true }
 tokio-stream = { version = "0.1", features = ["sync"], optional = true }
 tonic = { version = "0.6", default-features = false, optional = true }
@@ -36,5 +37,6 @@ tonic = { version = "0.6", default-features = false }
 default = ["event-store", "event-stream", "with-tokio-stream"]
 event-store = []
 event-stream = ["futures-util"]
+macros = ["thalo-macros"]
 with-tokio-stream = ["async-stream", "futures-util", "tokio-stream"]
-tests-cfg = ["prettytable-rs", "thiserror", "tonic"]
+tests-cfg = ["macros", "prettytable-rs", "thiserror", "tonic"]

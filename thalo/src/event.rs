@@ -6,6 +6,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::aggregate::Aggregate;
 
+#[cfg(feature = "macros")]
+pub use thalo_macros::EventType;
+
 /// An event with additional metadata.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct EventEnvelope<E> {

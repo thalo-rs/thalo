@@ -4,6 +4,9 @@ use std::string;
 
 use crate::event::EventType;
 
+#[cfg(feature = "macros")]
+pub use thalo_macros::{Aggregate, TypeId};
+
 /// Consistency boundary around a domain entity responsible for handling commands and applying events.
 pub trait Aggregate: TypeId {
     /// The ID type of the aggregate.
