@@ -4,7 +4,7 @@ use rdkafka::{consumer::StreamConsumer, Message};
 use serde::de::DeserializeOwned;
 use thalo::{aggregate::Aggregate, event::AggregateEventEnvelope, event_stream::EventStream};
 
-use crate::{Error, KafkaConfig};
+use crate::Error;
 
 /// An event stream consuming from kafka.
 pub struct KafkaEventStream {
@@ -17,18 +17,18 @@ impl KafkaEventStream {
         KafkaEventStream { consumer }
     }
 
-    /// Create a new [`KafkaEventStream`] from a [`KafkaConfig`].
-    pub fn from_config(config: KafkaConfig) -> Self {
-        todo!()
-    }
+    // /// Create a new [`KafkaEventStream`] from a [`KafkaConfig`].
+    // pub fn from_config(_config: KafkaConfig) -> Self {
+    //     todo!()
+    // }
 }
 
 impl<A: Aggregate> EventStream<A> for KafkaEventStream {
-    type StreamOutput = Result<AggregateEventEnvelope<A>, Error>;
+    type Error = Error;
 
-    fn listen_events<'a>(&'a self) -> BoxStream<'a, Self::StreamOutput>
+    fn listen_events(&mut self) -> BoxStream<'_, Result<AggregateEventEnvelope<A>, Self::Error>>
     where
-        <A as Aggregate>::Event: DeserializeOwned + Send + 'a,
+        <A as Aggregate>::Event: 'static + DeserializeOwned + Send,
     {
         (try_stream! {
             loop {
