@@ -4,7 +4,7 @@ use thalo::{
     aggregate::Aggregate,
     event::{AggregateEventEnvelope, IntoEvents},
     event_store::EventStore,
-    tests_cfg::bank_account::{BankAccount, BankAccountCommand},
+    tests_cfg::bank_account::BankAccount,
 };
 use thalo_inmemory::InMemoryEventStore;
 use tokio::sync::broadcast::Sender;
