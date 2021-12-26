@@ -3,7 +3,10 @@ use std::{collections::HashMap, sync::Mutex};
 use async_trait::async_trait;
 use prettytable::Table;
 
-use crate::event::{EventEnvelope, EventHandler, Infallible};
+use crate::{
+    event::{EventEnvelope, EventHandler},
+    Infallible,
+};
 
 use super::BankAccountEvent;
 

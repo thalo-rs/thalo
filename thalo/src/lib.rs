@@ -50,3 +50,7 @@ pub mod event_stream;
 #[doc(hidden)]
 #[cfg(any(test, doctest, feature = "tests-cfg"))]
 pub mod tests_cfg;
+
+/// An infallible error type typically used for event handlers or event streams that do not fail.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Infallible;

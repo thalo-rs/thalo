@@ -141,10 +141,6 @@ pub trait EventHandler<Event> {
     async fn handle(&self, event: EventEnvelope<Event>) -> Result<(), Self::Error>;
 }
 
-/// An infallible error type typically used for event handlers that do not fail.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct Infallible;
-
 /// A type which implements `IntoEvents` is used to convert into
 /// a list of `Self::Event`.
 ///

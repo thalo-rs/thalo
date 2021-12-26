@@ -1,14 +1,9 @@
 //! Event stream
 
-#[cfg(feature = "with-tokio")]
-use async_stream::try_stream;
-use futures::stream::{BoxStream, StreamExt};
+use futures_util::stream::{BoxStream, StreamExt};
 use serde::de::DeserializeOwned;
 
-use crate::{aggregate::Aggregate, event::AggregateEventEnvelope};
-
-// /// An alias to an active event stream returned by [`EventStream::listen_events`].
-// pub type EventStreamIter<'a, A, E> = BoxStream<'a, Result<AggregateEventEnvelope<A>, E>>;
+use crate::{aggregate::Aggregate, event::AggregateEventEnvelope, Infallible};
 
 /// An event stream is a source of previously published events.
 ///
@@ -18,33 +13,55 @@ pub trait EventStream<A: Aggregate> {
     type Error;
 
     /// Continuously listen for events as an async stream for the given aggregate.
-    fn listen_events<'a>(
-        &'a mut self,
-    ) -> BoxStream<'a, Result<AggregateEventEnvelope<A>, Self::Error>>
+    fn listen_events(&mut self) -> BoxStream<'_, Result<AggregateEventEnvelope<A>, Self::Error>>
     where
-        <A as Aggregate>::Event: DeserializeOwned + Send + 'a;
+        <A as Aggregate>::Event: 'static + DeserializeOwned + Send;
 }
 
-#[cfg(feature = "with-tokio")]
-impl<A> EventStream<A> for tokio::sync::broadcast::Receiver<AggregateEventEnvelope<A>>
+#[cfg(feature = "with-tokio-stream")]
+impl<A> EventStream<A> for tokio_stream::wrappers::ReceiverStream<AggregateEventEnvelope<A>>
 where
     A: Aggregate,
     <A as Aggregate>::Event: Clone,
 {
-    type Error = tokio::sync::broadcast::error::RecvError;
+    type Error = Infallible;
 
-    fn listen_events<'a>(
-        &'a mut self,
-    ) -> BoxStream<'a, Result<AggregateEventEnvelope<A>, Self::Error>>
+    fn listen_events(&mut self) -> BoxStream<'_, Result<AggregateEventEnvelope<A>, Self::Error>>
     where
-        <A as Aggregate>::Event: DeserializeOwned + Send + 'a,
+        <A as Aggregate>::Event: 'static + DeserializeOwned + Send,
     {
-        (try_stream! {
-            loop {
-                let event = self.recv().await?;
-                yield event;
-            }
-        })
-        .boxed()
+        self.map(Ok).boxed()
+    }
+}
+
+#[cfg(feature = "with-tokio-stream")]
+impl<A> EventStream<A> for tokio_stream::wrappers::BroadcastStream<AggregateEventEnvelope<A>>
+where
+    A: Aggregate,
+    <A as Aggregate>::Event: Clone,
+{
+    type Error = tokio_stream::wrappers::errors::BroadcastStreamRecvError;
+
+    fn listen_events(&mut self) -> BoxStream<'_, Result<AggregateEventEnvelope<A>, Self::Error>>
+    where
+        <A as Aggregate>::Event: 'static + DeserializeOwned + Send,
+    {
+        self.boxed()
+    }
+}
+
+#[cfg(feature = "with-tokio-stream")]
+impl<A> EventStream<A> for tokio_stream::wrappers::WatchStream<AggregateEventEnvelope<A>>
+where
+    A: Aggregate,
+    <A as Aggregate>::Event: Clone,
+{
+    type Error = Infallible;
+
+    fn listen_events(&mut self) -> BoxStream<'_, Result<AggregateEventEnvelope<A>, Self::Error>>
+    where
+        <A as Aggregate>::Event: 'static + DeserializeOwned + Send,
+    {
+        self.map(Ok).boxed()
     }
 }
