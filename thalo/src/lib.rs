@@ -48,5 +48,5 @@ pub mod event_store;
 pub mod event_stream;
 
 #[doc(hidden)]
-#[cfg(feature = "tests-cfg")]
+#[cfg(any(test, doctest, feature = "tests-cfg"))]
 pub mod tests_cfg;

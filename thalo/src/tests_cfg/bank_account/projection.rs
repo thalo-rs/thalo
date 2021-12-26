@@ -93,13 +93,20 @@ impl BankAccountProjection {
 impl EventHandler<BankAccountEvent> for BankAccountProjection {
     type Error = Infallible;
 
-    async fn handle(&self, event: EventEnvelope<BankAccountEvent>) -> Result<(), Self::Error> {
+    async fn handle(
+        &self,
+        EventEnvelope {
+            aggregate_id,
+            event,
+            ..
+        }: EventEnvelope<BankAccountEvent>,
+    ) -> Result<(), Self::Error> {
         use BankAccountEvent::*;
 
-        match event.event {
-            OpenedAccount { balance } => self.handle_opened_account(event.aggregate_id, balance),
-            DepositedFunds { amount } => self.handle_deposited_funds(event.aggregate_id, amount),
-            WithdrewFunds { amount } => self.handle_withdrew_funds(event.aggregate_id, amount),
+        match event {
+            OpenedAccount { balance } => self.handle_opened_account(aggregate_id, balance),
+            DepositedFunds { amount } => self.handle_deposited_funds(aggregate_id, amount),
+            WithdrewFunds { amount } => self.handle_withdrew_funds(aggregate_id, amount),
         }
 
         Ok(())
