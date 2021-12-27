@@ -34,6 +34,7 @@
 //! Examples can be seen in the [`examples`](https://github.com/thalo-rs/thalo/tree/main/examples) directory.
 
 #![deny(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 pub mod aggregate;
 
