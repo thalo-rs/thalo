@@ -5,6 +5,7 @@ use rdkafka::{config::RDKafkaLogLevel, ClientConfig};
 /// Provides recommended config with `KafkaClientConfig::new_recommended` which is configured for
 /// at-least-once kafka semantic. Offsets should be manually added to the store.
 /// For more info, see the [`rust-rdkafka/examples/at_least_once.rs`](https://github.com/fede1024/rust-rdkafka/blob/master/examples/at_least_once.rs) example.
+#[derive(Clone, Debug)]
 pub struct KafkaClientConfig(ClientConfig);
 
 impl KafkaClientConfig {
