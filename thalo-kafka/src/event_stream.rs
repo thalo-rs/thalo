@@ -33,6 +33,11 @@ impl KafkaEventStream {
             topics: topics.iter().map(|topic| topic.to_string()).collect(),
         }
     }
+
+    /// Get a reference to the stream consumer.
+    pub fn consumer(&self) -> &StreamConsumer {
+        &self.consumer
+    }
 }
 
 pub struct KafkaEventMessage<A>
