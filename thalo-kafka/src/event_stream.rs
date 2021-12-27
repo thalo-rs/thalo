@@ -4,6 +4,7 @@ use async_stream::try_stream;
 use futures_util::stream::StreamExt;
 use rdkafka::{
     consumer::{Consumer, StreamConsumer},
+    message::OwnedMessage,
     Message,
 };
 use serde::de::DeserializeOwned;
@@ -34,11 +35,19 @@ impl KafkaEventStream {
     }
 }
 
-impl<A: Aggregate> EventStream<A> for KafkaEventStream {
-    type Error = Error;
-    type StreamError = Error;
+pub struct KafkaEventMessage<A>
+where
+    A: Aggregate,
+{
+    pub event: AggregateEventEnvelope<A>,
+    pub message: OwnedMessage,
+}
 
-    fn listen_events(&mut self) -> EventStreamResult<'_, A, Self::Error, Self::StreamError>
+impl<A: 'static + Aggregate> EventStream<A> for KafkaEventStream {
+    type Item = Result<KafkaEventMessage<A>, Error>;
+    type Error = Error;
+
+    fn listen_events(&mut self) -> EventStreamResult<'_, Self::Item, Self::Error>
     where
         <A as Aggregate>::Event: 'static + DeserializeOwned + Send,
     {
@@ -48,14 +57,17 @@ impl<A: Aggregate> EventStream<A> for KafkaEventStream {
 
         Ok((try_stream! {
             loop {
-                let msg = self.consumer.recv().await.map_err(Error::RecieveMessageError)?;
+                let msg = self.consumer.recv().await.map_err(Error::RecieveMessageError)?.detach();
 
                 let payload = msg.payload().ok_or(Error::EmptyPayloadError)?;
 
-                let event_envelope: AggregateEventEnvelope<A> =
+                let event_envelope =
                     serde_json::from_slice(payload).map_err(Error::MessageJsonDeserializeError)?;
 
-                yield event_envelope;
+                yield KafkaEventMessage {
+                    event: event_envelope,
+                    message: msg,
+                };
             }
         })
         .boxed())
