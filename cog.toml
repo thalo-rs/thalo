@@ -48,10 +48,8 @@ post_bump_hooks = [
   "sleep 10",
   "echo 'publishing thalo-inmemory {{version}}'",
   "cargo publish -p thalo-inmemory",
-  "sleep 10",
   "echo 'publishing thalo-kafka {{version}}'",
   "cargo publish -p thalo-kafka",
-  "sleep 10",
   "echo 'publishing thalo-postgres {{version}}'",
   "cargo publish -p thalo-postgres",
 ]
