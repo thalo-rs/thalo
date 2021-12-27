@@ -2,6 +2,25 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [0.3.1](https://github.com/thalo-rs/thalo/compare/0.3.0..0.3.1) - 2021-12-27
+#### Bug Fixes
+- **(examples/protobuf)** unwrap result of event stream - ([c009315](https://github.com/thalo-rs/thalo/commit/c00931555bb04e656d07e479a0247523eb08ca1c)) - [@tqwewe](https://github.com/tqwewe)
+#### Build system
+- **(thalo)** enable all features on docs.rs - ([0c6df2f](https://github.com/thalo-rs/thalo/commit/0c6df2fd29787221c87f245174c5dc255d5afa23)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-postgres)** exclude docker image from cargo package - ([22b11ab](https://github.com/thalo-rs/thalo/commit/22b11ab0396af1d619c311f816654f79481dab4f)) - [@tqwewe](https://github.com/tqwewe)
+- add thalo-kafka to bump hooks - ([a097491](https://github.com/thalo-rs/thalo/commit/a0974913234f409ac064e37a8b4944abe11fa51e)) - [@tqwewe](https://github.com/tqwewe)
+#### Documentation
+- **(thalo-kafka)** add docs to `KafkaEventStream` - ([26c9562](https://github.com/thalo-rs/thalo/commit/26c95625373a04b7de8a4d5fb63d998e9c87a96e)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-macros)** use absolute url links in docs - ([038d2f9](https://github.com/thalo-rs/thalo/commit/038d2f95cec26fcd8fd63d2304c393cb5fa9e54d)) - [@tqwewe](https://github.com/tqwewe)
+#### Features
+- **(thalo)** add result to `EventStream::listen_events` - ([d55fc09](https://github.com/thalo-rs/thalo/commit/d55fc097f387fccaf868b676aac8e67f875976c2)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-kafka)** add `KafkaClientConfig` - ([ebaa7ef](https://github.com/thalo-rs/thalo/commit/ebaa7ef0316fb031790e84c75179b352fed045ab)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-kafka)** add topic subscription to `KafkaEventStream` - ([4b10932](https://github.com/thalo-rs/thalo/commit/4b10932cd028e59f516a4bd6f85c54480c37af41)) - [@tqwewe](https://github.com/tqwewe)
+#### Miscellaneous Chores
+- merge branch 'dev' - ([8693ca7](https://github.com/thalo-rs/thalo/commit/8693ca7df4a7a1703e98b5ca9a543f4e2fd29c59)) - [@tqwewe](https://github.com/tqwewe)
+- merge branch 'main' into dev - ([f627459](https://github.com/thalo-rs/thalo/commit/f6274596041f47b7131b9a296e340d5eba153d67)) - [@tqwewe](https://github.com/tqwewe)
+- - -
+
 ## [0.3.0](https://github.com/thalo-rs/thalo/compare/0.2.2..0.3.0) - 2021-12-26
 #### Bug Fixes
 - **(thalo-kafka)** fix invalid `EventStream` implementation - ([25f6973](https://github.com/thalo-rs/thalo/commit/25f6973aa7e2fb1f14f8ee624ba2f937d4a2e60d)) - [@tqwewe](https://github.com/tqwewe)

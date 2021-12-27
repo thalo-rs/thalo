@@ -1373,7 +1373,7 @@ checksum = "ee74b5019b48991b09803402aaf9e65a053b3993fe9d9c475ab67a395358ba76"
 
 [[package]]
 name = "thalo"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1389,7 +1389,7 @@ dependencies = [
 
 [[package]]
 name = "thalo-inmemory"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "async-trait",
  "chrono",
@@ -1402,7 +1402,7 @@ dependencies = [
 
 [[package]]
 name = "thalo-kafka"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "async-stream",
  "futures-util",
@@ -1415,7 +1415,7 @@ dependencies = [
 
 [[package]]
 name = "thalo-macros"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "better-bae",
  "heck 0.4.0",
@@ -1426,7 +1426,7 @@ dependencies = [
 
 [[package]]
 name = "thalo-postgres"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "async-trait",
  "bb8-postgres",

@@ -1,6 +1,6 @@
 [package]
 name = "thalo-macros"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Ari Seyhun <ariseyhun@live.com.au>"]
 edition = "2021"
 description = "Macros for crates.io/thalo"
