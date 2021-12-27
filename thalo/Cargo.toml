@@ -40,3 +40,6 @@ event-stream = ["futures-util"]
 macros = ["thalo-macros"]
 with-tokio-stream = ["async-stream", "futures-util", "tokio-stream"]
 tests-cfg = ["macros", "prettytable-rs", "thiserror", "tonic"]
+
+[package.metadata.docs.rs]
+all-features = true
