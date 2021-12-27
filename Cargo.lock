@@ -1405,7 +1405,7 @@ name = "thalo-kafka"
 version = "0.3.0"
 dependencies = [
  "async-stream",
- "futures",
+ "futures-util",
  "rdkafka",
  "serde",
  "serde_json",

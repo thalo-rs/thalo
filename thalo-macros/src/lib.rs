@@ -8,15 +8,15 @@ mod derives;
 mod helpers;
 mod traits;
 
-/// Implements [`Aggregate`](thalo::aggregate::Aggregate) for a given struct.
+/// Implements [`Aggregate`](https://docs.rs/thalo/latest/thalo/aggregate/trait.Aggregate.html) for a given struct.
 ///
-/// The implementation of [`Aggregate::new`](thalo::aggregate::Aggregate::new) requires the struct to implement [`Default`].
+/// The implementation of [`Aggregate::new`](https://docs.rs/thalo/latest/thalo/aggregate/trait.Aggregate.html#tymethod.new) requires the struct to implement [`Default`].
 ///
 /// # Container Attributes
 ///
 /// - `#[thalo(event = "EventEnum")`
 ///
-///   Specify the event enum used for [`Aggregate::Event`](thalo::aggregate::Aggregate::Event).
+///   Specify the event enum used for [`Aggregate::Event`](https://docs.rs/thalo/latest/thalo/aggregate/trait.Aggregate.html#associatedtype.Event).
 ///
 ///   Defaults to struct name + `Event`. Eg: `struct BankAccount` would default to `BankAccountEvent`.
 ///
@@ -29,7 +29,7 @@ mod traits;
 ///     fn apply(aggregate: &mut Aggregate, event: AggregateEvent)
 ///     ```
 ///
-///   Where `Aggregate` is the struct for your aggregate, and `AggregateEvent` is the [`Aggregate::Event`](thalo::aggregate::Aggregate::Event).
+///   Where `Aggregate` is the struct for your aggregate, and `AggregateEvent` is the [`Aggregate::Event`](https://docs.rs/thalo/latest/thalo/aggregate/trait.Aggregate.html#associatedtype.Event).
 ///
 ///   Defaults to `"handle"`.
 ///
@@ -37,7 +37,7 @@ mod traits;
 ///
 /// - `#[thalo(id)]`
 ///
-///   Specify which field is the [`Aggregate::ID`](thalo::aggregate::Aggregate::ID).
+///   Specify which field is the [`Aggregate::ID`](https://docs.rs/thalo/latest/thalo/aggregate/trait.Aggregate.html#associatedtype.ID).
 ///
 ///   If this attribute is not present, it defaults to the first field that is named `id`,
 ///   otherwise a compile error will occur.
@@ -74,7 +74,7 @@ mod traits;
 /// }
 /// ```
 ///
-///  Example with attributes.
+/// Example with attributes.
 ///
 /// ```
 /// #[derive(Default, Aggregate, TypeId)]
@@ -107,7 +107,7 @@ pub fn aggregate(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     declare_derive_macro::<derives::Aggregate>(input)
 }
 
-/// Implements [`EventType`](thalo::event::EventType) for a given struct.
+/// Implements [`EventType`](https://docs.rs/thalo/latest/thalo/event/trait.EventType.html) for a given struct.
 ///
 /// # Container Attributes
 ///
@@ -134,7 +134,7 @@ pub fn aggregate(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 ///
 /// # Examples
 ///
-/// Example without any attributes. All variants are used as [`EventType::event_type`](thalo::event::EventType::event_type) based on their Rust name.
+/// Example without any attributes. All variants are used as [`EventType::event_type`](https://docs.rs/thalo/latest/thalo/event/trait.EventType.html#tymethod.event_type) based on their Rust name.
 ///
 /// ```
 /// #[derive(EventType)]
@@ -147,7 +147,7 @@ pub fn aggregate(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// assert_eq!(BankAccountEvent::OpenedAccount { balance: 0.0 }.event_name(), "OpenedAccount");
 /// ```
 ///
-/// Example without any attributes. All variants are used as [`EventType::event_type`](thalo::event::EventType::event_type) based on their Rust name.
+/// Example without any attributes. All variants are used as [`EventType::event_type`](https://docs.rs/thalo/latest/thalo/event/trait.EventType.html#tymethod.event_type) based on their Rust name.
 ///
 /// ```
 /// #[derive(EventType)]
@@ -167,7 +167,7 @@ pub fn event_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     declare_derive_macro::<derives::EventType>(input)
 }
 
-/// Implements [`TypeId`](thalo::aggregate::TypeId) based on the struct/enum name as [snake_case](heck::ToSnakeCase).
+/// Implements [`TypeId`](https://docs.rs/thalo/latest/thalo/aggregate/trait.TypeId.html) based on the struct/enum name as [snake_case](heck::ToSnakeCase).
 ///
 /// # Container Attributes
 ///

@@ -15,6 +15,7 @@ categories = [
   "rust-patterns",
   "web-programming::http-server",
 ]
+exclude = ["/docker-image"]
 
 [dependencies]
 async-trait = "0.1"
