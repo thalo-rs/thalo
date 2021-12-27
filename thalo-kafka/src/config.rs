@@ -33,6 +33,7 @@ impl KafkaClientConfig {
             .set("enable.auto.commit", "true")
             .set("auto.commit.interval.ms", "5000")
             .set("enable.auto.offset.store", "false")
+            .set("auto.offset.reset", "earliest")
             .set_log_level(RDKafkaLogLevel::Debug);
 
         KafkaClientConfig(config)
