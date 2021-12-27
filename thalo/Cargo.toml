@@ -43,3 +43,4 @@ tests-cfg = ["macros", "prettytable-rs", "thiserror", "tonic"]
 
 [package.metadata.docs.rs]
 all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

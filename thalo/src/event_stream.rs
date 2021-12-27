@@ -6,21 +6,28 @@ use serde::de::DeserializeOwned;
 use crate::{aggregate::Aggregate, event::AggregateEventEnvelope, Infallible};
 
 /// A type alias for the return type of [`EventStream::listen_events`].
-pub type EventStreamResult<'a, A, E, SE> =
-    Result<BoxStream<'a, Result<AggregateEventEnvelope<A>, SE>>, E>;
+pub type EventStreamResult<'a, I, E> = Result<BoxStream<'a, I>, E>;
+
+// pub struct EventStreamItem<A, M>
+// where
+//     A: Aggregate,
+// {
+//     event: AggregateEventEnvelope<A>,
+//     message: M,
+// }
 
 /// An event stream is a source of previously published events.
 ///
 /// This is usually a consumer for message brokers.
 pub trait EventStream<A: Aggregate> {
+    /// Item yielded by stream.
+    type Item;
+
     /// Error before entering the stream.
     type Error;
 
-    /// Error yeilded in stream.
-    type StreamError;
-
     /// Continuously listen for events as an async stream for the given aggregate.
-    fn listen_events(&mut self) -> EventStreamResult<'_, A, Self::Error, Self::StreamError>
+    fn listen_events(&mut self) -> EventStreamResult<'_, Self::Item, Self::Error>
     where
         <A as Aggregate>::Event: 'static + DeserializeOwned + Send;
 }
@@ -31,14 +38,14 @@ where
     A: Aggregate,
     <A as Aggregate>::Event: Clone,
 {
+    type Item = AggregateEventEnvelope<A>;
     type Error = Infallible;
-    type StreamError = Infallible;
 
-    fn listen_events(&mut self) -> EventStreamResult<'_, A, Self::Error, Self::StreamError>
+    fn listen_events(&mut self) -> EventStreamResult<'_, Self::Item, Self::Error>
     where
         <A as Aggregate>::Event: 'static + DeserializeOwned + Send,
     {
-        Ok(self.map(Ok).boxed())
+        Ok(self.boxed())
     }
 }
 
@@ -48,10 +55,11 @@ where
     A: Aggregate,
     <A as Aggregate>::Event: Clone,
 {
+    type Item =
+        Result<AggregateEventEnvelope<A>, tokio_stream::wrappers::errors::BroadcastStreamRecvError>;
     type Error = Infallible;
-    type StreamError = tokio_stream::wrappers::errors::BroadcastStreamRecvError;
 
-    fn listen_events(&mut self) -> EventStreamResult<'_, A, Self::Error, Self::StreamError>
+    fn listen_events(&mut self) -> EventStreamResult<'_, Self::Item, Self::Error>
     where
         <A as Aggregate>::Event: 'static + DeserializeOwned + Send,
     {
@@ -65,13 +73,13 @@ where
     A: Aggregate,
     <A as Aggregate>::Event: Clone,
 {
+    type Item = AggregateEventEnvelope<A>;
     type Error = Infallible;
-    type StreamError = Infallible;
 
-    fn listen_events(&mut self) -> EventStreamResult<'_, A, Self::Error, Self::StreamError>
+    fn listen_events(&mut self) -> EventStreamResult<'_, Self::Item, Self::Error>
     where
         <A as Aggregate>::Event: 'static + DeserializeOwned + Send,
     {
-        Ok(self.map(Ok).boxed())
+        Ok(self.boxed())
     }
 }

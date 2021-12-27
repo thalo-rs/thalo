@@ -5,10 +5,18 @@ use thiserror::Error;
 pub enum Error {
     /// Message had an empty payload.
     #[error("empty message payload")]
-    EmptyPayloadError,
+    EmptyPayloadError(rdkafka::message::OwnedMessage),
+    /// Event handler error.
+    #[error("event handler error: {0}")]
+    EventHandlerError(Box<dyn 'static + std::error::Error + Send>),
     /// Message payload was unable to be decoded to event.
-    #[error("failed to decode message json: {0}")]
-    MessageJsonDeserializeError(serde_json::Error),
+    #[error("failed to decode message json: {serde_err}")]
+    MessageJsonDeserializeError {
+        /// Received kafka message.
+        message: rdkafka::message::OwnedMessage,
+        /// Serde json error.
+        serde_err: serde_json::Error,
+    },
     /// An error occured while attempting to receive a message from the stream.
     #[error("receive message error: {0}")]
     RecieveMessageError(rdkafka::error::KafkaError),

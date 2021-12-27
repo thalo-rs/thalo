@@ -1411,6 +1411,7 @@ dependencies = [
  "serde_json",
  "thalo",
  "thiserror",
+ "tracing",
 ]
 
 [[package]]
