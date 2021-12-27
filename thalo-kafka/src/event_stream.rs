@@ -1,36 +1,44 @@
 use async_stream::try_stream;
-use futures::stream::{BoxStream, StreamExt};
-use rdkafka::{consumer::StreamConsumer, Message};
+use futures_util::stream::StreamExt;
+use rdkafka::{
+    consumer::{Consumer, StreamConsumer},
+    Message,
+};
 use serde::de::DeserializeOwned;
-use thalo::{aggregate::Aggregate, event::AggregateEventEnvelope, event_stream::EventStream};
+use thalo::{
+    aggregate::Aggregate,
+    event::AggregateEventEnvelope,
+    event_stream::{EventStream, EventStreamResult},
+};
 
 use crate::Error;
 
 /// An event stream consuming from kafka.
 pub struct KafkaEventStream {
     consumer: StreamConsumer,
+    topics: Vec<String>,
 }
 
 impl KafkaEventStream {
     /// Creates a new [`KafkaEventStream`].
-    pub fn new(consumer: StreamConsumer) -> Self {
-        KafkaEventStream { consumer }
+    pub fn new(topics: Vec<String>, consumer: StreamConsumer) -> Self {
+        KafkaEventStream { consumer, topics }
     }
-
-    // /// Create a new [`KafkaEventStream`] from a [`KafkaConfig`].
-    // pub fn from_config(_config: KafkaConfig) -> Self {
-    //     todo!()
-    // }
 }
 
 impl<A: Aggregate> EventStream<A> for KafkaEventStream {
     type Error = Error;
+    type StreamError = Error;
 
-    fn listen_events(&mut self) -> BoxStream<'_, Result<AggregateEventEnvelope<A>, Self::Error>>
+    fn listen_events(&mut self) -> EventStreamResult<'_, A, Self::Error, Self::StreamError>
     where
         <A as Aggregate>::Event: 'static + DeserializeOwned + Send,
     {
-        (try_stream! {
+        self.consumer
+            .subscribe(&self.topics.iter().map(AsRef::as_ref).collect::<Vec<_>>())
+            .map_err(Error::SubscribeTopicError)?;
+
+        Ok((try_stream! {
             loop {
                 let msg = self.consumer.recv().await.map_err(Error::RecieveMessageError)?;
 
@@ -42,6 +50,6 @@ impl<A: Aggregate> EventStream<A> for KafkaEventStream {
                 yield event_envelope;
             }
         })
-        .boxed()
+        .boxed())
     }
 }
