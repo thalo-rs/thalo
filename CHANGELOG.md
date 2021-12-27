@@ -2,6 +2,69 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [0.3.0](https://github.com/thalo-rs/thalo/compare/0.2.2..0.3.0) - 2021-12-26
+#### Bug Fixes
+- **(thalo-kafka)** fix invalid `EventStream` implementation - ([25f6973](https://github.com/thalo-rs/thalo/commit/25f6973aa7e2fb1f14f8ee624ba2f937d4a2e60d)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-macros)** `AggregateChannel` not using expressive call to `AggregateType::aggregate_type()` - ([a006ad2](https://github.com/thalo-rs/thalo/commit/a006ad29948ef5bbca1579eea572c614944f6113)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-postgres)** database queries - ([ddc6617](https://github.com/thalo-rs/thalo/commit/ddc66179c82699a921e74eddaf66e34dc2abe02f)) - [@tqwewe](https://github.com/tqwewe)
+#### Build system
+- add publish to cog post bump hooks - ([2f1af85](https://github.com/thalo-rs/thalo/commit/2f1af8543230b5e4f0547670312a52ac53ba1f3f)) - [@tqwewe](https://github.com/tqwewe)
+- add pre cog bump hooks for all packages - ([c9b0ae4](https://github.com/thalo-rs/thalo/commit/c9b0ae4f1605613f6083fb2de5b656136d0b6bff)) - [@tqwewe](https://github.com/tqwewe)
+#### Documentation
+- **(examples/postgres)** add gif preview - ([13dafd9](https://github.com/thalo-rs/thalo/commit/13dafd9356124544320c7120bbb782c3b49cc3f4)) - [@tqwewe](https://github.com/tqwewe)
+- **(examples/protobuf)** add README.md and screenshot - ([fd001b8](https://github.com/thalo-rs/thalo/commit/fd001b89bae5bbdfa8d4e8b7d49feb41619f2a18)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo)** add event documentation - ([f471351](https://github.com/thalo-rs/thalo/commit/f47135168cfb2711593772cef9384771683928d7)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo)** update module documentation - ([7abf5b6](https://github.com/thalo-rs/thalo/commit/7abf5b6e4139edaa42071202de43074e7b63c592)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo)** update description - ([6b84c04](https://github.com/thalo-rs/thalo/commit/6b84c046bdb77399523c1626bc0b48ae085fe77b)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo)** update doc links and correct grammar - ([bc1c8cb](https://github.com/thalo-rs/thalo/commit/bc1c8cbf6a04707e491a0bc38878d97af732ec7f)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-inmemory)** add docs - ([7212875](https://github.com/thalo-rs/thalo/commit/721287550dac43f2c87e4fa33300c72c4fe2c706)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-kafka)** add package thalo-kafka - ([70d8171](https://github.com/thalo-rs/thalo/commit/70d8171fc945d773a8c1bc7cf1ef85d3dfa89897)) - [@tqwewe](https://github.com/tqwewe)
+- add information to crate Cargo.toml files - ([d29e3b8](https://github.com/thalo-rs/thalo/commit/d29e3b875bdfca01c5840f1b6c30aa7b47bbb143)) - [@tqwewe](https://github.com/tqwewe)
+- update README.md - ([0d64db5](https://github.com/thalo-rs/thalo/commit/0d64db5ee2c0b88eb089064e2057c72f57dff277)) - [@tqwewe](https://github.com/tqwewe)
+- remove stray period from README.md - ([d0a7580](https://github.com/thalo-rs/thalo/commit/d0a75804bbb4efc75a60cff01cd97fc54b5a6c8c)) - [@tqwewe](https://github.com/tqwewe)
+- center title and remove 3 points on README.md - ([dcbea3e](https://github.com/thalo-rs/thalo/commit/dcbea3e1364dfa01bd0d611e39573d3b50c9f7d9)) - [@tqwewe](https://github.com/tqwewe)
+- add logo to README.md - ([09c951f](https://github.com/thalo-rs/thalo/commit/09c951f9be6ec35775d7e85a9afa4d0b8602ffc7)) - [@tqwewe](https://github.com/tqwewe)
+- add detailed README.md content - ([382514a](https://github.com/thalo-rs/thalo/commit/382514a12182df30e8f5895f518d41d23581db0d)) - [@tqwewe](https://github.com/tqwewe)
+#### Features
+- **(examples/postgres)** use `BroadcastStream` - ([6c759e4](https://github.com/thalo-rs/thalo/commit/6c759e4e56ff483146993d37df786cf7759dbc88)) - [@tqwewe](https://github.com/tqwewe)
+- **(examples/protobuf)** add interactive demo - ([01f96e1](https://github.com/thalo-rs/thalo/commit/01f96e196d5aecffc529285dfa5f3e0d5063c897)) - [@tqwewe](https://github.com/tqwewe)
+- **(examples/protobuf)** add example protobuf - ([de9028e](https://github.com/thalo-rs/thalo/commit/de9028e7e25294884db4ccaa7e33c3df53e91e1b)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo)** add thalo-macros to thalo crate - ([2bac184](https://github.com/thalo-rs/thalo/commit/2bac1840d4d84f4f7b205fd4e29d698264f79e7a)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo)** implement `EventStream` for tokio channel streams - ([26b6823](https://github.com/thalo-rs/thalo/commit/26b6823f6236abf9c08b93c5f084ac6ce2776a37)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo)** add `load_events_by_id` to `EventStore` - ([320bda4](https://github.com/thalo-rs/thalo/commit/320bda480960143867264d0e40b41bc581b7c234)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo)** add event stream - ([5e3af98](https://github.com/thalo-rs/thalo/commit/5e3af98ef888f9474bbe53761822314aff904939)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-inmemory)** add package `thalo-inmemory` - ([c85b366](https://github.com/thalo-rs/thalo/commit/c85b366b7c443287470c3cef81a914de57f74e3c)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-macros)** add derive `EventType` - ([aad337b](https://github.com/thalo-rs/thalo/commit/aad337bd96cad5b8462b756ca42539b90bfbfed2)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-macros)** add derive `Aggregate` - ([7b265d8](https://github.com/thalo-rs/thalo/commit/7b265d8184f8c8f34ed4c4a207a6cfb42d5aa260)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-macros)** add derive `TypeId` - ([c6e71bd](https://github.com/thalo-rs/thalo/commit/c6e71bd59d6e2fd196e1c7ce170436f707f7df0b)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-macros)** add package `thalo-macros` - ([efd90f4](https://github.com/thalo-rs/thalo/commit/efd90f49894e8ca903433729710ecef75522d425)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-postgres)** implement `load_events_by_id` - ([a52f4af](https://github.com/thalo-rs/thalo/commit/a52f4afe5d6cb2b4637eddd7ea104f76ce7904cb)) - [@tqwewe](https://github.com/tqwewe)
+- **(thaloto)** add package `thaloto` - ([3498733](https://github.com/thalo-rs/thalo/commit/3498733ca319dfe36d99c2c39301b6ea1d1dc949)) - [@tqwewe](https://github.com/tqwewe)
+- **(thaloto-postgres)** add package `thaloto-postgres` - ([a074bdf](https://github.com/thalo-rs/thalo/commit/a074bdfcb3b538c30b7ad4158b1f884ba190ce3d)) - [@tqwewe](https://github.com/tqwewe)
+- add projections and event handler - ([7d42cbf](https://github.com/thalo-rs/thalo/commit/7d42cbf78abb0497a14fd323b01a11bcc7f56239)) - [@tqwewe](https://github.com/tqwewe)
+#### Miscellaneous Chores
+- **(examples/protobuf)** remove unused trait `BankAccountCommand` - ([3d7917b](https://github.com/thalo-rs/thalo/commit/3d7917b109e98dbfb328517e6f456d7815142b32)) - [@tqwewe](https://github.com/tqwewe)
+- **(outbox-relay)** delete outbox relay (moved to new repo thalo-rs/outbox-relay) - ([fa339dd](https://github.com/thalo-rs/thalo/commit/fa339ddedfdf2e99986f18af79a5ffb5467fa1cd)) - [@tqwewe](https://github.com/tqwewe)
+- merge branch 'dev' - ([424e7da](https://github.com/thalo-rs/thalo/commit/424e7da46139dba9c9ba3ce1b5508364ea6121be)) - [@tqwewe](https://github.com/tqwewe)
+- merge branch 'feat/rewrite' - ([08af956](https://github.com/thalo-rs/thalo/commit/08af9565c182e2fef6a671f21274b28e0ffc9ecf)) - [@tqwewe](https://github.com/tqwewe)
+- merge branch 'main' into feat/rewrite - ([6555444](https://github.com/thalo-rs/thalo/commit/6555444e7881cf88cad85fc7448547b91d0d2589)) - [@tqwewe](https://github.com/tqwewe)
+- update versions to 0.3 - ([f0bc4eb](https://github.com/thalo-rs/thalo/commit/f0bc4eb5fcc4f04a6446aadedfdd017aebb7f486)) - [@tqwewe](https://github.com/tqwewe)
+- rename thaloto packages to thalo - ([ce4f597](https://github.com/thalo-rs/thalo/commit/ce4f5970147b44935bc1e51c3d7c282f80dc5504)) - [@tqwewe](https://github.com/tqwewe)
+- thalo & thalo-macros updates wip - ([8fb805f](https://github.com/thalo-rs/thalo/commit/8fb805f305b98ddacba412f137f07ed49d85ee8f)) - [@tqwewe](https://github.com/tqwewe)
+- merge branch 'dev' - ([fc98472](https://github.com/thalo-rs/thalo/commit/fc984725d6d20e9972321c395b88a00854ed3f25)) - [@tqwewe](https://github.com/tqwewe)
+- merge branch 'main' into dev - ([046edd7](https://github.com/thalo-rs/thalo/commit/046edd70f3b2c8f637c851e2ca4e63ff7f7f19ff)) - [@tqwewe](https://github.com/tqwewe)
+- merge branch 'dev' - ([74c8c12](https://github.com/thalo-rs/thalo/commit/74c8c12fdf5557f36236709f1a6919d077cbcf6d)) - [@tqwewe](https://github.com/tqwewe)
+- merge branch 'main' into dev - ([3d193ef](https://github.com/thalo-rs/thalo/commit/3d193efaf1a15580d7743428b1feb3b757d180fe)) - [@tqwewe](https://github.com/tqwewe)
+- increase logo size on README.md - ([43b273c](https://github.com/thalo-rs/thalo/commit/43b273c69541a6ea4e1bc53587ac5509aca6b469)) - [@tqwewe](https://github.com/tqwewe)
+- rename thalo.png to logo.png - ([5f217f4](https://github.com/thalo-rs/thalo/commit/5f217f48e42850fcd417db038c3b4509aee8e4b0)) - [@tqwewe](https://github.com/tqwewe)
+- merge branch 'dev' - ([4e805fb](https://github.com/thalo-rs/thalo/commit/4e805fb4f5db7003e2108037a6a1f4c631d43bc1)) - [@tqwewe](https://github.com/tqwewe)
+- merge branch 'main' into dev - ([597473f](https://github.com/thalo-rs/thalo/commit/597473f63f44b70ab5677c22cbb595349b27a799)) - [@tqwewe](https://github.com/tqwewe)
+#### Refactoring
+- **(examples/bank)** remove unused `AggregateType` import - ([cd79d27](https://github.com/thalo-rs/thalo/commit/cd79d27f3fa938900a410326dd0e06ca4bc11e44)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo)** remove unused module `actor` - ([51ead6e](https://github.com/thalo-rs/thalo/commit/51ead6ecab3a07423dff8e4066a0eb04b087138a)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo)** move `EventEnvelope` to `event` module - ([ffa2b39](https://github.com/thalo-rs/thalo/commit/ffa2b39e6e9c24b64177ac1f39486c1bda2d82b3)) - [@tqwewe](https://github.com/tqwewe)
+- - -
+
 ## [0.2.2](https://github.com/thalo-rs/thalo/compare/0.2.1..0.2.2) - 2021-12-18
 #### Build system
 - **(examples/bank)** update Cargo.lock - ([bda7bde](https://github.com/thalo-rs/thalo/commit/bda7bde119e96d26c8ebff96790e7b93a79c3bc4)) - [@tqwewe](https://github.com/tqwewe)
