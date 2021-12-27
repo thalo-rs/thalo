@@ -1,3 +1,5 @@
+use std::fmt;
+
 use async_stream::try_stream;
 use futures_util::stream::StreamExt;
 use rdkafka::{
@@ -24,8 +26,11 @@ pub struct KafkaEventStream {
 
 impl KafkaEventStream {
     /// Creates a new [`KafkaEventStream`].
-    pub fn new(topics: Vec<String>, consumer: StreamConsumer) -> Self {
-        KafkaEventStream { consumer, topics }
+    pub fn new(topics: &[impl fmt::Display], consumer: StreamConsumer) -> Self {
+        KafkaEventStream {
+            consumer,
+            topics: topics.iter().map(|topic| topic.to_string()).collect(),
+        }
     }
 }
 
