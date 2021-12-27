@@ -27,7 +27,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         print_tables(&bank_account_service2.event_store, &bank_account_projection);
 
         tokio::spawn(async move {
-            let mut events = EventStream::<BankAccount>::listen_events(&mut broadcast_stream);
+            let mut events =
+                EventStream::<BankAccount>::listen_events(&mut broadcast_stream).unwrap();
             while let Some(Ok(event)) = events.next().await {
                 bank_account_projection.handle(event).await.unwrap();
                 print_tables(&bank_account_service2.event_store, &bank_account_projection);
