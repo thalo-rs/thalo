@@ -20,6 +20,9 @@ pre_bump_hooks = [
   """
   sh -c "sed -i '' -e 's/^version.*$/version = \\"{{version}}\\"/' ./thalo-postgres/Cargo.toml"
   """,
+  """
+  sh -c "sed -i '' -e 's/^version.*$/version = \\"{{version}}\\"/' ./thalo-testing/Cargo.toml"
+  """,
   # Update thalo dependency version in crates
   """
   sh -c "sed -i '' -e 's/^thalo [^,]*,/thalo = { version = \\"{{version}}\\",/' ./thalo-inmemory/Cargo.toml"
