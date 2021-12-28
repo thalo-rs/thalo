@@ -3,6 +3,9 @@ use thiserror::Error;
 /// Error enum.
 #[derive(Debug, Error)]
 pub enum Error {
+    /// Failed to create stream.
+    #[error("failed to create stream")]
+    CreateStreamError(rdkafka::error::KafkaError),
     /// Message had an empty payload.
     #[error("empty message payload")]
     EmptyPayloadError(rdkafka::message::OwnedMessage),
