@@ -41,6 +41,7 @@ impl TypeId {
             .unwrap_or_else(|| ident.to_string().to_snake_case());
 
         quote! {
+            #[automatically_derived]
             impl thalo::aggregate::TypeId for #ident {
                 fn type_id() -> &'static str {
                     #type_id_string

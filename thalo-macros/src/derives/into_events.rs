@@ -26,6 +26,7 @@ impl IntoEvents {
         let Self { ident } = self;
 
         quote! {
+            #[automatically_derived]
             impl thalo::event::IntoEvents for #ident {
                 type Event = Self;
 
