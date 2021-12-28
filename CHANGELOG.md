@@ -2,6 +2,24 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [0.3.2](https://github.com/thalo-rs/thalo/compare/0.3.1..0.3.2) - 2021-12-27
+#### Build system
+- **(thalo)** add feature flags in documentation - ([055d15d](https://github.com/thalo-rs/thalo/commit/055d15d2f6fe1486e2f488f6a55354cf1baa219b)) - [@tqwewe](https://github.com/tqwewe)
+- remove delay between publishing packages - ([823699d](https://github.com/thalo-rs/thalo/commit/823699de1eccefb3f73cffc29b7aab6d2a9b1917)) - [@tqwewe](https://github.com/tqwewe)
+#### Features
+- **(thalo)** add `Item` associated type to `EventStream` - ([b9484e5](https://github.com/thalo-rs/thalo/commit/b9484e563bd1d8536a18d6c36cf657181f0f7fde)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-kafka)** add `KafkaEventStream::watch_event_handler` method to handle event handlers - ([c7c1c16](https://github.com/thalo-rs/thalo/commit/c7c1c16eec8e42546daf8c47626596c8347da2fc)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-kafka)** add `auto.offset.reset=earliest` to recommended kafka config - ([eb65b95](https://github.com/thalo-rs/thalo/commit/eb65b95b10b70c911579fa3da6bbbde91b64f0f5)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-kafka)** add `Clone`, `Debug` derives to `KafkaClientConfig` - ([eb4a5ee](https://github.com/thalo-rs/thalo/commit/eb4a5eee902e6e008a13f5a3cd0020f1ae6722a6)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-kafka)** add `KafkaEventStream::consumer` - ([960461d](https://github.com/thalo-rs/thalo/commit/960461db3881c9a0b75e9e45e91e31767d0a79ff)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-kafka)** add `KafkaEventMessage` - ([6d5fc66](https://github.com/thalo-rs/thalo/commit/6d5fc66dc234d2346172d86cd6d511e144deb3d6)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-kafka)** take items that implement `fmt::Display` for `KafkaEventStream::new` - ([a2ce28b](https://github.com/thalo-rs/thalo/commit/a2ce28b74b4d0675e4c4b88848b3bbba8109fb99)) - [@tqwewe](https://github.com/tqwewe)
+#### Miscellaneous Chores
+- merge branch 'dev' - ([7107ed8](https://github.com/thalo-rs/thalo/commit/7107ed8c5066c5bf1b01c32e484a590993408715)) - [@tqwewe](https://github.com/tqwewe)
+- merge branch 'main' into dev - ([6ed6047](https://github.com/thalo-rs/thalo/commit/6ed6047b4735c6398009566aa9244b48827bf46f)) - [@tqwewe](https://github.com/tqwewe)
+- merge branch 'dev' - ([0d79eab](https://github.com/thalo-rs/thalo/commit/0d79eab51ab9ed2ad940e0ca28db33e2c048af0c)) - [@tqwewe](https://github.com/tqwewe)
+- - -
+
 ## [0.3.1](https://github.com/thalo-rs/thalo/compare/0.3.0..0.3.1) - 2021-12-27
 #### Bug Fixes
 - **(examples/protobuf)** unwrap result of event stream - ([c009315](https://github.com/thalo-rs/thalo/commit/c00931555bb04e656d07e479a0247523eb08ca1c)) - [@tqwewe](https://github.com/tqwewe)

@@ -1,6 +1,6 @@
 [package]
 name = "thalo"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["Ari Seyhun <ariseyhun@live.com.au>"]
 edition = "2021"
 description = "Event sourcing for microservices"
@@ -23,7 +23,7 @@ chrono = { version = "0.4", features = ["serde"] }
 futures-util = { version = "0.3", optional = true }
 prettytable-rs = { version = "0.8", optional = true }
 serde = { version = "1.0", features = ["derive"] }
-thalo-macros = { version = "0.3.1", path = "../thalo-macros", optional = true }
+thalo-macros = { version = "0.3.2", path = "../thalo-macros", optional = true }
 thiserror = { version = "1.0", optional = true }
 tokio-stream = { version = "0.1", features = ["sync"], optional = true }
 tonic = { version = "0.6", default-features = false, optional = true }
