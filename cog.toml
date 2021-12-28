@@ -30,6 +30,9 @@ pre_bump_hooks = [
   """
   sh -c "sed -i '' -e 's/^thalo [^,]*,/thalo = { version = \\"{{version}}\\",/' ./thalo-postgres/Cargo.toml"
   """,
+  """
+  sh -c "sed -i '' -e 's/^thalo [^,]*,/thalo = { version = \\"{{version}}\\",/' ./thalo-testing/Cargo.toml"
+  """,
   # Update thalo-macros version in thalo/Cargo.toml
   """
   sh -c "sed -i '' -e 's/^thalo-macros [^,]*,/thalo-macros = { version = \\"{{version}}\\",/' ./thalo/Cargo.toml"
@@ -52,6 +55,8 @@ post_bump_hooks = [
   "cargo publish -p thalo-kafka",
   "echo 'publishing thalo-postgres {{version}}'",
   "cargo publish -p thalo-postgres",
+  "echo 'publishing thalo-testing {{version}}'",
+  "cargo publish -p thalo-testing",
 ]
 
 [changelog]

@@ -33,6 +33,7 @@ It's designed to be modular with additional crates implementing most functionali
 - [thalo-postgres](https://docs.rs/thalo-kafka) - Postgres implementation of [`EventStore`](https://docs.rs/thalo/latest/thalo/event_store/trait.EventStore.html).
 - [thalo-inmemory](https://docs.rs/thalo-inmemory) - In-memory implementation of [`EventStore`](https://docs.rs/thalo/latest/thalo/event_store/trait.EventStore.html).
 - [thalo-kafka](https://docs.rs/thalo-kafka) - Kafka implementation of [`EventStream`](https://docs.rs/thalo/latest/thalo/event_stream/trait.EventStream.html).
+- [thalo-testing](https://docs.rs/thalo-testing) - Test utils for thalo apps.
 
 ## Why
 

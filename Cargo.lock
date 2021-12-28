@@ -1438,6 +1438,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "thalo-testing"
+version = "0.3.1"
+dependencies = [
+ "thalo",
+ "thiserror",
+]
+
+[[package]]
 name = "thiserror"
 version = "1.0.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
