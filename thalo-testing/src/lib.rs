@@ -156,10 +156,10 @@
 //!     #[test]
 //!     fn open_account() {
 //!         BankAccount::given_no_events("account-123")
-//!         .when(|bank_account| bank_account.open_account(0.0))
-//!         .then(Ok(BankAccountEvent::OpenedAccount {
-//!             balance: 0.0,
-//!         }));
+//!             .when(|bank_account| bank_account.open_account(0.0))
+//!             .then(Ok(BankAccountEvent::OpenedAccount {
+//!                 balance: 0.0,
+//!             }));
 //!     }
 
 //!     #[test]
@@ -177,8 +177,8 @@
 //!     #[test]
 //!     fn open_account_negative_amount() {
 //!         BankAccount::given_no_events()
-//!         .when(|bank_account| bank_account.open_account(-10.0))
-//!         .then(Err(BankAccountError::NegativeAmount));
+//!             .when(|bank_account| bank_account.open_account(-10.0))
+//!             .then(Err(BankAccountError::NegativeAmount));
 //!     }
 //! ```
 
