@@ -25,7 +25,7 @@ mod traits;
 ///   Specify the path to the apply function.
 ///
 ///   Apply functions should have the signature:
-///     ```
+///     ```ignore
 ///     fn apply(aggregate: &mut Aggregate, event: AggregateEvent)
 ///     ```
 ///
@@ -102,9 +102,30 @@ mod traits;
 /// }
 /// ```
 #[proc_macro_derive(Aggregate, attributes(thalo))]
-#[allow(non_snake_case)]
 pub fn aggregate(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     declare_derive_macro::<derives::Aggregate>(input)
+}
+
+/// Implements [`IntoEvents`](https://docs.rs/thalo/latest/thalo/event/trait.IntoEvents.html) for a given type.
+///
+/// # Examples
+///
+/// ```
+/// #[derive(IntoEvents)]
+/// pub enum BankAccountEvent {
+///     OpenedAccount { balance: f64 },
+///     DepositedFunds { amount: f64 },
+///     WithdrewFunds { amount: f64 },
+/// }
+///
+/// assert_eq!(
+///     BankAccountEvent::OpenedAccount { balance: 0.0 }.into_events(),
+///     vec![BankAccountEvent::OpenedAccount { balance: 0.0 }],
+/// );
+/// ```
+#[proc_macro_derive(IntoEvents)]
+pub fn into_events(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    declare_derive_macro::<derives::IntoEvents>(input)
 }
 
 /// Implements [`EventType`](https://docs.rs/thalo/latest/thalo/event/trait.EventType.html) for a given struct.
@@ -162,7 +183,6 @@ pub fn aggregate(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// assert_eq!(BankAccountEvent::OpenedAccount { balance: 0.0 }.event_name(), "OPENED_ACCOUNT");
 /// ```
 #[proc_macro_derive(EventType, attributes(thalo))]
-#[allow(non_snake_case)]
 pub fn event_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     declare_derive_macro::<derives::EventType>(input)
 }
@@ -185,7 +205,6 @@ pub fn event_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// struct BankAccount;
 /// ```
 #[proc_macro_derive(TypeId, attributes(thalo))]
-#[allow(non_snake_case)]
 pub fn type_id(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     declare_derive_macro::<derives::TypeId>(input)
 }
