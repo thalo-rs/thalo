@@ -1,9 +1,7 @@
 use std::sync::Arc;
 
 use thalo::{
-    aggregate::Aggregate,
-    event::{AggregateEventEnvelope, IntoEvents},
-    event_store::EventStore,
+    aggregate::Aggregate, event::AggregateEventEnvelope, event_store::EventStore,
     tests_cfg::bank_account::BankAccount,
 };
 use thalo_inmemory::InMemoryEventStore;
@@ -47,7 +45,7 @@ impl bank_account_server::BankAccount for BankAccountService {
         }
 
         let (bank_account, event) = BankAccount::open_account(command.id, command.initial_balance)?;
-        let events = event.into_events();
+        let events: Vec<_> = event.into_iter().collect();
 
         let event_ids = self
             .event_store
@@ -78,7 +76,10 @@ impl bank_account_server::BankAccount for BankAccountService {
             .map_err(|err| Status::internal(err.to_string()))?
             .ok_or_else(|| Status::not_found("account does not exist"))?;
 
-        let events = bank_account.deposit_funds(command.amount)?.into_events();
+        let events: Vec<_> = bank_account
+            .deposit_funds(command.amount)?
+            .into_iter()
+            .collect();
 
         let event_ids = self
             .event_store
@@ -109,7 +110,10 @@ impl bank_account_server::BankAccount for BankAccountService {
             .map_err(|err| Status::internal(err.to_string()))?
             .ok_or_else(|| Status::not_found("account does not exist"))?;
 
-        let events = bank_account.withdraw_funds(command.amount)?.into_events();
+        let events: Vec<_> = bank_account
+            .withdraw_funds(command.amount)?
+            .into_iter()
+            .collect();
 
         let event_ids = self
             .event_store

@@ -186,7 +186,7 @@
 
 use std::fmt;
 
-use thalo::{aggregate::Aggregate, event::IntoEvents};
+use thalo::aggregate::Aggregate;
 
 /// An aggregate given events.
 pub struct GivenTest<A>(A);
@@ -236,11 +236,10 @@ where
     pub fn when<F, R>(mut self, f: F) -> WhenTest<A, R>
     where
         F: FnOnce(&mut A) -> R,
-        R: Clone + IntoEvents<Event = <A as Aggregate>::Event>,
+        R: Clone + IntoIterator<Item = <A as Aggregate>::Event>,
     {
         let result = f(&mut self.0);
-        let events = result.clone().into_events();
-        for event in events {
+        for event in result.clone() {
             self.0.apply(event);
         }
         WhenTest {
@@ -298,11 +297,10 @@ where
     pub fn when<F, RR>(mut self, f: F) -> WhenTest<A, RR>
     where
         F: FnOnce(&mut A) -> RR,
-        RR: Clone + IntoEvents<Event = <A as Aggregate>::Event>,
+        RR: Clone + IntoIterator<Item = <A as Aggregate>::Event>,
     {
         let result = f(&mut self.aggregate);
-        let events = result.clone().into_events();
-        for event in events {
+        for event in result.clone() {
             self.aggregate.apply(event);
         }
         WhenTest {

@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::aggregate::Aggregate;
 
 #[cfg(feature = "macros")]
-pub use thalo_macros::{EventType, IntoEvents};
+pub use thalo_macros::{EventType, IntoIterator};
 
 /// An event with additional metadata.
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -142,55 +142,4 @@ pub trait EventHandler<Event> {
 
     /// Handle an incoming event.
     async fn handle(&self, event: EventEnvelope<Event>) -> Result<(), Self::Error>;
-}
-
-/// A type which implements `IntoEvents` is used to convert into
-/// a list of `Self::Event`.
-///
-/// Types returned from [`Aggregate`]'s typically implement this trait.
-pub trait IntoEvents {
-    /// Event type.
-    type Event;
-
-    /// Converts type into `Vec<Self::Event>`.
-    fn into_events(self) -> Vec<Self::Event>;
-}
-
-impl<E> IntoEvents for Vec<E> {
-    type Event = E;
-
-    fn into_events(self) -> Vec<Self::Event> {
-        self
-    }
-}
-
-impl<E> IntoEvents for Option<E> {
-    type Event = E;
-
-    fn into_events(self) -> Vec<Self::Event> {
-        self.map(|event| vec![event]).unwrap_or_default()
-    }
-}
-
-impl<E, Err> IntoEvents for Result<E, Err>
-where
-    E: IntoEvents,
-{
-    type Event = <E as IntoEvents>::Event;
-
-    fn into_events(self) -> Vec<Self::Event> {
-        self.map(|event| event.into_events()).unwrap_or_default()
-    }
-}
-
-impl<A, E> IntoEvents for (A, E)
-where
-    A: Aggregate,
-    E: IntoEvents<Event = <A as Aggregate>::Event>,
-{
-    type Event = <A as Aggregate>::Event;
-
-    fn into_events(self) -> Vec<Self::Event> {
-        self.1.into_events()
-    }
 }

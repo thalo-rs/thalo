@@ -18,6 +18,26 @@ use tracing::warn;
 
 use crate::Error;
 
+/// TODO
+#[macro_export]
+macro_rules! watch_event_handlers {
+    (group_id = $group_id: expr, brokers = $brokers: expr, [$( $eh: ident ),* $(,)?]) => {
+        // $(
+        //     let consumer: rdkafka::consumer::StreamConsumer =
+        //         thalo_kafka::KafkaClientConfig::new_recommended($group_id, $brokers)
+        //             .into_inner()
+        //             .create()?;
+
+        //     let mut event_stream = thalo_kafka::KafkaEventStream::new(topics, consumer);
+        //     event_stream
+        //         .watch_event_handler::<User, _>(projection)
+        //         .await?;
+
+        //     Ok(())
+        // )*
+    };
+}
+
 /// An event stream consuming from kafka.
 ///
 /// Events are expected to be received with a json payload, and will be deserialized
