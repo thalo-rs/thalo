@@ -233,13 +233,18 @@ where
     A: Aggregate,
 {
     /// When a command is applied.
-    pub fn when<F, R>(mut self, f: F) -> WhenTest<A, R>
+    pub fn when<F, R, I>(mut self, f: F) -> WhenTest<A, R>
     where
         F: FnOnce(&mut A) -> R,
-        R: Clone + IntoIterator<Item = <A as Aggregate>::Event>,
+        R: Clone + IntoIterator<Item = I>,
+        I: IntoIterator<Item = <A as Aggregate>::Event>,
     {
         let result = f(&mut self.0);
-        for event in result.clone() {
+        for event in result
+            .clone()
+            .into_iter()
+            .flat_map(<I as IntoIterator>::into_iter)
+        {
             self.0.apply(event);
         }
         WhenTest {
@@ -294,13 +299,18 @@ where
     }
 
     /// When another command is applied.
-    pub fn when<F, RR>(mut self, f: F) -> WhenTest<A, RR>
+    pub fn when<F, RR, I>(mut self, f: F) -> WhenTest<A, RR>
     where
         F: FnOnce(&mut A) -> RR,
-        RR: Clone + IntoIterator<Item = <A as Aggregate>::Event>,
+        RR: Clone + IntoIterator<Item = I>,
+        I: IntoIterator<Item = <A as Aggregate>::Event>,
     {
         let result = f(&mut self.aggregate);
-        for event in result.clone() {
+        for event in result
+            .clone()
+            .into_iter()
+            .flat_map(<I as IntoIterator>::into_iter)
+        {
             self.aggregate.apply(event);
         }
         WhenTest {
