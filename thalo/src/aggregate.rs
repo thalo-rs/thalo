@@ -27,8 +27,8 @@ pub trait Aggregate: TypeId {
     fn apply(&mut self, event: Self::Event);
 }
 
-/// Unique type identifier
+/// Unique type identifier.
 pub trait TypeId {
-    /// Returns a unique identifier for the given type
+    /// Returns a unique identifier for the given type.
     fn type_id() -> &'static str;
 }
