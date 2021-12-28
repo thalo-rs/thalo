@@ -2,6 +2,20 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [0.3.3](https://github.com/thalo-rs/thalo/compare/0.3.2..0.3.3) - 2021-12-28
+#### Build system
+- add thalo-testing to pre bump hook - ([738e011](https://github.com/thalo-rs/thalo/commit/738e0112bcc2b076ef3b69cf67dad633252a9741)) - [@tqwewe](https://github.com/tqwewe)
+#### Documentation
+- **(thalo)** add inconsistent missing periods - ([dc0b78a](https://github.com/thalo-rs/thalo/commit/dc0b78a7774d21b326547bcff09f0fe1186c04d4)) - [@tqwewe](https://github.com/tqwewe)
+#### Features
+- **(thalo-testing)** add package `thalo-testing` - ([bcf11a9](https://github.com/thalo-rs/thalo/commit/bcf11a9fa270cbcd32afb57b6454ef2876f8e10e)) - [@tqwewe](https://github.com/tqwewe)
+#### Miscellaneous Chores
+- merge branch 'dev' - ([5cae915](https://github.com/thalo-rs/thalo/commit/5cae915b342bf171b7c14f5407761c367b462a0a)) - [@tqwewe](https://github.com/tqwewe)
+- merge branch 'main' into dev - ([4858067](https://github.com/thalo-rs/thalo/commit/48580671bf21fd7cfb04bd1f6b14795a4f659cd8)) - [@tqwewe](https://github.com/tqwewe)
+- merge branch 'dev' - ([0f03acc](https://github.com/thalo-rs/thalo/commit/0f03acc5b8a4361d69a298cde8e21fb7fb3f369f)) - [@tqwewe](https://github.com/tqwewe)
+- merge branch 'main' into dev - ([d94d279](https://github.com/thalo-rs/thalo/commit/d94d2795c128c9f7467a60c0026824a0038481dd)) - [@tqwewe](https://github.com/tqwewe)
+- - -
+
 ## [0.3.2](https://github.com/thalo-rs/thalo/compare/0.3.1..0.3.2) - 2021-12-27
 #### Build system
 - **(thalo)** add feature flags in documentation - ([055d15d](https://github.com/thalo-rs/thalo/commit/055d15d2f6fe1486e2f488f6a55354cf1baa219b)) - [@tqwewe](https://github.com/tqwewe)
