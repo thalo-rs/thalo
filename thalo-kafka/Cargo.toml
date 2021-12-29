@@ -17,6 +17,7 @@ categories = [
 ]
 
 [dependencies]
+async-trait = "0.1"
 async-stream = "0.3"
 futures-util = "0.3"
 rdkafka = "0.28"

@@ -1,5 +1,5 @@
 /// A Kafka topic.
 pub trait Topic {
-    /// Returns a list of kafka topics.
-    fn topics() -> Vec<&'static str>;
+    /// Returns a kafka topic.
+    fn topic(&self) -> &'static str;
 }

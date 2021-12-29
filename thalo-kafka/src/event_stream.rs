@@ -11,80 +11,12 @@ use rdkafka::{
 use serde::de::DeserializeOwned;
 use thalo::{
     aggregate::Aggregate,
-    event::{AggregateEventEnvelope, EventHandler},
+    event::{EventEnvelope, EventHandler},
     event_stream::{EventStream, EventStreamResult},
 };
 use tracing::{trace, warn};
 
 use crate::Error;
-
-/// Watch a list of event handlers in spawned tasks.
-///
-/// For each event handler, a tokio task is spawned and events are handled using the
-/// event handlers implementation.
-/// If an event is received but the event handler returns an error, then the topic
-/// offset is not saved to the store, and the event will be received again upon restart.
-///
-/// The [`KafkaClientConfig::new_recommended`](crate::KafkaClientConfig::new_recommended) config is used, along with [`KafkaEventStream::watch_event_handler`].
-///
-/// The `group_id` is a unique identifier and should be unique per event handler.
-/// If the same `group_id` is used between event handlers, then Kafka will only
-/// send an event to one consumer.
-///
-/// # Examples
-///
-/// ```no_run
-/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     let kafka_host = std::env::var("KAFKA_HOST").expect("missing kafka_host env var");
-///     let database_url = std::env::var("DATABASE_URL").expect("missing database_url env var");
-///
-///     let db = Database::connect(&database_url).await?;
-///
-///     watch_event_handlers!(
-///         kafka_host,                                // The kafka broker
-///         (
-///             group_id = "bank-account",             // A unique identifier. Each event handler should have a unique group_id.
-///             topics = ["bank-account-events"],      // Topics to subscribe to.
-///             BankAccountProjection::new(db.clone()) // Event handler instance.
-///         ),
-///         ( ... ),
-///         ( ... ),
-///     );
-///
-///     Ok(())
-/// }
-/// ```
-#[macro_export]
-macro_rules! watch_event_handlers {
-    ($brokers: expr, $( ( group_id = $group_id: expr, topics = $topics: expr, $event_handler: expr) ),* $(,)?) => {
-        let mut handles = Vec::new();
-
-        $(
-            let event_handler = $event_handler;
-
-            let handle = tokio::spawn(async move {
-                let consumer: rdkafka::consumer::StreamConsumer =
-                    thalo_kafka::KafkaClientConfig::new_recommended($group_id, &$brokers)
-                    .into_inner()
-                    .create()
-                    .map_err(thalo_kafka::Error::CreateStreamError)?;
-
-                let mut event_stream = thalo_kafka::KafkaEventStream::new(&$topics, consumer);
-                event_stream
-                    .watch_event_handler::<User, _>(&event_handler)
-                    .await?;
-
-                Result::<_, thalo_kafka::Error>::Ok(())
-            });
-
-            handles.push(handle);
-        )*
-
-        for handle in handles {
-            handle.await??;
-        }
-    };
-}
 
 /// An event stream consuming from kafka.
 ///
@@ -118,7 +50,12 @@ where
     /// Watch events for a given event handler and run the [`EventHandler::handle`](https://docs.rs/thalo/latest/thalo/event/trait.EventHandler.html) method upon incoming events.
     ///
     /// If the handle method returns an [`Result::Err`], then the kafka offset will not be stored, otherwise it will be saved.
-    pub async fn watch_event_handler<A, EH>(&mut self, event_handler: &EH) -> Result<(), Error>
+    pub async fn watch_event_handler<A, EH>(
+        &mut self,
+        event_handler: &EH,
+        store_offset: bool,
+        group_id: &str,
+    ) -> Result<(), Error>
     where
         A: 'static + Aggregate,
         <A as Aggregate>::Event: 'static + Clone + fmt::Debug + DeserializeOwned + Send,
@@ -140,15 +77,18 @@ where
                         topic = msg.message.topic(),
                         partition = msg.message.partition(),
                         offset = msg.message.offset(),
+                        group_id,
                         "handled event"
                     );
 
-                    if let Err(err) = consumer.store_offset(
-                        msg.message.topic(),
-                        msg.message.partition(),
-                        msg.message.offset(),
-                    ) {
-                        warn!("error while storing offset: {}", err);
+                    if store_offset {
+                        if let Err(err) = consumer.store_offset(
+                            msg.message.topic(),
+                            msg.message.partition(),
+                            msg.message.offset(),
+                        ) {
+                            warn!("error while storing offset: {}", err);
+                        }
                     }
                 }
                 Err(Error::EmptyPayloadError(message))
@@ -177,13 +117,15 @@ where
     }
 }
 
+/// A message received from Kafka including the event and raw Kafka message.
 #[derive(Clone, Debug)]
-pub struct KafkaEventMessage<A>
+pub struct KafkaEventMessage<E>
 where
-    A: Aggregate,
-    <A as Aggregate>::Event: Clone + fmt::Debug,
+    E: Clone + fmt::Debug,
 {
-    pub event: AggregateEventEnvelope<A>,
+    /// Deserialized event.
+    pub event: EventEnvelope<E>,
+    /// Kafka message received.
     pub message: OwnedMessage,
 }
 
@@ -194,7 +136,7 @@ where
     C: 'static + ConsumerContext,
     R: Send + Sync,
 {
-    type Item = Result<KafkaEventMessage<A>, Error>;
+    type Item = Result<KafkaEventMessage<<A as Aggregate>::Event>, Error>;
     type Error = Error;
 
     fn listen_events(&mut self) -> EventStreamResult<'_, Self::Item, Self::Error>
@@ -209,14 +151,16 @@ where
 
         Ok((stream! {
             loop {
-                yield next_event(&consumer).await;
+                yield next_event::<A, _, _>(&consumer).await;
             }
         })
         .boxed())
     }
 }
 
-async fn next_event<A, C, R>(consumer: &StreamConsumer<C, R>) -> Result<KafkaEventMessage<A>, Error>
+async fn next_event<A, C, R>(
+    consumer: &StreamConsumer<C, R>,
+) -> Result<KafkaEventMessage<<A as Aggregate>::Event>, Error>
 where
     A: Aggregate,
     <A as Aggregate>::Event: Clone + fmt::Debug + DeserializeOwned,
