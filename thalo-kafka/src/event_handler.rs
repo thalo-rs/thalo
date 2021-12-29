@@ -99,12 +99,12 @@ where
     ///     let handles: Vec<_> = projections
     ///         .into_iter()
     ///         .map(|(group_id, projection)| {
-    ///             tokio::spawn(projection.watch(&redpanda_host, group_id))
+    ///             tokio::spawn(async move { projection.watch(&redpanda_host, group_id).await })
     ///         })
     ///         .collect();
     ///
     ///     for handle in handles {
-    ///         handle.await?;
+    ///         handle.await??;
     ///     }
     ///
     ///     Ok(())
