@@ -11,10 +11,9 @@ use rdkafka::{
 use serde::de::DeserializeOwned;
 use thalo::{
     aggregate::Aggregate,
-    event::{EventEnvelope, EventHandler},
+    event::EventEnvelope,
     event_stream::{EventStream, EventStreamResult},
 };
-use tracing::{trace, warn};
 
 use crate::Error;
 
@@ -48,73 +47,32 @@ where
         Arc::clone(&self.consumer)
     }
 
-    /// Watch events for a given event handler and run the [`EventHandler::handle`](https://docs.rs/thalo/latest/thalo/event/trait.EventHandler.html) method upon incoming events.
+    /// Subscribes to topics and listens to events using the consumer, returning a stream of events.
     ///
-    /// If the handle method returns an [`Result::Err`], then the kafka offset will not be stored, otherwise it will be saved.
-    pub async fn watch_event_handler<A, EH>(
-        &mut self,
-        event_handler: &EH,
-        store_offset: bool,
-        group_id: &str,
-    ) -> Result<(), Error>
+    /// Events are expected to be JSON [`thalo::event::EventEnvelope`]s, and will be deserialized.
+    ///
+    /// For more documentation, see [`thalo::event_stream::EventStream`].
+    pub fn listen_events<A>(
+        &self,
+    ) -> EventStreamResult<'_, Result<KafkaEventMessage<<A as Aggregate>::Event>, Error>, Error>
     where
-        A: 'static + Aggregate,
+        A: Aggregate,
         <A as Aggregate>::Event: 'static + Clone + fmt::Debug + DeserializeOwned + Send,
-        EH: EventHandler<<A as Aggregate>::Event>,
-        <EH as EventHandler<<A as Aggregate>::Event>>::Error: 'static + std::error::Error + Send,
         C: 'static,
         R: Send + Sync,
     {
-        let consumer = self.consumer();
-        let mut event_stream = EventStream::<A>::listen_events(self)?;
-        while let Some(result) = event_stream.next().await {
-            match result {
-                Ok(msg) => {
-                    event_handler
-                        .handle(msg.event)
-                        .await
-                        .map_err(|err| Error::EventHandlerError(Box::new(err)))?;
-                    trace!(
-                        topic = msg.message.topic(),
-                        partition = msg.message.partition(),
-                        offset = msg.message.offset(),
-                        group_id,
-                        "handled event"
-                    );
+        let consumer = Arc::clone(&self.consumer);
 
-                    if store_offset {
-                        if let Err(err) = consumer.store_offset(
-                            msg.message.topic(),
-                            msg.message.partition(),
-                            msg.message.offset(),
-                        ) {
-                            warn!("error while storing offset: {}", err);
-                        }
-                    }
-                }
-                Err(Error::EmptyPayloadError(message))
-                | Err(Error::MessageJsonDeserializeError { message, .. }) => {
-                    warn!(
-                        topic = message.topic(),
-                        partition = message.partition(),
-                        offset = message.offset(),
-                        "invalid message received"
-                    );
-                    if let Err(err) = consumer.store_offset(
-                        message.topic(),
-                        message.partition(),
-                        message.offset(),
-                    ) {
-                        warn!("error while storing offset: {}", err);
-                    }
-                }
-                Err(err) => {
-                    warn!("message error: {}", err);
-                }
+        consumer
+            .subscribe(&self.topics.iter().map(AsRef::as_ref).collect::<Vec<_>>())
+            .map_err(Error::SubscribeTopicError)?;
+
+        Ok((stream! {
+            loop {
+                yield next_event::<A, _, _>(&consumer).await;
             }
-        }
-
-        Ok(())
+        })
+        .boxed())
     }
 }
 
@@ -144,18 +102,7 @@ where
     where
         <A as Aggregate>::Event: 'static + DeserializeOwned + Send,
     {
-        let consumer = Arc::clone(&self.consumer);
-
-        consumer
-            .subscribe(&self.topics.iter().map(AsRef::as_ref).collect::<Vec<_>>())
-            .map_err(Error::SubscribeTopicError)?;
-
-        Ok((stream! {
-            loop {
-                yield next_event::<A, _, _>(&consumer).await;
-            }
-        })
-        .boxed())
+        KafkaEventStream::listen_events::<A>(self)
     }
 }
 

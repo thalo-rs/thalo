@@ -18,7 +18,7 @@ pub trait WatchEventHandler<Event>
 where
     Self: EventHandler<Event>,
     Event: Clone + fmt::Debug + Send,
-    <Self as EventHandler<Event>>::Error: 'static + std::error::Error + Send,
+    <Self as EventHandler<Event>>::Error: 'static + fmt::Display + Send,
 {
     /// List of kafka topics to subscribe to.
     ///
@@ -36,20 +36,39 @@ where
     /// Typically, this will be an event stream from a single aggregate,
     /// but can be a merged stream to handle events from multiple aggregates.
     ///
-    /// # Example
+    /// # Examples
+    ///
+    /// Listen to events from single aggregate.
     ///
     /// ```
     /// fn event_stream(
-    ///     kafka_event_stream: &mut KafkaEventStream,
+    ///     kafka_event_stream: &KafkaEventStream,
     /// ) -> Result<
     ///     BoxStream<'_, Result<KafkaEventMessage<AuthEvent>, thalo_kafka::Error>>,
     ///     thalo_kafka::Error,
     /// > {
-    ///     EventStream::<BankAccount>::listen_events(kafka_event_stream)
+    ///     kafka_event_stream.listen_events::<BankAccount>()
+    /// }
+    /// ```
+    ///
+    /// Listen to events from multiple aggregates.
+    /// ```
+    /// fn event_stream(
+    ///     kafka_event_stream: &KafkaEventStream,
+    /// ) -> Result<
+    ///     BoxStream<'_, Result<KafkaEventMessage<AuthEvent>, thalo_kafka::Error>>,
+    ///     thalo_kafka::Error,
+    /// > {
+    ///     let stream = tokio_stream::StreamExt::merge(
+    ///         kafka_event_stream.listen_events::<Auth>()?,
+    ///         kafka_event_stream.listen_events::<Auth>()?,
+    ///     );
+    ///
+    ///     Ok(stream.boxed())
     /// }
     /// ```
     fn event_stream(
-        kafka_event_stream: &mut KafkaEventStream,
+        kafka_event_stream: &KafkaEventStream,
     ) -> Result<BoxStream<'_, Result<KafkaEventMessage<Event>, Error>>, Error>;
 
     /// Watch an event handler for incoming events and handle each event with [`EventHandler::handle`].
@@ -116,31 +135,39 @@ where
             .create()
             .map_err(Error::CreateStreamError)?;
 
-        let mut kafka_event_stream = KafkaEventStream::new(&Self::topics(), consumer);
+        let kafka_event_stream = KafkaEventStream::new(&Self::topics(), consumer);
         let consumer = kafka_event_stream.consumer();
 
-        let mut event_stream = Self::event_stream(&mut kafka_event_stream)?;
+        let mut event_stream = Self::event_stream(&kafka_event_stream)?;
         while let Some(result) = event_stream.next().await {
             match result {
-                Ok(msg) => {
-                    self.handle(msg.event)
-                        .await
-                        .map_err(|err| Error::EventHandlerError(Box::new(err)))?;
-                    trace!(
-                        topic = msg.message.topic(),
-                        partition = msg.message.partition(),
-                        offset = msg.message.offset(),
-                        "handled event"
-                    );
+                Ok(msg) => match self.handle(msg.event).await {
+                    Ok(_) => {
+                        trace!(
+                            topic = msg.message.topic(),
+                            partition = msg.message.partition(),
+                            offset = msg.message.offset(),
+                            "handled event"
+                        );
 
-                    if let Err(err) = consumer.store_offset(
-                        msg.message.topic(),
-                        msg.message.partition(),
-                        msg.message.offset(),
-                    ) {
-                        warn!("error while storing offset: {}", err);
+                        if let Err(err) = consumer.store_offset(
+                            msg.message.topic(),
+                            msg.message.partition(),
+                            msg.message.offset(),
+                        ) {
+                            warn!("error while storing offset: {}", err);
+                        }
                     }
-                }
+                    Err(err) => {
+                        warn!(
+                            topic = msg.message.topic(),
+                            partition = msg.message.partition(),
+                            offset = msg.message.offset(),
+                            "event handler error: {}",
+                            err
+                        );
+                    }
+                },
                 Err(err) => {
                     err.log();
                     err.store_offset(&consumer);
