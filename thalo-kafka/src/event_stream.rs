@@ -22,6 +22,7 @@ use crate::Error;
 ///
 /// Events are expected to be received with a json payload, and will be deserialized
 /// with the [`thalo::aggregate::Aggregate::Event`]'s [`serde::de::DeserializeOwned`] implementation.
+#[derive(Clone)]
 pub struct KafkaEventStream<C = DefaultConsumerContext, R = DefaultRuntime>
 where
     C: ConsumerContext,
