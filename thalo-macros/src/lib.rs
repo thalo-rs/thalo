@@ -123,7 +123,7 @@ pub fn aggregate(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 ///     vec![BankAccountEvent::OpenedAccount { balance: 0.0 }],
 /// );
 /// ```
-#[proc_macro_derive(IntoIterator)]
+#[proc_macro_derive(IntoIterator, attributes(thalo))]
 pub fn into_iterator(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     declare_derive_macro::<derives::IntoIterator>(input)
 }
