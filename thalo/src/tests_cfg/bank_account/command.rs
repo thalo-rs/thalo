@@ -1,7 +1,9 @@
 use thiserror::Error;
 use tonic::{Code, Status};
 
-use super::{BankAccount, BankAccountEvent};
+use super::{
+    BankAccount, BankAccountEvent, DepositedFundsEvent, OpenedAccountEvent, WithdrewFundsEvent,
+};
 
 impl BankAccount {
     // Doesn't have &self parameter, so it is the entry command.
@@ -20,9 +22,9 @@ impl BankAccount {
 
         Ok((
             bank_account,
-            BankAccountEvent::OpenedAccount {
+            BankAccountEvent::OpenedAccount(OpenedAccountEvent {
                 balance: initial_balance,
-            },
+            }),
         ))
     }
 
@@ -33,7 +35,9 @@ impl BankAccount {
             return Err(BankAccountError::NegativeAmount);
         }
 
-        Ok(BankAccountEvent::DepositedFunds { amount })
+        Ok(BankAccountEvent::DepositedFunds(DepositedFundsEvent {
+            amount,
+        }))
     }
 
     pub fn withdraw_funds(&self, amount: f64) -> Result<BankAccountEvent, BankAccountError> {
@@ -48,7 +52,9 @@ impl BankAccount {
             return Err(BankAccountError::InsufficientFunds);
         }
 
-        Ok(BankAccountEvent::WithdrewFunds { amount })
+        Ok(BankAccountEvent::WithdrewFunds(WithdrewFundsEvent {
+            amount,
+        }))
     }
 }
 

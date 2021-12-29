@@ -5,6 +5,7 @@ use prettytable::Table;
 
 use crate::{
     event::{EventEnvelope, EventHandler},
+    tests_cfg::bank_account::{DepositedFundsEvent, OpenedAccountEvent, WithdrewFundsEvent},
     Infallible,
 };
 
@@ -107,9 +108,15 @@ impl EventHandler<BankAccountEvent> for BankAccountProjection {
         use BankAccountEvent::*;
 
         match event {
-            OpenedAccount { balance } => self.handle_opened_account(aggregate_id, balance),
-            DepositedFunds { amount } => self.handle_deposited_funds(aggregate_id, amount),
-            WithdrewFunds { amount } => self.handle_withdrew_funds(aggregate_id, amount),
+            OpenedAccount(OpenedAccountEvent { balance }) => {
+                self.handle_opened_account(aggregate_id, balance)
+            }
+            DepositedFunds(DepositedFundsEvent { amount }) => {
+                self.handle_deposited_funds(aggregate_id, amount)
+            }
+            WithdrewFunds(WithdrewFundsEvent { amount }) => {
+                self.handle_withdrew_funds(aggregate_id, amount)
+            }
         }
 
         Ok(())
