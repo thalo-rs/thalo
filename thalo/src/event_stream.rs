@@ -8,14 +8,6 @@ use crate::{aggregate::Aggregate, event::AggregateEventEnvelope, Infallible};
 /// A type alias for the return type of [`EventStream::listen_events`].
 pub type EventStreamResult<'a, I, E> = Result<BoxStream<'a, I>, E>;
 
-// pub struct EventStreamItem<A, M>
-// where
-//     A: Aggregate,
-// {
-//     event: AggregateEventEnvelope<A>,
-//     message: M,
-// }
-
 /// An event stream is a source of previously published events.
 ///
 /// This is usually a consumer for message brokers.
