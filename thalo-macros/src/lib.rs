@@ -106,28 +106,6 @@ pub fn aggregate(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     declare_derive_macro::<derives::Aggregate>(input)
 }
 
-/// Implements [`IntoIterator`] for a given type, where [`IntoIterator::IntoIter`] is [`std::iter::once::Once<Self>`].
-///
-/// # Examples
-///
-/// ```
-/// #[derive(IntoIterator)]
-/// pub enum BankAccountEvent {
-///     OpenedAccount { balance: f64 },
-///     DepositedFunds { amount: f64 },
-///     WithdrewFunds { amount: f64 },
-/// }
-///
-/// assert_eq!(
-///     BankAccountEvent::OpenedAccount { balance: 0.0 }.into_iter().collect::<Vec<_>>(),
-///     vec![BankAccountEvent::OpenedAccount { balance: 0.0 }],
-/// );
-/// ```
-#[proc_macro_derive(IntoIterator, attributes(thalo))]
-pub fn into_iterator(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    declare_derive_macro::<derives::IntoIterator>(input)
-}
-
 /// Implements [`EventType`](https://docs.rs/thalo/latest/thalo/event/trait.EventType.html) for a given struct.
 ///
 /// # Container Attributes

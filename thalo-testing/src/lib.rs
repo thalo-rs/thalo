@@ -233,20 +233,11 @@ where
     A: Aggregate,
 {
     /// When a command is applied.
-    pub fn when<F, R, I>(mut self, f: F) -> WhenTest<A, R>
+    pub fn when<F, R>(mut self, f: F) -> WhenTest<A, R>
     where
         F: FnOnce(&mut A) -> R,
-        R: Clone + IntoIterator<Item = I>,
-        I: IntoIterator<Item = <A as Aggregate>::Event>,
     {
         let result = f(&mut self.0);
-        for event in result
-            .clone()
-            .into_iter()
-            .flat_map(<I as IntoIterator>::into_iter)
-        {
-            self.0.apply(event);
-        }
         WhenTest {
             aggregate: self.0,
             result,
@@ -298,24 +289,48 @@ where
         self
     }
 
-    /// When another command is applied.
-    pub fn when<F, RR, I>(mut self, f: F) -> WhenTest<A, RR>
+    /// Apply result of previous when() action.
+    pub fn apply<F, I>(mut self, f: F) -> GivenTest<A>
     where
-        F: FnOnce(&mut A) -> RR,
-        RR: Clone + IntoIterator<Item = I>,
+        F: FnOnce(R) -> I,
         I: IntoIterator<Item = <A as Aggregate>::Event>,
     {
-        let result = f(&mut self.aggregate);
-        for event in result
-            .clone()
-            .into_iter()
-            .flat_map(<I as IntoIterator>::into_iter)
-        {
+        let events = f(self.result).into_iter();
+        for event in events {
             self.aggregate.apply(event);
         }
+        GivenTest(self.aggregate)
+    }
+}
+
+impl<A, R, E> WhenTest<A, Result<R, E>>
+where
+    A: Aggregate,
+{
+    /// Then the result of the previous when() action should be Ok(T), with T being equal the given parameter.
+    pub fn then_ok<T>(self, result: T) -> WhenTest<A, R>
+    where
+        T: fmt::Debug,
+        R: fmt::Debug,
+        E: fmt::Debug,
+        Result<R, E>: PartialEq<Result<T, E>>,
+    {
+        assert_eq!(self.result, Result::<T, E>::Ok(result));
         WhenTest {
             aggregate: self.aggregate,
-            result,
+            result: self.result.unwrap(),
         }
+    }
+
+    /// Then the result of the previous when() action should be Err(E), with E being equal the given parameter.
+    pub fn then_err<T>(self, result: T) -> GivenTest<A>
+    where
+        T: fmt::Debug,
+        R: fmt::Debug,
+        E: fmt::Debug,
+        Result<R, E>: PartialEq<Result<R, T>>,
+    {
+        assert_eq!(self.result, Result::<R, T>::Err(result));
+        GivenTest(self.aggregate)
     }
 }

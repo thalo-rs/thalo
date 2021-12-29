@@ -45,17 +45,17 @@ impl bank_account_server::BankAccount for BankAccountService {
         }
 
         let (bank_account, event) = BankAccount::open_account(command.id, command.initial_balance)?;
-        let events: Vec<_> = event.into_iter().collect();
+        let events = &[event];
 
         let event_ids = self
             .event_store
-            .save_events::<BankAccount>(bank_account.id(), &events)
+            .save_events::<BankAccount>(bank_account.id(), events)
             .await
             .map_err(|err| Status::internal(err.to_string()))?;
 
         broadcast_events(&self.event_store, &self.event_stream, &event_ids).await?;
 
-        let events_json = serde_json::to_string(&events)
+        let events_json = serde_json::to_string(events)
             .map_err(|_| Status::internal("failed to serialize events"))?;
 
         Ok(tonic::Response::new(Response {
@@ -76,20 +76,18 @@ impl bank_account_server::BankAccount for BankAccountService {
             .map_err(|err| Status::internal(err.to_string()))?
             .ok_or_else(|| Status::not_found("account does not exist"))?;
 
-        let events: Vec<_> = bank_account
-            .deposit_funds(command.amount)?
-            .into_iter()
-            .collect();
+        let event = bank_account.deposit_funds(command.amount)?;
+        let events = &[event];
 
         let event_ids = self
             .event_store
-            .save_events::<BankAccount>(bank_account.id(), &events)
+            .save_events::<BankAccount>(bank_account.id(), events)
             .await
             .map_err(|err| Status::internal(err.to_string()))?;
 
         broadcast_events(&self.event_store, &self.event_stream, &event_ids).await?;
 
-        let events_json = serde_json::to_string(&events)
+        let events_json = serde_json::to_string(events)
             .map_err(|_| Status::internal("failed to serialize events"))?;
 
         Ok(tonic::Response::new(Response {
@@ -110,20 +108,18 @@ impl bank_account_server::BankAccount for BankAccountService {
             .map_err(|err| Status::internal(err.to_string()))?
             .ok_or_else(|| Status::not_found("account does not exist"))?;
 
-        let events: Vec<_> = bank_account
-            .withdraw_funds(command.amount)?
-            .into_iter()
-            .collect();
+        let event = bank_account.withdraw_funds(command.amount)?;
+        let events = &[event];
 
         let event_ids = self
             .event_store
-            .save_events::<BankAccount>(bank_account.id(), &events)
+            .save_events::<BankAccount>(bank_account.id(), events)
             .await
             .map_err(|err| Status::internal(err.to_string()))?;
 
         broadcast_events(&self.event_store, &self.event_stream, &event_ids).await?;
 
-        let events_json = serde_json::to_string(&events)
+        let events_json = serde_json::to_string(events)
             .map_err(|_| Status::internal("failed to serialize events"))?;
 
         Ok(tonic::Response::new(Response {

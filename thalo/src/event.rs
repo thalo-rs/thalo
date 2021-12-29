@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::aggregate::Aggregate;
 
 #[cfg(feature = "macros")]
-pub use thalo_macros::{EventType, IntoIterator};
+pub use thalo_macros::EventType;
 
 /// An event with additional metadata.
 #[derive(Clone, Debug, Deserialize, Serialize)]
