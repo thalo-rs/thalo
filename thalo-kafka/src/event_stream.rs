@@ -88,6 +88,23 @@ where
     pub message: OwnedMessage,
 }
 
+impl<E> KafkaEventMessage<E>
+where
+    E: Clone + fmt::Debug,
+{
+    /// Map an event to a new type whilst preserving the rest of the envelope data.
+    pub fn map_event<EE, F>(self, f: F) -> KafkaEventMessage<EE>
+    where
+        EE: Clone + fmt::Debug,
+        F: FnOnce(E) -> EE,
+    {
+        KafkaEventMessage {
+            event: self.event.map_event(f),
+            message: self.message,
+        }
+    }
+}
+
 impl<A, C, R> EventStream<A> for KafkaEventStream<C, R>
 where
     A: 'static + Aggregate,
