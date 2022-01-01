@@ -1,6 +1,6 @@
 [package]
 name = "thalo-inmemory"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Ari Seyhun <ariseyhun@live.com.au>"]
 edition = "2021"
 description = "In-memory event store for crates.io/thalo"
@@ -22,7 +22,7 @@ chrono = "0.4"
 prettytable-rs = { version = "0.8", optional = true }
 serde = "1.0"
 serde_json = "1.0"
-thalo = { version = "0.3.2", path = "../thalo", features = [
+thalo = { version = "0.3.3", path = "../thalo", features = [
   "event-store",
   "tests-cfg",
 ] }
