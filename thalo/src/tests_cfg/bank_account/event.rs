@@ -1,20 +1,26 @@
 use serde::{Deserialize, Serialize};
 
 use crate as thalo;
-use crate::event::{EventType, IntoEvents};
+use crate::event::EventType;
 
-#[derive(Clone, Debug, Deserialize, Serialize, EventType)]
-#[thalo(rename_all = "SCREAMING_SNAKE_CASE")]
+#[derive(Clone, Debug, Deserialize, EventType, Serialize)]
 pub enum BankAccountEvent {
-    OpenedAccount { balance: f64 },
-    DepositedFunds { amount: f64 },
-    WithdrewFunds { amount: f64 },
+    OpenedAccount(OpenedAccountEvent),
+    DepositedFunds(DepositedFundsEvent),
+    WithdrewFunds(WithdrewFundsEvent),
 }
 
-impl IntoEvents for BankAccountEvent {
-    type Event = Self;
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct OpenedAccountEvent {
+    pub balance: f64,
+}
 
-    fn into_events(self) -> Vec<Self::Event> {
-        vec![self]
-    }
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct DepositedFundsEvent {
+    pub amount: f64,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct WithdrewFundsEvent {
+    pub amount: f64,
 }

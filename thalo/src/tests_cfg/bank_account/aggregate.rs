@@ -1,5 +1,6 @@
 use crate as thalo;
 use crate::aggregate::{Aggregate, TypeId};
+use crate::tests_cfg::bank_account::{DepositedFundsEvent, OpenedAccountEvent, WithdrewFundsEvent};
 
 use super::BankAccountEvent;
 
@@ -13,13 +14,13 @@ fn apply(bank_account: &mut BankAccount, event: BankAccountEvent) {
     use BankAccountEvent::*;
 
     match event {
-        OpenedAccount { balance } => {
+        OpenedAccount(OpenedAccountEvent { balance }) => {
             bank_account.balance = balance;
         }
-        DepositedFunds { amount } => {
+        DepositedFunds(DepositedFundsEvent { amount }) => {
             bank_account.balance += amount;
         }
-        WithdrewFunds { amount } => {
+        WithdrewFunds(WithdrewFundsEvent { amount }) => {
             bank_account.balance -= amount;
         }
     }

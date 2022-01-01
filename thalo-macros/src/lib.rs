@@ -25,7 +25,7 @@ mod traits;
 ///   Specify the path to the apply function.
 ///
 ///   Apply functions should have the signature:
-///     ```
+///     ```ignore
 ///     fn apply(aggregate: &mut Aggregate, event: AggregateEvent)
 ///     ```
 ///
@@ -102,9 +102,50 @@ mod traits;
 /// }
 /// ```
 #[proc_macro_derive(Aggregate, attributes(thalo))]
-#[allow(non_snake_case)]
 pub fn aggregate(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     declare_derive_macro::<derives::Aggregate>(input)
+}
+
+/// Implements [`IntoEvents`](https://docs.rs/thalo/latest/thalo/event/trait.IntoEvents.html) for a given struct,
+/// and [`From<Self>`] for a parent enum pointed to by the `#[thalo(parent = "...")]` attribute.
+///
+/// # Container Attributes
+///
+/// - `#[thalo(parent = "path")`
+///
+///   Event enum parent to implement [`From`] for.
+///
+/// - `#[thalo(variant = "...")]`
+///
+///   The variant of the parent enum that holds this struct.
+///
+/// # Examples
+///
+/// ```
+/// use thalo::event::Event;
+///
+/// pub enum AuthEvent {
+///     LoggedIn(LoggedInEvent),
+///     Registered(RegisteredEvent),
+/// }
+///
+/// #[derive(Event)]
+/// #[thalo(parent = "AuthEvent", variant = "LoggedIn")]
+/// pub struct LoggedInEvent {
+///     pub refresh_token: String,
+///     pub expires_at: DateTime<Utc>,
+/// }
+///
+/// #[derive(Event)]
+/// #[thalo(parent = "AuthEvent", variant = "Registered")]
+/// pub struct RegisteredEvent {
+///     pub email: String,
+///     pub password: String,
+/// }
+/// ```
+#[proc_macro_derive(Event, attributes(thalo))]
+pub fn event(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    declare_derive_macro::<derives::Event>(input)
 }
 
 /// Implements [`EventType`](https://docs.rs/thalo/latest/thalo/event/trait.EventType.html) for a given struct.
@@ -162,7 +203,6 @@ pub fn aggregate(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// assert_eq!(BankAccountEvent::OpenedAccount { balance: 0.0 }.event_name(), "OPENED_ACCOUNT");
 /// ```
 #[proc_macro_derive(EventType, attributes(thalo))]
-#[allow(non_snake_case)]
 pub fn event_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     declare_derive_macro::<derives::EventType>(input)
 }
@@ -185,7 +225,6 @@ pub fn event_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// struct BankAccount;
 /// ```
 #[proc_macro_derive(TypeId, attributes(thalo))]
-#[allow(non_snake_case)]
 pub fn type_id(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     declare_derive_macro::<derives::TypeId>(input)
 }

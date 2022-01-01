@@ -156,10 +156,10 @@
 //!     #[test]
 //!     fn open_account() {
 //!         BankAccount::given_no_events("account-123")
-//!         .when(|bank_account| bank_account.open_account(0.0))
-//!         .then(Ok(BankAccountEvent::OpenedAccount {
-//!             balance: 0.0,
-//!         }));
+//!             .when(|bank_account| bank_account.open_account(0.0))
+//!             .then(Ok(BankAccountEvent::OpenedAccount {
+//!                 balance: 0.0,
+//!             }));
 //!     }
 
 //!     #[test]
@@ -177,8 +177,8 @@
 //!     #[test]
 //!     fn open_account_negative_amount() {
 //!         BankAccount::given_no_events()
-//!         .when(|bank_account| bank_account.open_account(-10.0))
-//!         .then(Err(BankAccountError::NegativeAmount));
+//!             .when(|bank_account| bank_account.open_account(-10.0))
+//!             .then(Err(BankAccountError::NegativeAmount));
 //!     }
 //! ```
 
@@ -186,7 +186,7 @@
 
 use std::fmt;
 
-use thalo::{aggregate::Aggregate, event::IntoEvents};
+use thalo::aggregate::Aggregate;
 
 /// An aggregate given events.
 pub struct GivenTest<A>(A);
@@ -236,13 +236,8 @@ where
     pub fn when<F, R>(mut self, f: F) -> WhenTest<A, R>
     where
         F: FnOnce(&mut A) -> R,
-        R: Clone + IntoEvents<Event = <A as Aggregate>::Event>,
     {
         let result = f(&mut self.0);
-        let events = result.clone().into_events();
-        for event in events {
-            self.0.apply(event);
-        }
         WhenTest {
             aggregate: self.0,
             result,
@@ -294,20 +289,48 @@ where
         self
     }
 
-    /// When another command is applied.
-    pub fn when<F, RR>(mut self, f: F) -> WhenTest<A, RR>
+    /// Apply result of previous when() action.
+    pub fn apply<F, I>(mut self, f: F) -> GivenTest<A>
     where
-        F: FnOnce(&mut A) -> RR,
-        RR: Clone + IntoEvents<Event = <A as Aggregate>::Event>,
+        F: FnOnce(R) -> I,
+        I: IntoIterator<Item = <A as Aggregate>::Event>,
     {
-        let result = f(&mut self.aggregate);
-        let events = result.clone().into_events();
+        let events = f(self.result).into_iter();
         for event in events {
             self.aggregate.apply(event);
         }
+        GivenTest(self.aggregate)
+    }
+}
+
+impl<A, R, E> WhenTest<A, Result<R, E>>
+where
+    A: Aggregate,
+{
+    /// Then the result of the previous when() action should be Ok(T), with T being equal the given parameter.
+    pub fn then_ok<T>(self, result: T) -> WhenTest<A, R>
+    where
+        T: fmt::Debug,
+        R: fmt::Debug,
+        E: fmt::Debug,
+        Result<R, E>: PartialEq<Result<T, E>>,
+    {
+        assert_eq!(self.result, Result::<T, E>::Ok(result));
         WhenTest {
             aggregate: self.aggregate,
-            result,
+            result: self.result.unwrap(),
         }
+    }
+
+    /// Then the result of the previous when() action should be Err(E), with E being equal the given parameter.
+    pub fn then_err<T>(self, result: T) -> GivenTest<A>
+    where
+        T: fmt::Debug,
+        R: fmt::Debug,
+        E: fmt::Debug,
+        Result<R, E>: PartialEq<Result<R, T>>,
+    {
+        assert_eq!(self.result, Result::<R, T>::Err(result));
+        GivenTest(self.aggregate)
     }
 }

@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::aggregate::Aggregate;
 
 #[cfg(feature = "macros")]
-pub use thalo_macros::EventType;
+pub use thalo_macros::{Event, EventType};
 
 /// An event with additional metadata.
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -24,6 +24,23 @@ pub struct EventEnvelope<E> {
     pub sequence: usize,
     /// Event data
     pub event: E,
+}
+
+impl<E> EventEnvelope<E> {
+    /// Map an event to a new type whilst preserving the rest of the envelope data.
+    pub fn map_event<EE, F>(self, f: F) -> EventEnvelope<EE>
+    where
+        F: FnOnce(E) -> EE,
+    {
+        EventEnvelope {
+            id: self.id,
+            created_at: self.created_at,
+            aggregate_type: self.aggregate_type,
+            aggregate_id: self.aggregate_id,
+            sequence: self.sequence,
+            event: f(self.event),
+        }
+    }
 }
 
 /// A unique identifier for an event type.
@@ -144,53 +161,72 @@ pub trait EventHandler<Event> {
     async fn handle(&self, event: EventEnvelope<Event>) -> Result<(), Self::Error>;
 }
 
+/// A single event, typically returned by a command.
+pub struct SingleEvent<E>(E);
+
+impl<E> SingleEvent<E> {
+    /// Inner event value.
+    pub fn into_inner(self) -> E {
+        self.0
+    }
+}
+
+impl<E> AsRef<E> for SingleEvent<E> {
+    fn as_ref(&self) -> &E {
+        &self.0
+    }
+}
+
+impl<E> AsMut<E> for SingleEvent<E> {
+    fn as_mut(&mut self) -> &mut E {
+        &mut self.0
+    }
+}
+
 /// A type which implements `IntoEvents` is used to convert into
 /// a list of `Self::Event`.
 ///
 /// Types returned from [`Aggregate`]'s typically implement this trait.
-pub trait IntoEvents {
-    /// Event type.
-    type Event;
+pub trait IntoEvents<E> {
+    //// / Event type.
+    // type Event;
 
     /// Converts type into `Vec<Self::Event>`.
-    fn into_events(self) -> Vec<Self::Event>;
+    fn into_events(self) -> Vec<E>;
 }
 
-impl<E> IntoEvents for Vec<E> {
-    type Event = E;
-
-    fn into_events(self) -> Vec<Self::Event> {
-        self
-    }
-}
-
-impl<E> IntoEvents for Option<E> {
-    type Event = E;
-
-    fn into_events(self) -> Vec<Self::Event> {
-        self.map(|event| vec![event]).unwrap_or_default()
-    }
-}
-
-impl<E, Err> IntoEvents for Result<E, Err>
+impl<E, T> IntoEvents<E> for Vec<T>
 where
-    E: IntoEvents,
+    T: Into<E>,
 {
-    type Event = <E as IntoEvents>::Event;
+    fn into_events(self) -> Vec<E> {
+        self.into_iter().map(|event| event.into()).collect()
+    }
+}
 
-    fn into_events(self) -> Vec<Self::Event> {
+impl<E, T> IntoEvents<E> for Option<T>
+where
+    T: Into<E>,
+{
+    fn into_events(self) -> Vec<E> {
+        self.map(|event| vec![event.into()]).unwrap_or_default()
+    }
+}
+
+impl<E, T, Err> IntoEvents<E> for Result<T, Err>
+where
+    T: IntoEvents<E>,
+{
+    fn into_events(self) -> Vec<E> {
         self.map(|event| event.into_events()).unwrap_or_default()
     }
 }
 
-impl<A, E> IntoEvents for (A, E)
+impl<E, T> IntoEvents<E> for SingleEvent<T>
 where
-    A: Aggregate,
-    E: IntoEvents<Event = <A as Aggregate>::Event>,
+    T: Into<E>,
 {
-    type Event = <A as Aggregate>::Event;
-
-    fn into_events(self) -> Vec<Self::Event> {
-        self.1.into_events()
+    fn into_events(self) -> Vec<E> {
+        vec![self.0.into()]
     }
 }

@@ -141,6 +141,7 @@ impl EventType {
         );
 
         quote! {
+            #[automatically_derived]
             impl thalo::event::EventType for #ident {
                 fn event_type(&self) -> &'static str {
                     match self {

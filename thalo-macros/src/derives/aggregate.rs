@@ -111,7 +111,8 @@ impl Aggregate {
             .unwrap_or_else(|| format_ident!("apply"));
 
         quote! {
-            impl Aggregate for #ident {
+            #[automatically_derived]
+            impl thalo::aggregate::Aggregate for #ident {
                 type ID = #id_type;
                 type Event = #event_ty;
 
