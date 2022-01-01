@@ -26,6 +26,23 @@ pub struct EventEnvelope<E> {
     pub event: E,
 }
 
+impl<E> EventEnvelope<E> {
+    /// Map an event to a new type whilst preserving the rest of the envelope data.
+    pub fn map_event<EE, F>(self, f: F) -> EventEnvelope<EE>
+    where
+        F: FnOnce(E) -> EE,
+    {
+        EventEnvelope {
+            id: self.id,
+            created_at: self.created_at,
+            aggregate_type: self.aggregate_type,
+            aggregate_id: self.aggregate_id,
+            sequence: self.sequence,
+            event: f(self.event),
+        }
+    }
+}
+
 /// A unique identifier for an event type.
 ///
 /// # Example
