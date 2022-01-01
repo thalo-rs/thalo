@@ -5,7 +5,7 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
     aggregate::Aggregate,
-    event::{AggregateEventEnvelope, EventEnvelope},
+    event::{AggregateEventEnvelope, EventEnvelope, IntoEvents},
 };
 
 /// Used to store & load events.
@@ -13,6 +13,28 @@ use crate::{
 pub trait EventStore {
     /// The error type.
     type Error;
+
+    /// Loads an aggregate by replaying all events.
+    async fn execute<A, C, R>(&self, id: <A as Aggregate>::ID, cmd: C) -> Result<R, Self::Error>
+    where
+        A: Aggregate + Send + Sync,
+        <A as Aggregate>::ID: Clone,
+        <A as Aggregate>::Event: Clone + DeserializeOwned + Serialize,
+        C: (FnOnce(&A) -> R) + Send,
+        R: Clone + IntoEvents<<A as Aggregate>::Event> + Send,
+    {
+        let aggregate = self
+            .load_aggregate::<A>(id.clone())
+            .await?
+            .unwrap_or_else(|| A::new(id));
+
+        let result = cmd(&aggregate);
+        let events = result.clone().into_events();
+
+        self.save_events::<A>(aggregate.id(), &events).await?;
+
+        Ok(result)
+    }
 
     /// Load events for a given aggregate.
     ///
