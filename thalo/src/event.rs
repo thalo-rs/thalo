@@ -143,3 +143,73 @@ pub trait EventHandler<Event> {
     /// Handle an incoming event.
     async fn handle(&self, event: EventEnvelope<Event>) -> Result<(), Self::Error>;
 }
+
+/// A single event, typically returned by a command.
+pub struct SingleEvent<E>(E);
+
+impl<E> SingleEvent<E> {
+    /// Inner event value.
+    pub fn into_inner(self) -> E {
+        self.0
+    }
+}
+
+impl<E> AsRef<E> for SingleEvent<E> {
+    fn as_ref(&self) -> &E {
+        &self.0
+    }
+}
+
+impl<E> AsMut<E> for SingleEvent<E> {
+    fn as_mut(&mut self) -> &mut E {
+        &mut self.0
+    }
+}
+
+/// A type which implements `IntoEvents` is used to convert into
+/// a list of `Self::Event`.
+///
+/// Types returned from [`Aggregate`]'s typically implement this trait.
+pub trait IntoEvents<E> {
+    //// / Event type.
+    // type Event;
+
+    /// Converts type into `Vec<Self::Event>`.
+    fn into_events(self) -> Vec<E>;
+}
+
+impl<E, T> IntoEvents<E> for Vec<T>
+where
+    T: Into<E>,
+{
+    fn into_events(self) -> Vec<E> {
+        self.into_iter().map(|event| event.into()).collect()
+    }
+}
+
+impl<E, T> IntoEvents<E> for Option<T>
+where
+    T: Into<E>,
+{
+    fn into_events(self) -> Vec<E> {
+        self.map(|event| vec![event.into()]).unwrap_or_default()
+    }
+}
+
+impl<E, T, Err> IntoEvents<E> for Result<T, Err>
+where
+    T: IntoEvents<E>,
+{
+    fn into_events(self) -> Vec<E> {
+        self.map(|event| event.into_events()).unwrap_or_default()
+    }
+}
+
+impl<E, T> IntoEvents<E> for SingleEvent<T>
+where
+    T: Into<E>,
+{
+    fn into_events(self) -> Vec<E> {
+        vec![self.0.into()]
+    }
+}
