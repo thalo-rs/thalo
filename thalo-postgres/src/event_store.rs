@@ -293,7 +293,9 @@ fn create_insert_outbox_events_query(event_ids: &[usize]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use thalo::tests_cfg::bank_account::{BankAccount, BankAccountEvent};
+    use thalo::tests_cfg::bank_account::{
+        BankAccount, BankAccountEvent, DepositedFundsEvent, OpenedAccountEvent,
+    };
 
     #[test]
     fn insert_events_query() -> Result<(), super::Error> {
@@ -303,8 +305,8 @@ mod tests {
             &id,
             None,
             &[
-                BankAccountEvent::OpenedAccount { balance: 0.0 },
-                BankAccountEvent::DepositedFunds { amount: 25.0 },
+                BankAccountEvent::OpenedAccount(OpenedAccountEvent { balance: 0.0 }),
+                BankAccountEvent::DepositedFunds(DepositedFundsEvent { amount: 25.0 }),
             ],
         )?;
 
