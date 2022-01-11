@@ -202,9 +202,9 @@ pub trait Given: Aggregate + Sized {
     /// Given a single event for an aggregate.
     fn given(
         id: impl Into<<Self as Aggregate>::ID>,
-        event: <Self as Aggregate>::Event,
+        event: impl Into<<Self as Aggregate>::Event>,
     ) -> GivenTest<Self> {
-        Self::given_events(id, vec![event])
+        Self::given_events(id, vec![event.into()])
     }
 
     /// Given events for an aggregate.
