@@ -6,6 +6,7 @@ use crate::traits::DeriveMacro;
 
 pub(crate) struct Aggregate {
     attrs: Attrs,
+    fields_count: usize,
     ident: syn::Ident,
     id_ident: syn::Ident,
     id_type: syn::Type,
@@ -38,6 +39,8 @@ impl DeriveMacro for Aggregate {
                 ))
             }
         };
+
+        let fields_count = fields.len();
 
         let (id_ident, id_type) = fields
             .iter()
@@ -76,6 +79,7 @@ impl DeriveMacro for Aggregate {
             ident,
             id_ident,
             id_type,
+            fields_count,
         })
     }
 
@@ -93,6 +97,7 @@ impl Aggregate {
             ident,
             id_ident,
             id_type,
+            fields_count,
         } = self;
 
         let event_ty = format_ident!(
@@ -110,6 +115,12 @@ impl Aggregate {
             .map(|apply| format_ident!("{}", apply.value()))
             .unwrap_or_else(|| format_ident!("apply"));
 
+        let default_fields_expanded = if *fields_count > 1 {
+            quote! { ..::std::default::Default::default() }
+        } else {
+            quote! {}
+        };
+
         quote! {
             #[automatically_derived]
             impl thalo::aggregate::Aggregate for #ident {
@@ -118,8 +129,8 @@ impl Aggregate {
 
                 fn new(id: Self::ID) -> Self {
                     #ident {
-                        id: #id_ident,
-                        ..std::default::Default::default()
+                        #id_ident: id,
+                        #default_fields_expanded
                     }
                 }
 
