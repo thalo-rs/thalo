@@ -1,0 +1,19 @@
+[package]
+name = "thalo-filestore"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-trait = "0.1"
+serde = "1.0"
+serde_json = "1.0"
+thalo = { version = "0.3.3", path = "../thalo", features = [
+  "event-store",
+  "tests-cfg",
+] }
+thalo-inmemory = { version = "0.3.3", path = "../thalo-inmemory" }
+thiserror = "1.0"
+
+[dev-dependencies]
+tempfile = "3.3"
+tokio = { version = "1.15", features = ["macros", "rt"] }
