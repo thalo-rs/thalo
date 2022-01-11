@@ -289,6 +289,18 @@ where
         self
     }
 
+    /// When a command is applied.
+    pub fn when<F, RR>(mut self, f: F) -> WhenTest<A, RR>
+    where
+        F: FnOnce(&mut A) -> RR,
+    {
+        let result = f(&mut self.aggregate);
+        WhenTest {
+            aggregate: self.aggregate,
+            result,
+        }
+    }
+
     /// Apply result of previous when() action.
     pub fn apply<F, I>(mut self, f: F) -> GivenTest<A>
     where
