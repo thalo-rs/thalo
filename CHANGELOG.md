@@ -2,6 +2,39 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [0.4.0](https://github.com/thalo-rs/thalo/compare/0.3.3..0.4.0) - 2022-01-01
+#### Bug Fixes
+- **(thalo-macros)** use full path to `Aggregate` - ([10f469e](https://github.com/thalo-rs/thalo/commit/10f469e94ea379cd6cf7c47308938d079489958e)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-postgres)** invalid tests - ([21ae5ad](https://github.com/thalo-rs/thalo/commit/21ae5ad64361321a500bfcae3a860b33454f86d3)) - [@tqwewe](https://github.com/tqwewe)
+#### Documentation
+- **(thalo-kafka)** fix error in example - ([3fa2577](https://github.com/thalo-rs/thalo/commit/3fa2577555027cf4cd07e44612a4eff145bd12d5)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-testing)** add indentation to examples - ([40e4a1f](https://github.com/thalo-rs/thalo/commit/40e4a1f4066e1202b04f9acec2f3c694c32ed9e0)) - [@tqwewe](https://github.com/tqwewe)
+- use absolute url for logo and dev branch for last commit - ([d5b9418](https://github.com/thalo-rs/thalo/commit/d5b9418252c05b291e91ba3e2eb682ad01170ffe)) - [@tqwewe](https://github.com/tqwewe)
+#### Features
+- **(thalo)** add method `execute` to `EventStore` - ([f9507f9](https://github.com/thalo-rs/thalo/commit/f9507f909e28876b46bc0abce753306445b3b043)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo)** add method `map_event` for `EventEnvelope` - ([68785b4](https://github.com/thalo-rs/thalo/commit/68785b490f0dd36bfa01fccb5273b4b1c132a09c)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo)** add  trait again - ([76d3964](https://github.com/thalo-rs/thalo/commit/76d3964db72e801725409201a63046c923f6886f)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-kafka)** add method `map_event` for `KafkaEventMessage` - ([b030225](https://github.com/thalo-rs/thalo/commit/b0302250634f9162b5aea2e96f60b5df1e84f3be)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-kafka)** add `listen_events` method and `spawn_event_handlers` macro - ([5dcf0d6](https://github.com/thalo-rs/thalo/commit/5dcf0d67893e0f37b66e00f82e31e1e875185d75)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-kafka)** add `Clone` to `KafkaEventStream` - ([c62e491](https://github.com/thalo-rs/thalo/commit/c62e49108a75d06ce26a91ef852b9d6047696e7a)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-kafka)** add `WatchEventHandler` trait - ([9c288e0](https://github.com/thalo-rs/thalo/commit/9c288e0ff58aeffd335f9418b28c884f79187436)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-kafka)** add `watch_event_handlers!` macro - ([02f1adf](https://github.com/thalo-rs/thalo/commit/02f1adf6fa8830275caec7eedef68086c033fc84)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-macros)** add  derive macro - ([4f73d77](https://github.com/thalo-rs/thalo/commit/4f73d77b94fe7540c3c195857b6e6ccb2517c4e3)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-macros)** remove `IntoIterator` derive - ([c02ad43](https://github.com/thalo-rs/thalo/commit/c02ad431122a072736a73354c07078b7515af6fc)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-macros)** add parent and variant attribute to `IntoIterator` - ([2c55bd7](https://github.com/thalo-rs/thalo/commit/2c55bd79921fb01ff4d17907b6508eef76b5a0bb)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-macros)** add `#[automatically_derived]` to derive implementations - ([cee693a](https://github.com/thalo-rs/thalo/commit/cee693a3a739251c5eccb57e5823f53146fd6bb7)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-macros)** add `IntoEvents` derive macro - ([5c306e0](https://github.com/thalo-rs/thalo/commit/5c306e01d8bf42f03aa77b8ca33cfae22e07dfa5)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-testing)** accept nested into_iter types - ([90b4897](https://github.com/thalo-rs/thalo/commit/90b4897532647f042a91172763bd79ebbd05c213)) - [@tqwewe](https://github.com/tqwewe)
+- replace `IntoEvents` with std `IntoIterator` - ([5fc2a24](https://github.com/thalo-rs/thalo/commit/5fc2a24b057a1952291d801e7893ace031606b84)) - [@tqwewe](https://github.com/tqwewe)
+#### Miscellaneous Chores
+- **(thalo)** remove unused code - ([3c32c65](https://github.com/thalo-rs/thalo/commit/3c32c65d78812db7b71aedbdf86a35743b6c25af)) - [@tqwewe](https://github.com/tqwewe)
+- merge branch 'dev' - ([9d44cfb](https://github.com/thalo-rs/thalo/commit/9d44cfb709f0e8c2555bf535e095ac4aacd50847)) - [@tqwewe](https://github.com/tqwewe)
+- merge branch 'main' into dev - ([18b2820](https://github.com/thalo-rs/thalo/commit/18b28206d6c85bc6c698d431a61a7a6471cc8321)) - [@tqwewe](https://github.com/tqwewe)
+- remove outbox-relay docker file - ([c5aa3c9](https://github.com/thalo-rs/thalo/commit/c5aa3c906222cdbf6d64956a18b302dfdb52af67)) - [@tqwewe](https://github.com/tqwewe)
+#### Refactoring
+- **(thalo)** move events to separate structs in tests_cfg - ([aa41d3d](https://github.com/thalo-rs/thalo/commit/aa41d3d3c8086fb367fb8edce3e36dc3866d151f)) - [@tqwewe](https://github.com/tqwewe)
+- - -
+
 ## [0.3.3](https://github.com/thalo-rs/thalo/compare/0.3.2..0.3.3) - 2021-12-28
 #### Build system
 - add thalo-testing to pre bump hook - ([738e011](https://github.com/thalo-rs/thalo/commit/738e0112bcc2b076ef3b69cf67dad633252a9741)) - [@tqwewe](https://github.com/tqwewe)
