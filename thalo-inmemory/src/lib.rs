@@ -8,7 +8,7 @@
 #![deny(missing_docs)]
 
 pub use error::Error;
-pub use event_store::InMemoryEventStore;
+pub use event_store::{EventRecord, InMemoryEventStore};
 
 mod error;
 mod event_store;
