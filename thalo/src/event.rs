@@ -162,6 +162,9 @@ pub trait EventHandler<Event> {
 }
 
 /// A single event, typically returned by a command.
+///
+/// It is recommended to derive [thalo_macros::Event] and return the event directly
+/// rather than use this type.
 pub struct SingleEvent<E>(E);
 
 impl<E> SingleEvent<E> {
