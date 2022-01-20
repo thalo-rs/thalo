@@ -2,7 +2,7 @@ use std::sync::RwLock;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thalo::{
     aggregate::{Aggregate, TypeId},
     event::AggregateEventEnvelope,
@@ -19,13 +19,15 @@ use crate::Error;
 /// See [crate] documentation for more info.
 #[derive(Debug, Default)]
 pub struct InMemoryEventStore {
-    events: RwLock<Vec<EventRecord>>,
+    /// Raw events stored in memory.
+    pub events: RwLock<Vec<EventRecord>>,
 }
 
-#[derive(Debug)]
-struct EventRecord {
+/// An event record.
+#[derive(Debug, Deserialize, Serialize)]
+pub struct EventRecord {
     created_at: DateTime<Utc>,
-    aggregate_type: &'static str,
+    aggregate_type: String,
     aggregate_id: String,
     sequence: usize,
     event_data: serde_json::Value,
@@ -140,7 +142,7 @@ impl EventStore for InMemoryEventStore {
 
         for (index, event) in events.iter().enumerate() {
             let created_at = Utc::now();
-            let aggregate_type = <A as TypeId>::type_id();
+            let aggregate_type = <A as TypeId>::type_id().to_string();
             let aggregate_id = id.to_string();
             let sequence = sequence.map(|sequence| sequence + index + 1).unwrap_or(0);
             let event_data = serde_json::to_value(event).map_err(Error::SerializeEvent)?;

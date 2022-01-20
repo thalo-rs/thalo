@@ -186,7 +186,7 @@
 
 use std::fmt;
 
-use thalo::aggregate::Aggregate;
+use thalo::{aggregate::Aggregate, event::IntoEvents};
 
 /// An aggregate given events.
 pub struct GivenTest<A>(A);
@@ -202,9 +202,9 @@ pub trait Given: Aggregate + Sized {
     /// Given a single event for an aggregate.
     fn given(
         id: impl Into<<Self as Aggregate>::ID>,
-        event: <Self as Aggregate>::Event,
+        event: impl Into<<Self as Aggregate>::Event>,
     ) -> GivenTest<Self> {
-        Self::given_events(id, vec![event])
+        Self::given_events(id, vec![event.into()])
     }
 
     /// Given events for an aggregate.
@@ -289,13 +289,24 @@ where
         self
     }
 
-    /// Apply result of previous when() action.
-    pub fn apply<F, I>(mut self, f: F) -> GivenTest<A>
+    /// When a command is applied.
+    pub fn when<F, RR>(mut self, f: F) -> WhenTest<A, RR>
     where
-        F: FnOnce(R) -> I,
-        I: IntoIterator<Item = <A as Aggregate>::Event>,
+        F: FnOnce(&mut A) -> RR,
     {
-        let events = f(self.result).into_iter();
+        let result = f(&mut self.aggregate);
+        WhenTest {
+            aggregate: self.aggregate,
+            result,
+        }
+    }
+
+    /// Apply result of previous when() action.
+    pub fn apply(mut self) -> GivenTest<A>
+    where
+        R: IntoEvents<<A as Aggregate>::Event>,
+    {
+        let events = self.result.into_events();
         for event in events {
             self.aggregate.apply(event);
         }

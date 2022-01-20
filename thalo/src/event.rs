@@ -162,6 +162,9 @@ pub trait EventHandler<Event> {
 }
 
 /// A single event, typically returned by a command.
+///
+/// It is recommended to derive [thalo_macros::Event] and return the event directly
+/// rather than use this type.
 pub struct SingleEvent<E>(E);
 
 impl<E> SingleEvent<E> {
@@ -188,9 +191,6 @@ impl<E> AsMut<E> for SingleEvent<E> {
 ///
 /// Types returned from [`Aggregate`]'s typically implement this trait.
 pub trait IntoEvents<E> {
-    //// / Event type.
-    // type Event;
-
     /// Converts type into `Vec<Self::Event>`.
     fn into_events(self) -> Vec<E>;
 }
