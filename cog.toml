@@ -12,6 +12,9 @@ pre_bump_hooks = [
   sh -c "sed -i '' -e 's/^version.*$/version = \\"{{version}}\\"/' ./thalo-inmemory/Cargo.toml"
   """,
   """
+  sh -c "sed -i '' -e 's/^version.*$/version = \\"{{version}}\\"/' ./thalo-filestore/Cargo.toml"
+  """,
+  """
   sh -c "sed -i '' -e 's/^version.*$/version = \\"{{version}}\\"/' ./thalo-kafka/Cargo.toml"
   """,
   """
@@ -31,6 +34,9 @@ pre_bump_hooks = [
   sh -c "sed -i '' -e 's/^thalo [^,]*,/thalo = { version = \\"{{version}}\\",/' ./thalo-inmemory/Cargo.toml"
   """,
   """
+  sh -c "sed -i '' -e 's/^thalo [^,]*,/thalo = { version = \\"{{version}}\\",/' ./thalo-filestore/Cargo.toml"
+  """,
+  """
   sh -c "sed -i '' -e 's/^thalo [^,]*,/thalo = { version = \\"{{version}}\\",/' ./thalo-kafka/Cargo.toml"
   """,
   """
@@ -42,6 +48,10 @@ pre_bump_hooks = [
   # Update thalo-macros version in thalo/Cargo.toml
   """
   sh -c "sed -i '' -e 's/^thalo-macros [^,]*,/thalo-macros = { version = \\"{{version}}\\",/' ./thalo/Cargo.toml"
+  """,
+  # Update thalo-inmemory version in thalo-filestore/Cargo.toml
+  """
+  sh -c "sed -i '' -e 's/^thalo-inmemory [^,]*,/thalo-inmemory = { version = \\"{{version}}\\",/' ./thalo-filestore/Cargo.toml"
   """,
   "cargo build --workspace --release",
 ]
@@ -57,6 +67,8 @@ post_bump_hooks = [
   "sleep 10",
   "echo 'publishing thalo-inmemory {{version}}'",
   "cargo publish -p thalo-inmemory",
+  "echo 'publishing thalo-filestore {{version}}'",
+  "cargo publish -p thalo-filestore",
   "echo 'publishing thalo-kafka {{version}}'",
   "cargo publish -p thalo-kafka",
   "echo 'publishing thalo-postgres {{version}}'",
