@@ -8,6 +8,20 @@ use crate::{
 };
 
 /// Compile schemas into Rust code.
+///
+/// # Example
+///
+/// ```
+/// // build.rs
+///
+/// fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     thalo_schema::configure()
+///         .add_schema_file("./bank-account.yaml")?
+///         .compile()?;
+///
+///     Ok(())
+/// }
+/// ```
 #[derive(Default)]
 pub struct Compiler {
     schemas: Vec<Aggregate>,
