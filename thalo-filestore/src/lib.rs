@@ -1,3 +1,7 @@
+//! A filestore implementation of [EventStore](thalo::event_store::EventStore).
+//!
+//! Built on top of [thalo-inmemory](https://docs.rs/thalo-inmemory), events are persisted to a file.
+
 pub use error::Error;
 pub use event_store::FlatFileEventStore;
 
