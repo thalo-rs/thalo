@@ -191,9 +191,6 @@ impl<E> AsMut<E> for SingleEvent<E> {
 ///
 /// Types returned from [`Aggregate`]'s typically implement this trait.
 pub trait IntoEvents<E> {
-    //// / Event type.
-    // type Event;
-
     /// Converts type into `Vec<Self::Event>`.
     fn into_events(self) -> Vec<E>;
 }
