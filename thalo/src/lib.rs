@@ -21,7 +21,7 @@
 //!
 //! Event stores
 //!
-//! - [thalo-postgres](https://docs.rs/thalo-kafka) - Postgres implementation of [`EventStore`](crate::event_store::EventStore).
+//! - [thalo-postgres](https://docs.rs/thalo-postgres) - Postgres implementation of [`EventStore`](crate::event_store::EventStore).
 //! - [thalo-inmemory](https://docs.rs/thalo-inmemory) - In-memory implementation of [`EventStore`](crate::event_store::EventStore).
 //! - [thalo-filestore](https://docs.rs/thalo-filestore) - Filestore implementation of [`EventStore`](crate::event_store::EventStore).
 //!

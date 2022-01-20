@@ -38,7 +38,7 @@ Core
 
 Event stores
 
-- [thalo-postgres](https://docs.rs/thalo-kafka) - Postgres implementation of [`EventStore`](https://docs.rs/thalo/latest/thalo/event_store/trait.EventStore.html).
+- [thalo-postgres](https://docs.rs/thalo-postgres) - Postgres implementation of [`EventStore`](https://docs.rs/thalo/latest/thalo/event_store/trait.EventStore.html).
 - [thalo-inmemory](https://docs.rs/thalo-inmemory) - In-memory implementation of [`EventStore`](https://docs.rs/thalo/latest/thalo/event_store/trait.EventStore.html).
 - [thalo-filestore](https://docs.rs/thalo-filestore) - Filestore implementation of [`EventStore`](https://docs.rs/thalo/latest/thalo/event_store/trait.EventStore.html).
 
