@@ -1,17 +1,17 @@
 [package]
 name = "thalo-filestore"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 
 [dependencies]
 async-trait = "0.1"
 serde = "1.0"
 serde_json = "1.0"
-thalo = { version = "0.4.0", path = "../thalo", features = [
+thalo = { version = "0.5.0", path = "../thalo", features = [
   "event-store",
   "tests-cfg",
 ] }
-thalo-inmemory = { version = "0.4.0", path = "../thalo-inmemory" }
+thalo-inmemory = { version = "0.5.0", path = "../thalo-inmemory" }
 thiserror = "1.0"
 
 [dev-dependencies]

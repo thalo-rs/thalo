@@ -1,6 +1,6 @@
 [package]
 name = "thalo-testing"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["Ari Seyhun <ariseyhun@live.com.au>"]
 edition = "2021"
 description = "Test utils for crates.io/thalo"
@@ -17,8 +17,8 @@ categories = [
 ]
 
 [dependencies]
-thalo = { version = "0.4.0", path = "../thalo" }
+thalo = { version = "0.5.0", path = "../thalo" }
 
 [dev-dependencies]
-thalo = { version = "0.4.0", path = "../thalo", features = ["macros"] }
+thalo = { version = "0.5.0", path = "../thalo", features = ["macros"] }
 thiserror = "1.0"

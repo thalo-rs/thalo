@@ -2,6 +2,41 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [0.5.0](https://github.com/thalo-rs/thalo/compare/0.4.0..0.5.0) - 2022-01-20
+#### Bug Fixes
+- **(thalo-macros)** clippy warnings for unecessary default fields in `Aggregate` derive - ([e1d6b71](https://github.com/thalo-rs/thalo/commit/e1d6b713b654c6db83b330d12b7a69fe3fd56309)) - [@tqwewe](https://github.com/tqwewe)
+#### Build system
+- add thalo-filestore bump hooks - ([39e2acd](https://github.com/thalo-rs/thalo/commit/39e2acdd7b9d6249c970dd4ee23dd283eb1c123b)) - [@tqwewe](https://github.com/tqwewe)
+- add thalo-schema bump hooks - ([3d2fe26](https://github.com/thalo-rs/thalo/commit/3d2fe267e2e955cd6b0de22fcee2e08739b8af4f)) - [@tqwewe](https://github.com/tqwewe)
+#### Documentation
+- **(thalo)** add additional docs to `SingleEvent` - ([5c3df9e](https://github.com/thalo-rs/thalo/commit/5c3df9e40b741874b682088a556a78bff79ac347)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-filestore)** add crate level docs - ([9bc9613](https://github.com/thalo-rs/thalo/commit/9bc9613dd92a3616afccb0e3f76a3d9f0c4dec64)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-schema)** add example to `Compiler` - ([068e6f2](https://github.com/thalo-rs/thalo/commit/068e6f2b0e8dce5b1c6dc32c67e48a90a52e7db4)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-schema)** add docs - ([d4d5e81](https://github.com/thalo-rs/thalo/commit/d4d5e815e72133c9f1befec8586cedfb0edcb6a9)) - [@tqwewe](https://github.com/tqwewe)
+- add list of core crates to README.md and thalo docs - ([b7ab1e3](https://github.com/thalo-rs/thalo/commit/b7ab1e3a213dc3b92a575982fc94392f32591d47)) - [@tqwewe](https://github.com/tqwewe)
+#### Features
+- **(thalo)** add macro `include_aggregate` - ([14e1294](https://github.com/thalo-rs/thalo/commit/14e12941d1aedc4cc5978db2b57c96f6f85e403a)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-filestore)** add event store - ([658fe36](https://github.com/thalo-rs/thalo/commit/658fe367eeb958d8b48da585669381938c7d8f35)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-inmemory)** make `EventRecord` public and implement serde - ([d5f6cfb](https://github.com/thalo-rs/thalo/commit/d5f6cfbd0fcc5f5ecced88cba87f23e24e20fcc7)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-schema)** add package `thalo-schema` - ([adcb256](https://github.com/thalo-rs/thalo/commit/adcb256dadb9c88ff03c7822dfca731505e1618c)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-testing)** use `IntoEvents` for `WhenTest::apply` method - ([00a06fd](https://github.com/thalo-rs/thalo/commit/00a06fd5c2c8d3e5475493362809b252138753c0)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-testing)** add method `WhenTest::when` - ([f1adf70](https://github.com/thalo-rs/thalo/commit/f1adf708e724d972ef7387b3a22cb0deba8f9b45)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-testing)** add `impl Into` for param in `Given::given` - ([f23b1d6](https://github.com/thalo-rs/thalo/commit/f23b1d618d1a72dfca6ebea7cbd829f6d9e377b0)) - [@tqwewe](https://github.com/tqwewe)
+#### Miscellaneous Chores
+- **(thalo)** remove unused comment - ([a7497aa](https://github.com/thalo-rs/thalo/commit/a7497aa156476db9a684a0523425d7da7257acd6)) - [@tqwewe](https://github.com/tqwewe)
+- **(thalo-filestore)** update versions to 0.4 - ([ba9acf4](https://github.com/thalo-rs/thalo/commit/ba9acf42dd4465d3e10687f4073bd739e9f7b89c)) - [@tqwewe](https://github.com/tqwewe)
+- merge branch 'dev' - ([8b259f9](https://github.com/thalo-rs/thalo/commit/8b259f93258504627f0b49f0c1348785a85e01c7)) - [@tqwewe](https://github.com/tqwewe)
+- merge branch 'main' into dev - ([5fb6f79](https://github.com/thalo-rs/thalo/commit/5fb6f7933fc9db1f4b4c97a45a6f6a8e4f428b31)) - [@tqwewe](https://github.com/tqwewe)
+- merge branch 'dev' - ([c5abf4b](https://github.com/thalo-rs/thalo/commit/c5abf4b91ed8670ae5bebdf445548cd95ec6df2a)) - [@tqwewe](https://github.com/tqwewe)
+- merge branch 'main' into dev - ([8f83e58](https://github.com/thalo-rs/thalo/commit/8f83e583c1ede65b0f28b814b249f6ac43a63783)) - [@tqwewe](https://github.com/tqwewe)
+- merge branch 'dev' - ([651a35f](https://github.com/thalo-rs/thalo/commit/651a35f533b70218551a882af99bc0b8f2194ccb)) - [@tqwewe](https://github.com/tqwewe)
+- merge branch 'main' into dev - ([5e2c0c3](https://github.com/thalo-rs/thalo/commit/5e2c0c366b70e3a20338c4c48fbddbb5131b74b9)) - [@tqwewe](https://github.com/tqwewe)
+- upgrade minor versions - ([dd94390](https://github.com/thalo-rs/thalo/commit/dd943904f29a2a350c4a8172941feea1b792d660)) - [@tqwewe](https://github.com/tqwewe)
+- merge branch 'dev' - ([eb31359](https://github.com/thalo-rs/thalo/commit/eb31359edddec5cea4f3cd244c152644d1b5a86f)) - [@tqwewe](https://github.com/tqwewe)
+- Cargo.lock update - ([cff4c47](https://github.com/thalo-rs/thalo/commit/cff4c47c41d8234a169155a483bba36b92b3ade1)) - [@tqwewe](https://github.com/tqwewe)
+- merge branch 'main' into feat/thalo-flatfile - ([3b3bea1](https://github.com/thalo-rs/thalo/commit/3b3bea12f02f4dacaa3bc1b0c319b6b76c389e9a)) - [@tqwewe](https://github.com/tqwewe)
+- - -
+
 ## [0.4.0](https://github.com/thalo-rs/thalo/compare/0.3.3..0.4.0) - 2022-01-01
 #### Bug Fixes
 - **(thalo-macros)** use full path to `Aggregate` - ([10f469e](https://github.com/thalo-rs/thalo/commit/10f469e94ea379cd6cf7c47308938d079489958e)) - [@tqwewe](https://github.com/tqwewe)
