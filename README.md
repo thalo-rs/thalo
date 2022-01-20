@@ -29,11 +29,22 @@ It's designed to be modular with additional crates implementing most functionali
 
 **Official Crates**
 
+Core
+
 - [thalo](https://docs.rs/thalo) - Core framework.
+- [thalo-schema](https://docs.rs/thalo-schema) - Build aggregate schemas into Rust code.
+- [thalo-testing](https://docs.rs/thalo-testing) - Test utils for thalo apps.
+- [thalo-macros](https://docs.rs/thalo-macros) - Macros for implementing traits. This can be enabled in the core crate with the `macros` feature flag.
+
+Event stores
+
 - [thalo-postgres](https://docs.rs/thalo-kafka) - Postgres implementation of [`EventStore`](https://docs.rs/thalo/latest/thalo/event_store/trait.EventStore.html).
 - [thalo-inmemory](https://docs.rs/thalo-inmemory) - In-memory implementation of [`EventStore`](https://docs.rs/thalo/latest/thalo/event_store/trait.EventStore.html).
+- [thalo-filestore](https://docs.rs/thalo-filestore) - Filestore implementation of [`EventStore`](https://docs.rs/thalo/latest/thalo/event_store/trait.EventStore.html).
+
+Event streams
+
 - [thalo-kafka](https://docs.rs/thalo-kafka) - Kafka implementation of [`EventStream`](https://docs.rs/thalo/latest/thalo/event_stream/trait.EventStream.html).
-- [thalo-testing](https://docs.rs/thalo-testing) - Test utils for thalo apps.
 
 ## Why
 
