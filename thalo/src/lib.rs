@@ -12,12 +12,23 @@
 //!
 //! **Official Crates**
 //!
+//! Core
+//!
 //! - [thalo](https://github.com/thalo-rs/thalo) - Core framework (this crate).
-//! - [thalo-postgres](https://docs.rs/thalo-kafka) - Postgres implementation of [`EventStore`](crate::event_store::EventStore).
-//! - [thalo-inmemory](https://docs.rs/thalo-inmemory) - In-memory implementation of [`EventStore`](crate::event_store::EventStore).
-//! - [thalo-kafka](https://docs.rs/thalo-kafka) - Kafka implementation of [`EventStream`](crate::event_stream::EventStream).
+//! - [thalo-schema](https://docs.rs/thalo-schema) - Build aggregate schemas into Rust code.
 //! - [thalo-testing](https://docs.rs/thalo-testing) - Test utils for thalo apps.
 //! - [thalo-macros](https://docs.rs/thalo-macros) - Macros for implementing traits. This can be enabled in the core crate with the `macros` feature flag.
+//!
+//! Event stores
+//!
+//! - [thalo-postgres](https://docs.rs/thalo-kafka) - Postgres implementation of [`EventStore`](crate::event_store::EventStore).
+//! - [thalo-inmemory](https://docs.rs/thalo-inmemory) - In-memory implementation of [`EventStore`](crate::event_store::EventStore).
+//! - [thalo-filestore](https://docs.rs/thalo-filestore) - Filestore implementation of [`EventStore`](crate::event_store::EventStore).
+//!
+//! Event streams
+//!
+//! - [thalo-kafka](https://docs.rs/thalo-kafka) - Kafka implementation of [`EventStream`](crate::event_stream::EventStream).
+
 //!
 //! ## Current status
 //!
