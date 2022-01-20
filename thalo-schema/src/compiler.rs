@@ -7,34 +7,40 @@ use crate::{
     Error,
 };
 
+/// Compile schemas into Rust code.
 #[derive(Default)]
 pub struct Compiler {
     schemas: Vec<Aggregate>,
 }
 
 impl Compiler {
+    /// Creates a new compiler instance.
     pub fn new() -> Self {
         Compiler {
             schemas: Vec::new(),
         }
     }
 
+    /// Adds a schema.
     pub fn add_schema(mut self, schema: Aggregate) -> Self {
         self.schemas.push(schema);
         self
     }
 
+    /// Add a schema from a yaml file.
     pub fn add_schema_file<P: AsRef<Path>>(self, path: P) -> Result<Self, Error> {
         let content = fs::read(path)?;
         let aggregate: Aggregate = serde_yaml::from_slice(&content)?;
         Ok(self.add_schema(aggregate))
     }
 
+    /// Add a schema from yaml string.
     pub fn add_schema_str(self, content: &str) -> Result<Self, Error> {
         let aggregate: Aggregate = serde_yaml::from_str(content)?;
         Ok(self.add_schema(aggregate))
     }
 
+    /// Compile schemas into Rust code and save in OUT_DIR.
     pub fn compile(self) -> Result<(), Error> {
         let out_dir = env::var("OUT_DIR").unwrap();
 
@@ -143,7 +149,6 @@ impl Compiler {
                 write!(code, ", {}Error>", name);
             }
 
-            // pub fn extend_refresh_token(&self, now: DateTime<Utc>) -> Result<Option<ExtendedRefreshTokenEvent>, AuthError> {
             writeln!(code, ";");
         }
 
