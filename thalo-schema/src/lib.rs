@@ -1,5 +1,26 @@
 //! Define aggregates as schema files and compile into Rust code.
 //!
+//! Supported types:
+//!
+//! - `string` = `String`
+//! - `integer` = `i64`
+//! - `number` (alias of integer)
+//! - `float` = `f64`
+//! - `bool` = `bool`
+//! - `timestamp` = `chrono::DateTime<chrono::Utc>`
+//!
+//! Types can be suffixed with `?` to be optional, or `[]` to be repeated.
+//! These modifiers can be used together.
+//!
+//! - `string?` = `Option<String>`
+//! - `string[]` = `Vec<String>`
+//! - `string?[]` = `Vec<Option<String>>`
+//! - `string[]?` = `Option<Vec<String>>`
+//!
+//! To use a raw type, use the `r#` prefix.
+//!
+//! - `r#MyCustomType`
+//!
 //! # Example
 //!
 //! Yaml schema
@@ -12,38 +33,32 @@
 //! events:
 //!   AccountOpened:
 //!     fields:
-//!       - name: initial_balance
-//!         type: f64
+//!       - initial_balance: float?
 //!
 //!   DepositedFunds:
 //!     fields:
-//!       - name: amount
-//!         type: f64
+//!       - amount: float
 //!
 //!   WithdrewFunds:
 //!     fields:
-//!       - name: amount
-//!         type: f64
+//!       - amount: float
 //!
 //! # The commands availble for the aggregate
 //! commands:
 //!   open_account:
 //!     event: AccountOpened # resulting event when command is successful
-//!     args:
-//!       - name: initial_balance
-//!         type: f64
+//!     params:
+//!       - initial_balance: float?
 //!
 //!   deposit_funds:
 //!     event: DepositedFunds
-//!     args:
-//!       - name: amount
-//!         type: f64
+//!     params:
+//!       - amount: float
 //!
 //!   withdraw_funds:
 //!     event: WithdrewFunds
-//!     args:
-//!       - name: amount
-//!         type: f64
+//!     params:
+//!       - amount: float
 //!
 //! # Errors that can occur when executing a command
 //! errors:
@@ -69,7 +84,7 @@
 //! }
 //!
 //! impl BankAccountCommand for BankAccount {
-//!     fn open_account(&self, initial_balance: f64) -> Result<OpenedAccountEvent, BankAccountError> {
+//!     fn open_account(&self, initial_balance: Option<f64>) -> Result<OpenedAccountEvent, BankAccountError> {
 //!         todo!()
 //!     }
 //!

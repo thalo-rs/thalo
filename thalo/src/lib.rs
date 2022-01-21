@@ -78,45 +78,6 @@ pub struct Infallible;
 ///
 /// **This only works when used with [thalo-schema](https://docs.rs/thalo-schema) in a build script.**
 /// To learn more about thalo schemas, see [thalo-schema](https://docs.rs/thalo-schema) docs.
-///
-/// # Example
-///
-/// ```
-/// use thalo::aggregate::{Aggregate, TypeId};
-///
-/// // Creates BankAccountCommand, BankAccountEvent (and individual events), BankAccountError
-/// include_aggregate!("BankAccount");
-///
-/// #[derive(Aggregate, Clone, Debug, Default, PartialEq, TypeId)]
-/// pub struct BankAccount {
-///     id: String,
-///     balance: bool,
-/// }
-///
-/// impl BankAccountCommand for BankAccount {
-///     fn open_account(&self, initial_balance: f64) -> Result<OpenedAccountEvent, BankAccountError> {
-///         todo!()
-///     }
-///
-///     fn deposit_funds(&self, amount: f64) -> Result<DepositedFundsEvent, BankAccountError> {
-///         todo!()
-///     }
-///
-///     fn withdraw_funds(&self, amount: f64) -> Result<WithdrewFundsEvent, BankAccountError> {
-///         todo!()
-///     }
-/// }
-///
-/// fn apply(bank_account: &mut BankAccount, event: BankAccountEvent) {
-///     use BankAccountEvent::*;
-///
-///     match event {
-///         OpenedAccount(_) => { todo!() },
-///         DepositedFunds(_) => { todo!() },
-///         WithdrewFunds(_) => { todo!() },
-///     }
-/// }
-/// ```
 #[macro_export]
 macro_rules! include_aggregate {
     ($name: tt) => {

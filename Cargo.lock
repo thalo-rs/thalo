@@ -1468,6 +1468,7 @@ dependencies = [
 name = "thalo-schema"
 version = "0.5.0"
 dependencies = [
+ "linked-hash-map",
  "serde",
  "serde_yaml",
  "thiserror",

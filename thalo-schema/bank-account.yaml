@@ -5,18 +5,15 @@ name: BankAccount
 events:
   AccountOpened:
     fields:
-      - name: initial_balance
-        type: f64
+      - initial_balance: float
 
   DepositedFunds:
     fields:
-      - name: amount
-        type: f64
+      - amount: float
 
   WithdrewFunds:
     fields:
-      - name: amount
-        type: f64
+      - amount: float
 
 # The commands availble for the aggregate
 commands:
@@ -24,21 +21,18 @@ commands:
     event: AccountOpened # resulting event when command is successful
     infallible: false
     optional: false
-    args:
-      - name: initial_balance
-        type: f64
+    params:
+      - initial_balance: float
 
   deposit_funds:
     event: DepositedFunds
-    args:
-      - name: amount
-        type: f64
+    params:
+      - amount: float
 
   withdraw_funds:
     event: WithdrewFunds
-    args:
-      - name: amount
-        type: f64
+    params:
+      - amount: float
 
 # Errors that can occur when executing a command
 errors:
