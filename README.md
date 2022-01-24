@@ -50,6 +50,15 @@ Event streams
 
 With Rust being a younger language than most, the ecosystem is lacking Event Sourcing & CQRS frameworks. Many of which are abandoned, or just not feature rich. Thalo aims to provide a backbone and some core crates to build robust event sourced systems.
 
+## [ESDL](https://github.com/thalo-rs/esdl) - Event Sourcing Schema Definition Language
+
+Defining aggregates, commands & events are recommended to be done in the esdl schema language.
+
+This allows for more readable aggregate definitions and provides Thalo Rust code generation
+to generate events, command trait and custom types.
+
+An example of an `.esdl` can be found in [`examples/bank-account/bank-account.esdl`](/examples/bank-account/bank-account.esdl).
+
 ## Examples
 
 Examples can be seen in the [`examples`](/examples) directory.
