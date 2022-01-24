@@ -15,13 +15,12 @@
 //! Core
 //!
 //! - [thalo](https://github.com/thalo-rs/thalo) - Core framework (this crate).
-//! - [thalo-schema](https://docs.rs/thalo-schema) - Build aggregate schemas into Rust code.
 //! - [thalo-testing](https://docs.rs/thalo-testing) - Test utils for thalo apps.
 //! - [thalo-macros](https://docs.rs/thalo-macros) - Macros for implementing traits. This can be enabled in the core crate with the `macros` feature flag.
 //!
 //! Event stores
 //!
-//! - [thalo-postgres](https://docs.rs/thalo-kafka) - Postgres implementation of [`EventStore`](crate::event_store::EventStore).
+//! - [thalo-postgres](https://docs.rs/thalo-postgres) - Postgres implementation of [`EventStore`](crate::event_store::EventStore).
 //! - [thalo-inmemory](https://docs.rs/thalo-inmemory) - In-memory implementation of [`EventStore`](crate::event_store::EventStore).
 //! - [thalo-filestore](https://docs.rs/thalo-filestore) - Filestore implementation of [`EventStore`](crate::event_store::EventStore).
 //!
@@ -76,47 +75,8 @@ pub struct Infallible;
 ///
 /// # Note
 ///
-/// **This only works when used with [thalo-schema](https://docs.rs/thalo-schema) in a build script.**
-/// To learn more about thalo schemas, see [thalo-schema](https://docs.rs/thalo-schema) docs.
-///
-/// # Example
-///
-/// ```
-/// use thalo::aggregate::{Aggregate, TypeId};
-///
-/// // Creates BankAccountCommand, BankAccountEvent (and individual events), BankAccountError
-/// include_aggregate!("BankAccount");
-///
-/// #[derive(Aggregate, Clone, Debug, Default, PartialEq, TypeId)]
-/// pub struct BankAccount {
-///     id: String,
-///     balance: bool,
-/// }
-///
-/// impl BankAccountCommand for BankAccount {
-///     fn open_account(&self, initial_balance: f64) -> Result<OpenedAccountEvent, BankAccountError> {
-///         todo!()
-///     }
-///
-///     fn deposit_funds(&self, amount: f64) -> Result<DepositedFundsEvent, BankAccountError> {
-///         todo!()
-///     }
-///
-///     fn withdraw_funds(&self, amount: f64) -> Result<WithdrewFundsEvent, BankAccountError> {
-///         todo!()
-///     }
-/// }
-///
-/// fn apply(bank_account: &mut BankAccount, event: BankAccountEvent) {
-///     use BankAccountEvent::*;
-///
-///     match event {
-///         OpenedAccount(_) => { todo!() },
-///         DepositedFunds(_) => { todo!() },
-///         WithdrewFunds(_) => { todo!() },
-///     }
-/// }
-/// ```
+/// **This only works when used with [esdl](https://docs.rs/esdl) in a build script.**
+/// To learn more about thalo schemas, see the [esdl](https://github.com/thalo-rs/esdl) repository.
 #[macro_export]
 macro_rules! include_aggregate {
     ($name: tt) => {
