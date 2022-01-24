@@ -32,7 +32,6 @@ It's designed to be modular with additional crates implementing most functionali
 Core
 
 - [thalo](https://docs.rs/thalo) - Core framework.
-- [thalo-schema](https://docs.rs/thalo-schema) - Build aggregate schemas into Rust code.
 - [thalo-testing](https://docs.rs/thalo-testing) - Test utils for thalo apps.
 - [thalo-macros](https://docs.rs/thalo-macros) - Macros for implementing traits. This can be enabled in the core crate with the `macros` feature flag.
 

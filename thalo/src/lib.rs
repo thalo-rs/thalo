@@ -15,7 +15,6 @@
 //! Core
 //!
 //! - [thalo](https://github.com/thalo-rs/thalo) - Core framework (this crate).
-//! - [thalo-schema](https://docs.rs/thalo-schema) - Build aggregate schemas into Rust code.
 //! - [thalo-testing](https://docs.rs/thalo-testing) - Test utils for thalo apps.
 //! - [thalo-macros](https://docs.rs/thalo-macros) - Macros for implementing traits. This can be enabled in the core crate with the `macros` feature flag.
 //!
@@ -76,8 +75,8 @@ pub struct Infallible;
 ///
 /// # Note
 ///
-/// **This only works when used with [thalo-schema](https://docs.rs/thalo-schema) in a build script.**
-/// To learn more about thalo schemas, see [thalo-schema](https://docs.rs/thalo-schema) docs.
+/// **This only works when used with [esdl](https://docs.rs/esdl) in a build script.**
+/// To learn more about thalo schemas, see the [esdl](https://github.com/thalo-rs/esdl) repository.
 #[macro_export]
 macro_rules! include_aggregate {
     ($name: tt) => {
