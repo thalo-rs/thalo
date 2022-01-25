@@ -45,11 +45,65 @@ Event streams
 
 - [thalo-kafka](https://docs.rs/thalo-kafka) - Kafka implementation of [`EventStream`](https://docs.rs/thalo/latest/thalo/event_stream/trait.EventStream.html).
 
+## What is Event Sourcing & CQRS
+
+Event sourcing is a way of storing data as an immutable sequence of events.
+Events are facts that occured in your sytem and cannot be undone.
+
+Put simply, event sourcing is `f(state, event) -> state`
+
+Rather than the traditional state-oriented approach, your data consists of small events which occur in your system,
+and your models can be built by replaying these events one by one to compute a read model.
+
+A common example of event sourcing is accounting & bank accounts. Your bank balance is the sum of all your transactions,
+with transactions (aka events). Another example you're likely familiar with that uses event sourcing is Git scm.
+
+**What are the benefits?**
+
+- **Scalability**
+
+  Event sourced systems can operate in a very loosely coupled parallel style which provides excellent horizontal scalability and resilience to systems failure.
+
+- **Time Travel**
+
+  By storing immutable events, you have the ability to determine application state at any point in time.
+
+- **100% Accurate Audit Logging**
+
+  With event sourcing, each state change corresponds to one or more events, providing 100% accurate audit logging.
+
+- **Expressive Models**
+
+  Events are first class objects in your system and show intent behind data changes. It makes the implicit explicit.
+
+- **Separation of Concerns**
+
+  Commands and queries in your system are independent of eachother. This includes scale independently & develop independently.
+
+**What are the down sides?**
+
+As with anything in the tech world, everything is about tradeoffs.
+There are some reasons not to use event sourcing in your system includeing:
+
+- **Eventual Consistency**: With the separation of concerns comes eventual consistency in your system, meaning your data may not be up to date immediately, but eventually will become consistent.
+
+- **High Disk Usage**: With all events being stored forever, disk usage will grow overtime. Though there are solutions to this such as [snapshotting](https://domaincentric.net/blog/event-sourcing-snapshotting).
+
+- **Event Granularity**: Sometimes it can be difficult to judge an appropriate size for events. Having them too small may not provide enough data, while large events may slow down your system.
+
+**Resources**
+
+Here are some useful resources on event sourcing & CQRS:
+
+- https://microservices.io/patterns/data/event-sourcing.html
+- https://moduscreate.com/blog/cqrs-event-sourcing/
+- https://medium.com/@hugo.oliveira.rocha/what-they-dont-tell-you-about-event-sourcing-6afc23c69e9a
+
 ## Why
 
 With Rust being a younger language than most, the ecosystem is lacking Event Sourcing & CQRS frameworks. Many of which are abandoned, or just not feature rich. Thalo aims to provide a backbone and some core crates to build robust event sourced systems.
 
-## [ESDL](https://github.com/thalo-rs/esdl) - Event Sourcing Schema Definition Language
+## [ESDL](https://github.com/thalo-rs/esdl) - Event-sourcing Schema Definition Language
 
 Defining aggregates, commands & events are recommended to be done in the esdl schema language.
 
