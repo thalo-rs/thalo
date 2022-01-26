@@ -10,6 +10,10 @@ const ACCOUNT_NAME: &str = "john-doe";
 #[test]
 fn open_account() {
     BankAccount::given_no_events(ACCOUNT_NAME.to_string())
+        // Open account with negative initial balance
+        .when(|bank_account| bank_account.open_account(-100.0))
+        // Then error
+        .then_err(Error::NegativeOrZeroAmount)
         // Open account
         .when(|bank_account| bank_account.open_account(0.0))
         // Then ok

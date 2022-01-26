@@ -16,6 +16,10 @@ impl BankAccountCommand for BankAccount {
     type Error = Error;
 
     fn open_account(&self, initial_balance: f64) -> Result<OpenedAccountEvent, Error> {
+        if initial_balance < 0.0 {
+            return Err(Error::NegativeOrZeroAmount);
+        }
+
         if self.opened {
             return Err(Error::AccountAlreadyOpened);
         }

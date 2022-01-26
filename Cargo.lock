@@ -342,9 +342,9 @@ checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
 
 [[package]]
 name = "esdl"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d659f9c36693eaf292d7733cdbaf83e9af560df274a7e3e3bc7d8e7fbc048cbd"
+checksum = "350fa3483cae7d2a5793d2e8c4aefd06dc17ca1de3d9fdbbd577451a2a0dc0e0"
 dependencies = [
  "nom",
  "nom-supreme",
