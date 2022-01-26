@@ -48,15 +48,15 @@ Event streams
 ## What is Event Sourcing & CQRS
 
 Event sourcing is a way of storing data as an immutable sequence of events.
-Events are facts that occured in your sytem and cannot be undone.
+Events are facts that occured in your system and cannot be undone.
 
-Put simply, event sourcing is `f(state, event) -> state`
+Put simply, event sourcing is: `f(state, event) -> state`
 
 Rather than the traditional state-oriented approach, your data consists of small events which occur in your system,
 and your models can be built by replaying these events one by one to compute a read model.
 
-A common example of event sourcing is accounting & bank accounts. Your bank balance is the sum of all your transactions,
-with transactions (aka events). Another example you're likely familiar with that uses event sourcing is Git scm.
+A common example of event sourcing is accounting & bank accounts. Your bank balance is the sum of all your transactions (aka events).
+Another example you're likely familiar with that uses event sourcing is Git scm.
 
 **What are the benefits?**
 
