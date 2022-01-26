@@ -53,9 +53,9 @@ Events are facts that occured in your system and cannot be undone.
 Put simply, event sourcing is: `f(state, event) -> state`
 
 Rather than the traditional state-oriented approach, your data consists of small events which occur in your system,
-and your models can be built by replaying these events one by one to compute a read model.
+and your models can be built by replaying these events one by one to compute read models.
 
-A common example of event sourcing is accounting & bank accounts. Your bank balance is the sum of all your transactions (aka events).
+A common example of event sourcing is accounting. Your bank balance is the sum of all your transactions (aka events).
 Another example you're likely familiar with that uses event sourcing is Git scm.
 
 **What are the benefits?**
@@ -78,12 +78,12 @@ Another example you're likely familiar with that uses event sourcing is Git scm.
 
 - **Separation of Concerns**
 
-  Commands and queries in your system are independent of eachother. This includes scale independently & develop independently.
+  Commands and queries in your system are independent of eachother. This allows them to be scaled & developed independently.
 
 **What are the down sides?**
 
 As with anything in the tech world, everything is about tradeoffs.
-There are some reasons not to use event sourcing in your system includeing:
+There are some reasons not to use event sourcing in your system including:
 
 - **Eventual Consistency**: With the separation of concerns comes eventual consistency in your system, meaning your data may not be up to date immediately, but eventually will become consistent.
 
@@ -105,16 +105,21 @@ With Rust being a younger language than most, the ecosystem is lacking Event Sou
 
 ## [ESDL](https://github.com/thalo-rs/esdl) - Event-sourcing Schema Definition Language
 
-Defining aggregates, commands & events are recommended to be done in the esdl schema language.
+Defining aggregates, commands and events are recommended to be done in the [ESDL schema language](https://github.com/thalo-rs/esdl).
 
-This allows for more readable aggregate definitions and provides Thalo Rust code generation
-to generate events, command trait and custom types.
+This allows for more readable aggregate definitions and provides code generation to generate events,
+command trait and custom types compatible with Thalo.
 
 An example of an `.esdl` can be found in [`examples/bank-account/bank-account.esdl`](/examples/bank-account/bank-account.esdl).
 
 ## Examples
 
-Examples can be seen in the [`examples`](/examples) directory.
+Examples include:
+
+- [**bank-account**](/examples/bank-account): a bank account aggregate built with an ESDL schema file.
+- [**protobuf**](/examples/protobuf): a gRPC client & server for sending syncronous commands.
+
+All examples can be seen in the [`examples`](/examples) directory.
 
 ## Getting Help
 
