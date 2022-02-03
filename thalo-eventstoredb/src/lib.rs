@@ -1,4 +1,7 @@
 pub use event_store::EventStoreDBEventStore;
+pub use error::Error;
+
+mod error;
 mod event_store;
 
 #[cfg(test)]
