@@ -1,4 +1,5 @@
-#![deny(missing_docs)]
+pub use event_store::EventStoreDBEventStore;
+mod event_store;
 
 #[cfg(test)]
 mod tests {
@@ -8,6 +9,3 @@ mod tests {
         assert_eq!(result, 4);
     }
 }
-
-pub use event_store;
-mod event_store;
