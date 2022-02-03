@@ -1,19 +1,30 @@
-use std::vec;
+use std::{any::Any, vec};
 
 use async_trait::async_trait;
-use chrono::Utc;
+use chrono::{Utc, DateTime};
 use eventstore::{
-    All, AppendToStreamOptions, Client, ExpectedRevision, ReadStreamOptions, ResolvedEvent, Single,
-    StreamPosition,
+    All, AppendToStreamOptions, Client, EventData, ExpectedRevision, ReadStreamOptions,
+    ResolvedEvent, Single, StreamPosition,
 };
-use serde::de::DeserializeOwned;
+use futures::TryStreamExt;
+use serde::{de::DeserializeOwned, Serialize, Deserialize};
 use thalo::{
     aggregate::{Aggregate, TypeId},
-    event::{AggregateEventEnvelope, EventEnvelope},
+    event::{AggregateEventEnvelope, EventEnvelope, EventType},
     event_store::EventStore,
 };
+use uuid::Uuid;
 
 use crate::Error;
+
+
+#[derive(Serialize, Deserialize)]
+struct ESDBEventPayload {
+    created_at: DateTime<Utc>,
+    aggregate_type: String,
+    aggregate_id: String,
+    event_data: serde_json::Value,
+}
 
 pub struct EventStoreDBEventStore {
     pub client: Client,
@@ -129,29 +140,33 @@ impl EventStore for EventStoreDBEventStore {
         let options =
             AppendToStreamOptions::default().expected_revision(ExpectedRevision::Exact(revision));
 
+        let mut payload: Vec<EventData> = vec![];
+
+        for (index, event) in events
+            .iter()
+            .enumerate() {
+                let created_at = Utc::now();
+                let aggregate_type = <A as TypeId>::type_id().to_string();
+                let aggregate_id = id.to_string();
+                let sequence = sequence.clone() + index;
+                let id = sequence.clone();
+                let data = serde_json::to_value(event).map_err(Error::SerializeEvent)?;
+                event_ids.push(id.clone());
+
+                let event_data_payload = ESDBEventPayload {
+                    created_at,
+                    aggregate_type,
+                    aggregate_id,
+                    event_data: data,
+                };
+
+                let event_data = EventData::json(event.event_type(), &event_data_payload)?.id(Uuid::new_v4());
+                payload.push(event_data);
+        }
+
         let res = self
             .client
-            .append_to_stream( // TODO: Implement eventstore::ToEvents trait for <Vec<A as Aggregate>::Event>
-                &stream,
-                &options,
-                events.iter().enumerate().map(|(index, event)| {
-                    let created_at = Utc::now();
-                    let aggregate_type = <A as TypeId>::type_id().to_string();
-                    let aggregate_id = id.to_string();
-                    let sequence = sequence.clone() + index;
-                    let id = sequence.clone();
-                    event_ids.push(id.clone());
-
-                    AggregateEventEnvelope {
-                        id,
-                        aggregate_id,
-                        aggregate_type,
-                        sequence,
-                        event,
-                        created_at: created_at.into(),
-                    }
-                }),
-            )
+            .append_to_stream(&stream, &options, payload)
             .await;
 
         if let Ok(Ok(_)) = res {

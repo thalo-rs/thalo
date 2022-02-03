@@ -7,4 +7,10 @@ pub enum Error {
 
     #[error("Wrong Expected Version Error: {0}")]
     WrongExpectedVersion(usize),
+
+    #[error("serialize event error: {0}")]
+    SerializeEvent(serde_json::Error),
+
+    #[error("Error converting event payload to byte array: {0}")]
+    Infallible(eventstore::Error)
 }

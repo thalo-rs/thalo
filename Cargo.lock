@@ -1792,6 +1792,7 @@ dependencies = [
  "serde_json",
  "thalo",
  "thiserror",
+ "uuid",
 ]
 
 [[package]]

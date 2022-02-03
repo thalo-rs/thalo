@@ -32,6 +32,7 @@ thalo = { version = "0.5.0", path = "../thalo", features = [
   "event-store",
   "tests-cfg",
 ] }
+uuid = { version  = "0.8", features = [ "v4", "serde" ] }
 
 [features]
 default = ["debug"]
