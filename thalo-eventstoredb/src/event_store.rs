@@ -131,7 +131,7 @@ impl EventStore for EventStoreDBEventStore {
 
         let res = self
             .client
-            .append_to_stream(
+            .append_to_stream( // TODO: Implement eventstore::ToEvents trait for <Vec<A as Aggregate>::Event>
                 &stream,
                 &options,
                 events.iter().enumerate().map(|(index, event)| {
