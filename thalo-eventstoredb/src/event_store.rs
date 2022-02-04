@@ -1,13 +1,12 @@
-use std::{any::Any, vec};
+use std::vec;
 
 use async_trait::async_trait;
-use chrono::{Utc, DateTime};
+use chrono::{DateTime, Utc};
 use eventstore::{
     All, AppendToStreamOptions, Client, EventData, ExpectedRevision, ReadStreamOptions,
     ResolvedEvent, Single, StreamPosition,
 };
-use futures::TryStreamExt;
-use serde::{de::DeserializeOwned, Serialize, Deserialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thalo::{
     aggregate::{Aggregate, TypeId},
     event::{AggregateEventEnvelope, EventEnvelope, EventType},
@@ -16,7 +15,6 @@ use thalo::{
 use uuid::Uuid;
 
 use crate::Error;
-
 
 #[derive(Serialize, Deserialize)]
 struct ESDBEventPayload {
@@ -77,7 +75,7 @@ impl EventStore for EventStoreDBEventStore {
 
     async fn load_events_by_id<A>(
         &self,
-        ids: &[usize],
+        _ids: &[usize],
     ) -> Result<Vec<AggregateEventEnvelope<A>>, Self::Error>
     where
         A: Aggregate,
@@ -102,8 +100,8 @@ impl EventStore for EventStoreDBEventStore {
         let last_event = self.client.read_stream(&stream, &options, Single).await?;
 
         if let Ok(Some(ResolvedEvent {
-            event,
-            link,
+            event: _,
+            link: _,
             commit_position: Some(commit_position),
         })) = last_event
         {
@@ -142,26 +140,25 @@ impl EventStore for EventStoreDBEventStore {
 
         let mut payload: Vec<EventData> = vec![];
 
-        for (index, event) in events
-            .iter()
-            .enumerate() {
-                let created_at = Utc::now();
-                let aggregate_type = <A as TypeId>::type_id().to_string();
-                let aggregate_id = id.to_string();
-                let sequence = sequence.clone() + index;
-                let id = sequence.clone();
-                let data = serde_json::to_value(event).map_err(Error::SerializeEvent)?;
-                event_ids.push(id.clone());
+        for (index, event) in events.iter().enumerate() {
+            let created_at = Utc::now();
+            let aggregate_type = <A as TypeId>::type_id().to_string();
+            let aggregate_id = id.to_string();
+            let sequence = sequence.clone() + index;
+            let id = sequence.clone();
+            let data = serde_json::to_value(event).map_err(Error::SerializeEvent)?;
+            event_ids.push(id.clone());
 
-                let event_data_payload = ESDBEventPayload {
-                    created_at,
-                    aggregate_type,
-                    aggregate_id,
-                    event_data: data,
-                };
+            let event_data_payload = ESDBEventPayload {
+                created_at,
+                aggregate_type,
+                aggregate_id,
+                event_data: data,
+            };
 
-                let event_data = EventData::json(event.event_type(), &event_data_payload)?.id(Uuid::new_v4());
-                payload.push(event_data);
+            let event_data = // TODO: Remove unwrap - fix error::Error
+                EventData::json(event.event_type(), &event_data_payload).unwrap().id(Uuid::new_v4());
+            payload.push(event_data);
         }
 
         let res = self

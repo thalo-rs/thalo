@@ -12,5 +12,5 @@ pub enum Error {
     SerializeEvent(serde_json::Error),
 
     #[error("Error converting event payload to byte array: {0}")]
-    Infallible(eventstore::Error)
+    EventStoreError(eventstore::Error),
 }
