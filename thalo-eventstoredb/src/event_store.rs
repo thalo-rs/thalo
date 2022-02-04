@@ -4,8 +4,9 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use eventstore::{
     All, AppendToStreamOptions, Client, EventData, ExpectedRevision, ReadStreamOptions,
-    ResolvedEvent, Single, StreamPosition,
+    ResolvedEvent, Single, StreamPosition
 };
+use futures::TryFutureExt;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thalo::{
     aggregate::{Aggregate, TypeId},
@@ -44,7 +45,7 @@ impl EventStore for EventStoreDBEventStore {
     ) -> Result<Vec<AggregateEventEnvelope<A>>, Self::Error>
     where
         A: Aggregate,
-        <A as Aggregate>::Event: DeserializeOwned,
+    <A as Aggregate>::Event: DeserializeOwned,
     {
         let mut stream = <A as TypeId>::type_id().to_owned();
 
@@ -53,20 +54,21 @@ impl EventStore for EventStoreDBEventStore {
             stream.push_str(&id_str.to_string());
         }
 
-        let mut stream = self
+        let mut rv: Vec<EventEnvelope<A::Event>> = vec![];
+        let result = self
             .client
             .read_stream(stream, &Default::default(), All)
-            .await?;
+            .await;
 
-        let mut rv: Vec<EventEnvelope<A::Event>> = vec![];
+        if let Ok(mut stream) = result {
+            while let Some(event) = stream.next().await? {
+                let event_data_result = event
+                    .get_original_event()
+                    .as_json::<EventEnvelope<A::Event>>();
 
-        while let Some(event) = stream.next().await? {
-            let event_data_result = event
-                .get_original_event()
-                .as_json::<EventEnvelope<A::Event>>();
-
-            if let Ok(data) = event_data_result {
-                rv.push(data)
+                if let Ok(data) = event_data_result {
+                    rv.push(data)
+                }
             }
         }
 
@@ -79,7 +81,7 @@ impl EventStore for EventStoreDBEventStore {
     ) -> Result<Vec<AggregateEventEnvelope<A>>, Self::Error>
     where
         A: Aggregate,
-        <A as Aggregate>::Event: DeserializeOwned,
+    <A as Aggregate>::Event: DeserializeOwned,
     {
         todo!()
     }
@@ -97,7 +99,9 @@ impl EventStore for EventStoreDBEventStore {
 
         let options = ReadStreamOptions::default().position(StreamPosition::End);
 
-        let last_event = self.client.read_stream(&stream, &options, Single).await?;
+        let last_event = self.client.read_stream(&stream, &options, Single)
+            .map_err(Error::ReadStreamError)
+            .await?;
 
         if let Ok(Some(ResolvedEvent {
             event: _,
@@ -120,7 +124,7 @@ impl EventStore for EventStoreDBEventStore {
     ) -> Result<Vec<usize>, Self::Error>
     where
         A: Aggregate,
-        <A as Aggregate>::Event: serde::Serialize,
+    <A as Aggregate>::Event: serde::Serialize,
     {
         if events.is_empty() {
             return Ok(vec![]);
@@ -156,20 +160,20 @@ impl EventStore for EventStoreDBEventStore {
                 event_data: data,
             };
 
-            let event_data = // TODO: Remove unwrap - fix error::Error
-                EventData::json(event.event_type(), &event_data_payload).unwrap().id(Uuid::new_v4());
+            let event_data =
+                EventData::json(event.event_type(), &event_data_payload)
+                .map_err(Error::SerializeEventDataPayload)?
+                .id(Uuid::new_v4());
+
             payload.push(event_data);
         }
 
-        let res = self
+        let _ = self
             .client
             .append_to_stream(&stream, &options, payload)
-            .await;
+            .map_err(|err| Error::WriteStreamError(sequence, err))
+            .await?;
 
-        if let Ok(Ok(_)) = res {
-            return Ok(event_ids);
-        } else {
-            return Err(Error::WrongExpectedVersion(sequence));
-        }
+        Ok(event_ids)
     }
 }
