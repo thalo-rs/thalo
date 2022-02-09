@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use eventstore::{
     All, AppendToStreamOptions, Client, EventData, ExpectedRevision, ReadStreamOptions,
-    ResolvedEvent, Single, StreamPosition
+    ResolvedEvent, Single, StreamPosition,
 };
 use futures::TryFutureExt;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -17,12 +17,30 @@ use uuid::Uuid;
 
 use crate::Error;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, )]
 struct ESDBEventPayload {
     created_at: DateTime<Utc>,
     aggregate_type: String,
     aggregate_id: String,
     event_data: serde_json::Value,
+}
+
+impl ESDBEventPayload {
+    fn event_envelope<A>(&self, id: usize) -> Result<AggregateEventEnvelope<A>, Error>
+    where
+        A: Aggregate,
+        <A as Aggregate>::Event: DeserializeOwned,
+    {
+        Ok(AggregateEventEnvelope::<A> {
+            id,
+            created_at: self.created_at.into(),
+            aggregate_type: self.aggregate_type.to_string(),
+            aggregate_id: self.aggregate_id.clone(),
+            sequence: id.clone(),
+            event: serde_json::from_value(self.event_data.clone())
+                .map_err(Error::DeserializeEvent)?,
+        })
+    }
 }
 
 pub struct EventStoreDBEventStore {
@@ -45,7 +63,7 @@ impl EventStore for EventStoreDBEventStore {
     ) -> Result<Vec<AggregateEventEnvelope<A>>, Self::Error>
     where
         A: Aggregate,
-    <A as Aggregate>::Event: DeserializeOwned,
+        <A as Aggregate>::Event: DeserializeOwned,
     {
         let mut stream = <A as TypeId>::type_id().to_owned();
 
@@ -54,7 +72,7 @@ impl EventStore for EventStoreDBEventStore {
             stream.push_str(&id_str.to_string());
         }
 
-        let mut rv: Vec<EventEnvelope<A::Event>> = vec![];
+        let mut rv: Vec<AggregateEventEnvelope<A>> = vec![];
         let result = self
             .client
             .read_stream(stream, &Default::default(), All)
@@ -62,13 +80,17 @@ impl EventStore for EventStoreDBEventStore {
 
         if let Ok(mut stream) = result {
             while let Some(event) = stream.next().await? {
-                let event_data_result = event
-                    .get_original_event()
-                    .as_json::<EventEnvelope<A::Event>>();
+                let event_data = event.get_original_event();
 
-                if let Ok(data) = event_data_result {
-                    rv.push(data)
-                }
+                // TODO: - can we try event eventlope ids as uuid in addition to usize?
+                // let uuid = event_data.id.clone();
+                let sequence = usize::try_from(event_data.revision).unwrap();
+                let event_payload = event_data
+                    .as_json::<ESDBEventPayload>()
+                    .map_err(Error::DeserializeEvent)?
+                    .event_envelope::<A>(sequence)?;
+
+                rv.push(event_payload);
             }
         }
 
@@ -81,7 +103,7 @@ impl EventStore for EventStoreDBEventStore {
     ) -> Result<Vec<AggregateEventEnvelope<A>>, Self::Error>
     where
         A: Aggregate,
-    <A as Aggregate>::Event: DeserializeOwned,
+        <A as Aggregate>::Event: DeserializeOwned,
     {
         todo!()
     }
@@ -99,7 +121,9 @@ impl EventStore for EventStoreDBEventStore {
 
         let options = ReadStreamOptions::default().position(StreamPosition::End);
 
-        let last_event = self.client.read_stream(&stream, &options, Single)
+        let last_event = self
+            .client
+            .read_stream(&stream, &options, Single)
             .map_err(Error::ReadStreamError)
             .await?;
 
@@ -124,7 +148,7 @@ impl EventStore for EventStoreDBEventStore {
     ) -> Result<Vec<usize>, Self::Error>
     where
         A: Aggregate,
-    <A as Aggregate>::Event: serde::Serialize,
+        <A as Aggregate>::Event: serde::Serialize,
     {
         if events.is_empty() {
             return Ok(vec![]);
@@ -160,8 +184,7 @@ impl EventStore for EventStoreDBEventStore {
                 event_data: data,
             };
 
-            let event_data =
-                EventData::json(event.event_type(), &event_data_payload)
+            let event_data = EventData::json(event.event_type(), &event_data_payload)
                 .map_err(Error::SerializeEventDataPayload)?
                 .id(Uuid::new_v4());
 
