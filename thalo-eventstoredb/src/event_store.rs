@@ -4,13 +4,13 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use eventstore::{
     All, AppendToStreamOptions, Client, EventData, ExpectedRevision, ReadStreamOptions,
-    ResolvedEvent, Single, StreamPosition,
+    Single, StreamPosition,
 };
 use futures::TryFutureExt;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thalo::{
     aggregate::{Aggregate, TypeId},
-    event::{AggregateEventEnvelope, EventEnvelope, EventType},
+    event::{AggregateEventEnvelope, EventType},
     event_store::EventStore,
 };
 use uuid::Uuid;
@@ -127,18 +127,12 @@ impl EventStore for EventStoreDBEventStore {
             .map_err(Error::ReadStreamError)
             .await?;
 
-        if let Ok(Some(ResolvedEvent {
-            event: _,
-            link: _,
-            commit_position: Some(commit_position),
-        })) = last_event
-        {
-            if let Ok(s) = usize::try_from(commit_position) {
-                return Ok(Some(s));
-            }
+        if let Ok(Some(event)) = last_event {
+            let event_data = event.get_original_event();
+            Ok(Some(usize::try_from(event_data.revision).unwrap()))
+        } else {
+            Ok(None)
         }
-
-        Ok(None)
     }
 
     async fn save_events<A>(
