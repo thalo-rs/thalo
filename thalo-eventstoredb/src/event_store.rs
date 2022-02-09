@@ -181,7 +181,7 @@ impl EventStore for EventStoreDBEventStore {
         let sequence = self.load_aggregate_sequence::<A>(id).await?;
         let mut event_ids = Vec::with_capacity(events.len());
 
-        let sequence = sequence.map(|sequence| sequence + 1).unwrap_or(0);
+        let sequence = sequence.unwrap_or(0);
         let revision = u64::try_from(sequence).unwrap();
         let options =
             AppendToStreamOptions::default().expected_revision(ExpectedRevision::Exact(revision));
