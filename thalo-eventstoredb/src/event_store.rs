@@ -94,18 +94,44 @@ impl EventStore for EventStoreDBEventStore {
             }
         }
 
-        return Ok(rv);
+        Ok(rv)
     }
 
     async fn load_events_by_id<A>(
         &self,
-        _ids: &[usize],
+        ids: &[usize],
     ) -> Result<Vec<AggregateEventEnvelope<A>>, Self::Error>
     where
         A: Aggregate,
         <A as Aggregate>::Event: DeserializeOwned,
     {
-        todo!()
+        let stream = <A as TypeId>::type_id().to_owned();
+        let mut rv: Vec<AggregateEventEnvelope<A>> = vec![];
+
+        let result = self
+            .client
+            .read_stream(stream, &Default::default(), All)
+            .await;
+
+        if let Ok(mut stream) = result {
+            while let Some(event) = stream.next().await? {
+                let event_data = event.get_original_event();
+
+                // TODO: - can we try event eventlope ids as uuid in addition to usize?
+                // let uuid = event_data.id.clone();
+                let sequence = usize::try_from(event_data.revision).unwrap();
+                if ids.contains(&sequence) {
+                    let event_payload = event_data
+                        .as_json::<ESDBEventPayload>()
+                        .map_err(Error::DeserializeEvent)?
+                        .event_envelope::<A>(sequence)?;
+
+                    rv.push(event_payload);
+                }
+            }
+        }
+
+        Ok(rv)
     }
 
     async fn load_aggregate_sequence<A>(
