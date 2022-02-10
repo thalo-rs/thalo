@@ -17,7 +17,7 @@ use uuid::Uuid;
 
 use crate::Error;
 
-#[derive(Serialize, Deserialize, )]
+#[derive(Serialize, Deserialize)]
 struct ESDBEventPayload {
     created_at: DateTime<Utc>,
     aggregate_type: String,
@@ -43,18 +43,18 @@ impl ESDBEventPayload {
     }
 }
 
-pub struct EventStoreDBEventStore {
+pub struct ESDBEventStore {
     pub client: Client,
 }
 
-impl EventStoreDBEventStore {
+impl ESDBEventStore {
     pub fn new(client: Client) -> Self {
-        EventStoreDBEventStore { client }
+        ESDBEventStore { client }
     }
 }
 
 #[async_trait]
-impl EventStore for EventStoreDBEventStore {
+impl EventStore for ESDBEventStore {
     type Error = Error;
 
     async fn load_events<A>(

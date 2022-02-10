@@ -1,4 +1,4 @@
-pub use event_store::EventStoreDBEventStore;
+pub use event_store::ESDBEventStore;
 pub use error::Error;
 
 mod error;
