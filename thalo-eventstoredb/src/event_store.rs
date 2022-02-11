@@ -220,6 +220,9 @@ impl ESDBEventStore {
                 continue;
             }
 
+            // TODO: Make ESDBEventPayload handle all this
+            // and implement fns for RecordedEvent -> ESDBEventPayload, ESDBEventPayload -> AggregateEnvelope, ESDBPayload -> eventstore::EventData
+            // make base struct handle id and revision seperately - update event trait for different id types (str, u64, uuid) etc
             events.push((
                 event_data.id,
                 event_data.revision,
