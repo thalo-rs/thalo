@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use eventstore::{
     All, AppendToStreamOptions, Client, EventData, ExpectedRevision, ReadStreamOptions, Single,
-    StreamPosition
+    StreamPosition,
 };
 use futures::TryFutureExt;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -220,11 +220,11 @@ impl ESDBEventStore {
                 continue;
             }
 
-            events.push((event_data.id,
-                         event_data.revision,
-                         event_data
-                         .as_json::<ESDBEventPayload>()
-                         .unwrap()));
+            events.push((
+                event_data.id,
+                event_data.revision,
+                event_data.as_json::<ESDBEventPayload>().unwrap(),
+            ));
         }
 
         let mut table = prettytable::Table::new();
