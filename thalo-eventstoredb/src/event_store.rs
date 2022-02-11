@@ -3,8 +3,8 @@ use std::vec;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use eventstore::{
-    All, AppendToStreamOptions, Client, EventData, ExpectedRevision, ReadStreamOptions,
-    Single, StreamPosition,
+    All, AppendToStreamOptions, Client, EventData, ExpectedRevision, ReadStreamOptions, Single,
+    StreamPosition
 };
 use futures::TryFutureExt;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -52,12 +52,9 @@ impl ESDBEventStore {
         ESDBEventStore { client }
     }
 
-    fn stream_id<A>(
-        &self,
-        id: Option<&<A as Aggregate>::ID>
-    ) -> String
+    fn stream_id<A>(&self, id: Option<&<A as Aggregate>::ID>) -> String
     where
-        A: Aggregate
+        A: Aggregate,
     {
         let mut stream = <A as TypeId>::type_id().to_owned();
 
@@ -114,7 +111,6 @@ impl EventStore for ESDBEventStore {
         A: Aggregate,
         <A as Aggregate>::Event: DeserializeOwned,
     {
-
         let mut result = self
             .client
             .read_stream(self.stream_id::<A>(None), &Default::default(), All)
@@ -158,7 +154,7 @@ impl EventStore for ESDBEventStore {
 
         if let Ok(Some(event)) = result {
             let event_data = event.get_original_event();
-            return Ok(Some(event_data.revision as usize))
+            return Ok(Some(event_data.revision as usize));
         }
 
         Ok(None)
@@ -195,8 +191,8 @@ impl EventStore for ESDBEventStore {
             payload.push(event_data);
         }
 
-        let options =
-            AppendToStreamOptions::default().expected_revision(ExpectedRevision::Exact(revision as u64));
+        let options = AppendToStreamOptions::default()
+            .expected_revision(ExpectedRevision::Exact(revision as u64));
         let _ = self
             .client
             .append_to_stream(&self.stream_id::<A>(Some(id)), &options, payload)
@@ -204,5 +200,62 @@ impl EventStore for ESDBEventStore {
             .await?;
 
         Ok((revision..events.len() - 1).collect())
+    }
+}
+
+#[cfg(feature = "debug")]
+impl ESDBEventStore {
+    pub async fn print(&self) {
+        let mut stream = self
+            .client
+            .read_all(&Default::default(), All)
+            .await
+            .unwrap();
+
+        let mut events: Vec<(Uuid, u64, ESDBEventPayload)> = vec![];
+        while let Some(event) = stream.next().await.unwrap() {
+            let event_data = event.get_original_event();
+
+            if !event_data.event_type.starts_with("$") {
+                continue;
+            }
+
+            events.push((event_data.id,
+                         event_data.revision,
+                         event_data
+                         .as_json::<ESDBEventPayload>()
+                         .unwrap()));
+        }
+
+        let mut table = prettytable::Table::new();
+        table.set_titles(
+            [
+                "ID",
+                "Created At",
+                "Aggregate Type",
+                "Aggregate ID",
+                "Sequence",
+                "Event Data",
+            ]
+            .into(),
+        );
+
+        if events.is_empty() {
+            table.add_row(["", "", "", "", "", ""].into());
+        } else {
+            for (uuid, revision, event) in events.iter() {
+                table.add_row(
+                    [
+                        uuid.to_string(),
+                        event.created_at.to_string(),
+                        event.aggregate_type.to_string(),
+                        event.aggregate_id.clone(),
+                        revision.to_string(),
+                        serde_json::to_string(&event.event_data).unwrap(),
+                    ]
+                    .into(),
+                );
+            }
+        }
     }
 }
