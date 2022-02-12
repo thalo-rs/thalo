@@ -23,7 +23,7 @@ exclude = ["/docker-image"]
 thiserror = "1.0"
 async-trait = "0.1"
 chrono = "0.4"
-eventstore = "2.0.0-alpha.1"
+eventstore = "2.0.0-alpha.2"
 futures = "0.3"
 prettytable-rs = { version = "0.8", optional = true }
 serde = "1.0"

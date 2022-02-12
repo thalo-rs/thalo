@@ -3,7 +3,7 @@ use std::vec;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use eventstore::{
-    All, AppendToStreamOptions, Client, EventData, ExpectedRevision, ReadStreamOptions, Single,
+    AppendToStreamOptions, Client, EventData, ExpectedRevision, ReadStreamOptions,
     StreamPosition,
 };
 use futures::TryFutureExt;
@@ -79,9 +79,13 @@ impl EventStore for ESDBEventStore {
         A: Aggregate,
         <A as Aggregate>::Event: DeserializeOwned,
     {
+        let options = ReadStreamOptions::default()
+            .position(StreamPosition::Start)
+            .forwards();
+
         let mut result = self
             .client
-            .read_stream(self.stream_id::<A>(id), &Default::default(), All)
+            .read_stream(self.stream_id::<A>(id), &options)
             .await
             .map_err(Error::ReadStreamError)?;
 
@@ -111,9 +115,13 @@ impl EventStore for ESDBEventStore {
         A: Aggregate,
         <A as Aggregate>::Event: DeserializeOwned,
     {
+        let options = ReadStreamOptions::default()
+            .position(StreamPosition::Start)
+            .forwards();
+
         let mut result = self
             .client
-            .read_stream(self.stream_id::<A>(None), &Default::default(), All)
+            .read_stream(self.stream_id::<A>(None), &options)
             .await
             .map_err(Error::ReadStreamError)?;
 
@@ -145,14 +153,19 @@ impl EventStore for ESDBEventStore {
     where
         A: Aggregate,
     {
-        let options = ReadStreamOptions::default().position(StreamPosition::End);
-        let result = self
+        let options = ReadStreamOptions::default()
+            .position(StreamPosition::End)
+            .max_count(1);
+
+        println!("CALLED load_aggregate_sequence with type {:?} and id {:?}", <A as TypeId>::type_id().to_string(), id.to_string());
+        let mut stream = self
             .client
-            .read_stream(self.stream_id::<A>(Some(id)), &options, Single)
+            .read_stream(self.stream_id::<A>(Some(id)), &options)
             .await
             .map_err(Error::ReadStreamError)?;
+        println!("RESOLVED load_aggregate_sequence with Result {:?}", stream);
 
-        if let Ok(Some(event)) = result {
+        while let Some(event) = stream.next().await? {
             let event_data = event.get_original_event();
             return Ok(Some(event_data.revision as usize));
         }
@@ -169,11 +182,14 @@ impl EventStore for ESDBEventStore {
         A: Aggregate,
         <A as Aggregate>::Event: serde::Serialize,
     {
+
+        print!("CALLED SAVE_EVENTS {:?}", id.to_string());
         if events.is_empty() {
             return Ok(vec![]);
         }
 
         let revision = self.load_aggregate_sequence::<A>(id).await?.unwrap_or(0);
+        print!("SAVE_EVENTS REVISION {:?}", revision);
         let mut payload: Vec<EventData> = vec![];
 
         for event in events.iter() {
@@ -206,28 +222,32 @@ impl EventStore for ESDBEventStore {
 #[cfg(feature = "debug")]
 impl ESDBEventStore {
     pub async fn print(&self) {
-        let mut stream = self
+        println!("Calling Read All");
+        let stream_res = self
             .client
-            .read_all(&Default::default(), All)
-            .await
-            .unwrap();
+            .read_all(&Default::default())
+            .await;
+
+        println!("Read Completed {:?}", stream_res);
 
         let mut events: Vec<(Uuid, u64, ESDBEventPayload)> = vec![];
-        while let Some(event) = stream.next().await.unwrap() {
-            let event_data = event.get_original_event();
+        if let Ok(mut stream) = stream_res {
+            while let Some(event) = stream.next().await.unwrap() {
+                let event_data = event.get_original_event();
 
-            if !event_data.event_type.starts_with("$") {
-                continue;
+                if !event_data.event_type.starts_with("$") {
+                    continue;
+                }
+
+                // TODO: Make ESDBEventPayload handle all this
+                // and implement fns for RecordedEvent -> ESDBEventPayload, ESDBEventPayload -> AggregateEnvelope, ESDBPayload -> eventstore::EventData
+                // make base struct handle id and revision seperately - update event trait for different id types (str, u64, uuid) etc
+                events.push((
+                    event_data.id,
+                    event_data.revision,
+                    event_data.as_json::<ESDBEventPayload>().unwrap(),
+                ));
             }
-
-            // TODO: Make ESDBEventPayload handle all this
-            // and implement fns for RecordedEvent -> ESDBEventPayload, ESDBEventPayload -> AggregateEnvelope, ESDBPayload -> eventstore::EventData
-            // make base struct handle id and revision seperately - update event trait for different id types (str, u64, uuid) etc
-            events.push((
-                event_data.id,
-                event_data.revision,
-                event_data.as_json::<ESDBEventPayload>().unwrap(),
-            ));
         }
 
         let mut table = prettytable::Table::new();
