@@ -1,9 +1,9 @@
-use std::vec;
+use std::{fmt::Debug, vec};
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use eventstore::{
-    AppendToStreamOptions, Client, EventData, ExpectedRevision, ReadStreamOptions,
+    AppendToStreamOptions, Client, EventData, ExpectedRevision, ReadAllOptions, ReadStreamOptions,
     StreamPosition,
 };
 use futures::TryFutureExt;
@@ -43,6 +43,7 @@ impl ESDBEventPayload {
     }
 }
 
+#[derive(Clone)]
 pub struct ESDBEventStore {
     pub client: Client,
 }
@@ -115,13 +116,13 @@ impl EventStore for ESDBEventStore {
         A: Aggregate,
         <A as Aggregate>::Event: DeserializeOwned,
     {
-        let options = ReadStreamOptions::default()
+        let options = ReadAllOptions::default()
             .position(StreamPosition::Start)
             .forwards();
 
         let mut result = self
             .client
-            .read_stream(self.stream_id::<A>(None), &options)
+            .read_all(&options)
             .await
             .map_err(Error::ReadStreamError)?;
 
@@ -130,9 +131,19 @@ impl EventStore for ESDBEventStore {
         while let Some(event) = result.next().await? {
             let event_data = event.get_original_event();
 
+            if event_data.event_type.starts_with("$") {
+                continue;
+            }
+
+            let is_aggregate_event = event_data.stream_id.starts_with(self.stream_id::<A>(None).as_str());
+
+            if !is_aggregate_event {
+                continue;
+            }
+
             // TODO: - can we try event eventlope ids as uuid in addition to usize?
             // let uuid = event_data.id.clone();
-            let sequence = usize::try_from(event_data.revision).unwrap();
+            let sequence = event_data.revision as usize;
             if ids.contains(&sequence) {
                 let event_payload = event_data
                     .as_json::<ESDBEventPayload>()
@@ -157,17 +168,16 @@ impl EventStore for ESDBEventStore {
             .position(StreamPosition::End)
             .max_count(1);
 
-        println!("CALLED load_aggregate_sequence with type {:?} and id {:?}", <A as TypeId>::type_id().to_string(), id.to_string());
-        let mut stream = self
+        let result = self
             .client
             .read_stream(self.stream_id::<A>(Some(id)), &options)
-            .await
-            .map_err(Error::ReadStreamError)?;
-        println!("RESOLVED load_aggregate_sequence with Result {:?}", stream);
+            .await;
 
-        while let Some(event) = stream.next().await? {
-            let event_data = event.get_original_event();
-            return Ok(Some(event_data.revision as usize));
+        if let Ok(mut stream) = result {
+            while let Ok(Some(event)) = stream.next().await {
+                let event_data = event.get_original_event();
+                return Ok(Some(event_data.revision as usize));
+            }
         }
 
         Ok(None)
@@ -182,14 +192,19 @@ impl EventStore for ESDBEventStore {
         A: Aggregate,
         <A as Aggregate>::Event: serde::Serialize,
     {
-
-        print!("CALLED SAVE_EVENTS {:?}", id.to_string());
         if events.is_empty() {
             return Ok(vec![]);
         }
 
-        let revision = self.load_aggregate_sequence::<A>(id).await?.unwrap_or(0);
-        print!("SAVE_EVENTS REVISION {:?}", revision);
+        let sequence = self.load_aggregate_sequence::<A>(id).await.unwrap_or(None);
+
+        let revision = {
+            match sequence {
+                Some(n) => ExpectedRevision::Exact(n as u64),
+                None => ExpectedRevision::NoStream,
+            }
+        };
+
         let mut payload: Vec<EventData> = vec![];
 
         for event in events.iter() {
@@ -207,35 +222,49 @@ impl EventStore for ESDBEventStore {
             payload.push(event_data);
         }
 
-        let options = AppendToStreamOptions::default()
-            .expected_revision(ExpectedRevision::Exact(revision as u64));
-        let _ = self
+        let options = AppendToStreamOptions::default().expected_revision(revision);
+        let res = self
             .client
             .append_to_stream(&self.stream_id::<A>(Some(id)), &options, payload)
-            .map_err(|err| Error::WriteStreamError(revision as usize, err))
+            .map_err(|err| Error::WriteStreamError(sequence.unwrap_or(0) as usize, err))
             .await?;
 
-        Ok((revision..events.len() - 1).collect())
+        let end_position = res.next_expected_version as usize;
+        let start_position = end_position - (events.len() - 1);
+
+        Ok((start_position..end_position + 1).collect::<Vec<usize>>())
+    }
+}
+
+impl Debug for ESDBEventStore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ESDBEventStore")
+            .field("client", &"eventstore::Client")
+            .finish()
     }
 }
 
 #[cfg(feature = "debug")]
 impl ESDBEventStore {
-    pub async fn print(&self) {
-        println!("Calling Read All");
-        let stream_res = self
-            .client
-            .read_all(&Default::default())
-            .await;
-
-        println!("Read Completed {:?}", stream_res);
+    pub async fn print<A>(&self)
+    where
+        A: Aggregate,
+        <A as Aggregate>::Event: serde::Serialize,
+    {
+        let stream_res = self.client.read_all(&Default::default()).await;
 
         let mut events: Vec<(Uuid, u64, ESDBEventPayload)> = vec![];
         if let Ok(mut stream) = stream_res {
             while let Some(event) = stream.next().await.unwrap() {
                 let event_data = event.get_original_event();
 
-                if !event_data.event_type.starts_with("$") {
+                if event_data.event_type.starts_with("$") {
+                    continue;
+                }
+
+                let is_aggregate_event = event_data.stream_id.starts_with(self.stream_id::<A>(None).as_str());
+
+                if !is_aggregate_event {
                     continue;
                 }
 
@@ -280,5 +309,7 @@ impl ESDBEventStore {
                 );
             }
         }
+
+        table.printstd();
     }
 }
