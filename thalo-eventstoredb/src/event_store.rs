@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use eventstore::{
     AppendToStreamOptions, Client, EventData, ExpectedRevision, ReadAllOptions, ReadStreamOptions,
-    StreamPosition,
+    StreamPosition, ResolvedEvent,
 };
 use futures::TryFutureExt;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -68,6 +68,37 @@ impl ESDBEventStore {
     }
 }
 
+impl ESDBEventStore {
+    async fn read_stream(
+        &self,
+        stream_id: String,
+        options: ReadStreamOptions
+    ) -> Result<Vec<ResolvedEvent>, Error> {
+        let mut stream = self
+            .client
+            .read_stream(stream_id, &options)
+            .map_err(Error::ReadStreamError)
+            .await?;
+
+        let mut rv = vec![];
+        let mut streaming = true;
+
+        while streaming {
+            match stream.next().await {
+                Ok(Some(event)) => {
+                    rv.push(event);
+                },
+                Ok(None) => {
+                    streaming = false;
+                },
+                Err(eventstore::Error::ResourceNotFound) => return Ok(vec![]),
+                Err(e) => return Err(Error::ReadStreamError(e)),
+            }
+        }
+        Ok(rv)
+    }
+}
+
 #[async_trait]
 impl EventStore for ESDBEventStore {
     type Error = Error;
@@ -84,39 +115,23 @@ impl EventStore for ESDBEventStore {
             .position(StreamPosition::Start)
             .forwards();
 
-        let mut stream = self
-            .client
-            .read_stream(self.stream_id::<A>(id), &options)
-            .map_err(Error::ReadStreamError)
-            .await?;
+        let events = self.read_stream(self.stream_id::<A>(id), options).await?;
 
-        let mut rv: Vec<AggregateEventEnvelope<A>> = vec![];
-        let mut streaming = true;
+        let mut rv = vec![];
 
-        while streaming {
-            match stream.next().await {
-                Ok(res) => {
-                    if let Some(event) = res {
-                        let event_data = event.get_original_event();
+        for event in events.iter() {
+            let event_data = event.get_original_event();
 
-                        // TODO: - can we try event eventlope ids as uuid in addition to usize?
-                        // let uuid = event_data.id.clone();
-                        let event_payload = event_data
-                            .as_json::<ESDBEventPayload>()
-                            .map_err(Error::DeserializeEvent)?
-                            .event_envelope::<A>(event_data.revision as usize)?;
+            // TODO: - can we try event eventlope ids as uuid in addition to usize?
+            // let uuid = event_data.id.clone();
+            let event_payload = event_data
+                .as_json::<ESDBEventPayload>()
+                .map_err(Error::DeserializeEvent)?
+                .event_envelope::<A>(event_data.revision as usize)?;
 
-                        rv.push(event_payload);
-                    } else {
-                        streaming = false;
-                    }
-                }
-                Err(e) => match e {
-                    eventstore::Error::ResourceNotFound => return Ok(vec![]),
-                    _ => return Err(Error::ReadStreamError(e)),
-                },
-            }
+            rv.push(event_payload);
         }
+
         Ok(rv)
     }
 
@@ -182,16 +197,10 @@ impl EventStore for ESDBEventStore {
             .position(StreamPosition::End)
             .max_count(1);
 
-        let result = self
-            .client
-            .read_stream(self.stream_id::<A>(Some(id)), &options)
-            .await;
-
-        if let Ok(mut stream) = result {
-            while let Ok(Some(event)) = stream.next().await {
-                let event_data = event.get_original_event();
-                return Ok(Some(event_data.revision as usize));
-            }
+        let events = self.read_stream(self.stream_id::<A>(Some(id)), options).await?;
+        if let Some(event) = events.iter().next() {
+            let event_data = event.get_original_event();
+            return Ok(Some(event_data.revision as usize));
         }
 
         Ok(None)
