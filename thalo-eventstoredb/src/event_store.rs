@@ -84,27 +84,39 @@ impl EventStore for ESDBEventStore {
             .position(StreamPosition::Start)
             .forwards();
 
-        let mut result = self
+        let mut stream = self
             .client
             .read_stream(self.stream_id::<A>(id), &options)
-            .await
-            .map_err(Error::ReadStreamError)?;
+            .map_err(Error::ReadStreamError)
+            .await?;
 
         let mut rv: Vec<AggregateEventEnvelope<A>> = vec![];
+        let mut streaming = true;
 
-        while let Some(event) = result.next().await? {
-            let event_data = event.get_original_event();
+        while streaming {
+            match stream.next().await {
+                Ok(res) => {
+                    if let Some(event) = res {
+                        let event_data = event.get_original_event();
 
-            // TODO: - can we try event eventlope ids as uuid in addition to usize?
-            // let uuid = event_data.id.clone();
-            let event_payload = event_data
-                .as_json::<ESDBEventPayload>()
-                .map_err(Error::DeserializeEvent)?
-                .event_envelope::<A>(event_data.revision as usize)?;
+                        // TODO: - can we try event eventlope ids as uuid in addition to usize?
+                        // let uuid = event_data.id.clone();
+                        let event_payload = event_data
+                            .as_json::<ESDBEventPayload>()
+                            .map_err(Error::DeserializeEvent)?
+                            .event_envelope::<A>(event_data.revision as usize)?;
 
-            rv.push(event_payload);
+                        rv.push(event_payload);
+                    } else {
+                        streaming = false;
+                    }
+                }
+                Err(e) => match e {
+                    eventstore::Error::ResourceNotFound => return Ok(vec![]),
+                    _ => return Err(Error::ReadStreamError(e)),
+                },
+            }
         }
-
         Ok(rv)
     }
 
@@ -135,7 +147,9 @@ impl EventStore for ESDBEventStore {
                 continue;
             }
 
-            let is_aggregate_event = event_data.stream_id.starts_with(self.stream_id::<A>(None).as_str());
+            let is_aggregate_event = event_data
+                .stream_id
+                .starts_with(self.stream_id::<A>(None).as_str());
 
             if !is_aggregate_event {
                 continue;
@@ -262,7 +276,9 @@ impl ESDBEventStore {
                     continue;
                 }
 
-                let is_aggregate_event = event_data.stream_id.starts_with(self.stream_id::<A>(None).as_str());
+                let is_aggregate_event = event_data
+                    .stream_id
+                    .starts_with(self.stream_id::<A>(None).as_str());
 
                 if !is_aggregate_event {
                     continue;
