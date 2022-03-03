@@ -1,4 +1,4 @@
-pub use event_store::ESDBEventStore;
+pub use event_store::{ESDBEventStore, ESDBEventPayload};
 pub use error::Error;
 
 mod error;

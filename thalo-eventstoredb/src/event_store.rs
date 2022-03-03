@@ -18,7 +18,7 @@ use uuid::Uuid;
 use crate::Error;
 
 #[derive(Serialize, Deserialize, Debug)]
-struct ESDBEventPayload {
+pub struct ESDBEventPayload {
     created_at: DateTime<Utc>,
     aggregate_type: String,
     aggregate_id: String,
@@ -26,7 +26,7 @@ struct ESDBEventPayload {
 }
 
 impl ESDBEventPayload {
-    fn event_envelope<A>(&self, id: usize) -> Result<AggregateEventEnvelope<A>, Error>
+    pub fn event_envelope<A>(&self, id: usize) -> Result<AggregateEventEnvelope<A>, Error>
     where
         A: Aggregate,
         <A as Aggregate>::Event: DeserializeOwned,
