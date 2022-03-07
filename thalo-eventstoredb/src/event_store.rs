@@ -36,7 +36,7 @@ impl ESDBEventPayload {
             created_at: self.created_at.into(),
             aggregate_type: self.aggregate_type.to_string(),
             aggregate_id: self.aggregate_id.clone(),
-            sequence: id.clone(),
+            sequence: id,
             event: serde_json::from_value(self.event_data.clone())
                 .map_err(Error::DeserializeEvent)?,
         })
@@ -158,7 +158,7 @@ impl EventStore for ESDBEventStore {
         while let Some(event) = result.next().await? {
             let event_data = event.get_original_event();
 
-            if event_data.event_type.starts_with("$") {
+            if event_data.event_type.starts_with('$') {
                 continue;
             }
 
@@ -198,7 +198,7 @@ impl EventStore for ESDBEventStore {
             .max_count(1);
 
         let events = self.read_stream(self.stream_id::<A>(Some(id)), options).await?;
-        if let Some(event) = events.iter().next() {
+        if let Some(event) = events.get(0) {
             let event_data = event.get_original_event();
             return Ok(Some(event_data.revision as usize));
         }
@@ -281,7 +281,7 @@ impl ESDBEventStore {
             while let Some(event) = stream.next().await.unwrap() {
                 let event_data = event.get_original_event();
 
-                if event_data.event_type.starts_with("$") {
+                if event_data.event_type.starts_with('$') {
                     continue;
                 }
 
