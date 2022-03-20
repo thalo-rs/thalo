@@ -1,3 +1,4 @@
+// #![deny(missing_docs)]
 use std::{fmt::Debug, vec};
 
 use async_trait::async_trait;
@@ -26,7 +27,7 @@ pub struct ESDBEventPayload {
 }
 
 impl ESDBEventPayload {
-    pub fn event_envelope<A>(&self, id: usize) -> Result<AggregateEventEnvelope<A>, Error>
+    pub fn into_event_envelope<A>(self, id: usize) -> Result<AggregateEventEnvelope<A>, Error>
     where
         A: Aggregate,
         <A as Aggregate>::Event: DeserializeOwned,
@@ -35,9 +36,9 @@ impl ESDBEventPayload {
             id,
             created_at: self.created_at.into(),
             aggregate_type: self.aggregate_type.to_string(),
-            aggregate_id: self.aggregate_id.clone(),
+            aggregate_id: self.aggregate_id,
             sequence: id,
-            event: serde_json::from_value(self.event_data.clone())
+            event: serde_json::from_value(self.event_data)
                 .map_err(Error::DeserializeEvent)?,
         })
     }
@@ -45,7 +46,7 @@ impl ESDBEventPayload {
 
 #[derive(Clone)]
 pub struct ESDBEventStore {
-    pub client: Client,
+    client: Client,
 }
 
 impl ESDBEventStore {
@@ -81,20 +82,19 @@ impl ESDBEventStore {
             .await?;
 
         let mut rv = vec![];
-        let mut streaming = true;
-
-        while streaming {
+        loop {
             match stream.next().await {
                 Ok(Some(event)) => {
                     rv.push(event);
-                },
+                }
                 Ok(None) => {
-                    streaming = false;
-                },
+                    break;
+                }
                 Err(eventstore::Error::ResourceNotFound) => return Ok(vec![]),
                 Err(e) => return Err(Error::ReadStreamError(e)),
             }
         }
+        
         Ok(rv)
     }
 }
@@ -127,7 +127,7 @@ impl EventStore for ESDBEventStore {
             let event_payload = event_data
                 .as_json::<ESDBEventPayload>()
                 .map_err(Error::DeserializeEvent)?
-                .event_envelope::<A>(event_data.revision as usize)?;
+                .into_event_envelope::<A>(event_data.revision as usize)?;
 
             rv.push(event_payload);
         }
@@ -177,7 +177,7 @@ impl EventStore for ESDBEventStore {
                 let event_payload = event_data
                     .as_json::<ESDBEventPayload>()
                     .map_err(Error::DeserializeEvent)?
-                    .event_envelope::<A>(sequence)?;
+                    .into_event_envelope::<A>(sequence)?;
 
                 rv.push(event_payload);
             }
@@ -228,22 +228,23 @@ impl EventStore for ESDBEventStore {
             }
         };
 
-        let mut payload: Vec<EventData> = vec![];
+        let payload = events
+            .iter()
+            .map(|event| {
+                let event_data_payload = ESDBEventPayload {
+                    created_at: Utc::now(),
+                    aggregate_type: <A as TypeId>::type_id().to_string(),
+                    aggregate_id: id.to_string(),
+                    event_data: serde_json::to_value(event).map_err(Error::SerializeEvent)?,
+                };
 
-        for event in events.iter() {
-            let event_data_payload = ESDBEventPayload {
-                created_at: Utc::now(),
-                aggregate_type: <A as TypeId>::type_id().to_string(),
-                aggregate_id: id.to_string(),
-                event_data: serde_json::to_value(event).map_err(Error::SerializeEvent)?,
-            };
+                let event_data = EventData::json(event.event_type(), &event_data_payload)
+                    .map_err(Error::SerializeEventDataPayload)?
+                    .id(Uuid::new_v4());
 
-            let event_data = EventData::json(event.event_type(), &event_data_payload)
-                .map_err(Error::SerializeEventDataPayload)?
-                .id(Uuid::new_v4());
-
-            payload.push(event_data);
-        }
+                Result::<_, Error>::Ok(event_data)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
         let options = AppendToStreamOptions::default().expected_revision(revision);
         let res = self
@@ -255,15 +256,7 @@ impl EventStore for ESDBEventStore {
         let end_position = res.next_expected_version as usize;
         let start_position = end_position - (events.len() - 1);
 
-        Ok((start_position..end_position + 1).collect::<Vec<usize>>())
-    }
-}
-
-impl Debug for ESDBEventStore {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ESDBEventStore")
-            .field("client", &"eventstore::Client")
-            .finish()
+        Ok((start_position..end_position + 1).collect())
     }
 }
 
