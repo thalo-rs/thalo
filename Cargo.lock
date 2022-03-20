@@ -385,9 +385,9 @@ dependencies = [
 
 [[package]]
 name = "eventstore"
-version = "2.0.0-alpha.2"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78735281a65a51a59bd2f6d10038d00bdb21ce3a3c699bf7701b7ff7439b36c3"
+checksum = "6adac036ea9bd2f6860f24652fd6a2648fa889b4b764d1e929db727b8e28aa22"
 dependencies = [
  "async-stream",
  "base64",
