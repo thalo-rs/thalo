@@ -61,7 +61,7 @@ impl ESDBEventStore {
         let mut stream = <A as TypeId>::type_id().to_owned();
 
         if let Some(id_str) = id {
-            stream.push_str(&String::from("-"));
+            stream.push_str("-");
             stream.push_str(&id_str.to_string());
         }
 
