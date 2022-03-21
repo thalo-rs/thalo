@@ -149,6 +149,8 @@ you can expect commits on a near daily basis, and version updates evey few days.
   </a>
 </p>
 
+[Become a sponsor](https://github.com/sponsors/tqwewe)
+
 ## License
 
 This project is licensed under the [MIT] OR [Apache-2.0] license.
