@@ -18,6 +18,7 @@ use uuid::Uuid;
 
 use crate::Error;
 
+/// Event payload for Event Store (ESDB) event store implementation
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ESDBEventPayload {
     created_at: DateTime<Utc>,
@@ -27,6 +28,7 @@ pub struct ESDBEventPayload {
 }
 
 impl ESDBEventPayload {
+    /// Convert event payload into AggregateEventEnvelope<A> for use in Thalo
     pub fn into_event_envelope<A>(self, id: usize) -> Result<AggregateEventEnvelope<A>, Error>
     where
         A: Aggregate,
@@ -44,12 +46,18 @@ impl ESDBEventPayload {
     }
 }
 
+/// An event store backed by the Event Store Database (aliased ESDB).
+/// https://www.eventstore.com/eventstoredb
+///
+/// See [crate] documentation for more info.
 #[derive(Clone)]
 pub struct ESDBEventStore {
+    /// Event Store (ESDB) client instance
     client: Client,
 }
 
 impl ESDBEventStore {
+    /// Creates an event store from an ESDB client
     pub fn new(client: Client) -> Self {
         ESDBEventStore { client }
     }
@@ -122,8 +130,6 @@ impl EventStore for ESDBEventStore {
         for event in events.iter() {
             let event_data = event.get_original_event();
 
-            // TODO: - can we try event eventlope ids as uuid in addition to usize?
-            // let uuid = event_data.id.clone();
             let event_payload = event_data
                 .as_json::<ESDBEventPayload>()
                 .map_err(Error::DeserializeEvent)?
@@ -170,8 +176,6 @@ impl EventStore for ESDBEventStore {
                 continue;
             }
 
-            // TODO: - can we try event eventlope ids as uuid in addition to usize?
-            // let uuid = event_data.id.clone();
             let sequence = event_data.revision as usize;
             if ids.contains(&sequence) {
                 let event_payload = event_data
@@ -262,6 +266,7 @@ impl EventStore for ESDBEventStore {
 
 #[cfg(feature = "debug")]
 impl ESDBEventStore {
+    /// Print the event store as a table to stdout.
     pub async fn print<A>(&self)
     where
         A: Aggregate,
@@ -286,9 +291,6 @@ impl ESDBEventStore {
                     continue;
                 }
 
-                // TODO: Make ESDBEventPayload handle all this
-                // and implement fns for RecordedEvent -> ESDBEventPayload, ESDBEventPayload -> AggregateEnvelope, ESDBPayload -> eventstore::EventData
-                // make base struct handle id and revision seperately - update event trait for different id types (str, u64, uuid) etc
                 events.push((
                     event_data.id,
                     event_data.revision,
