@@ -1,4 +1,4 @@
-// #![deny(missing_docs)]
+#![deny(missing_docs)]
 use std::{fmt::Debug, vec};
 
 use async_trait::async_trait;
