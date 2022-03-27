@@ -18,7 +18,7 @@ use uuid::Uuid;
 
 use crate::Error;
 
-/// Event payload for Event Store (ESDB) event store implementation
+/// Event payload for EventStoreDB (ESDB) event store implementation
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ESDBEventPayload {
     created_at: DateTime<Utc>,
@@ -46,13 +46,13 @@ impl ESDBEventPayload {
     }
 }
 
-/// An event store backed by the Event Store Database (aliased ESDB).
+/// An event store backed by the EventStoreDB Database (aliased ESDB).
 /// https://www.eventstore.com/eventstoredb
 ///
 /// See [crate] documentation for more info.
 #[derive(Clone)]
 pub struct ESDBEventStore {
-    /// Event Store (ESDB) client instance
+    /// EventStoreDB (ESDB) client instance
     client: Client,
 }
 
