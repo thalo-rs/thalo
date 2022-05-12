@@ -15,15 +15,12 @@ categories = [
   "rust-patterns",
   "web-programming::http-server",
 ]
-exclude = ["/docker-image"]
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 thiserror = "1.0"
 async-trait = "0.1"
 chrono = "0.4"
-eventstore = "2.0.0"
+eventstore = "2.1.0"
 futures = "0.3"
 prettytable-rs = { version = "0.8", optional = true }
 serde = "1.0"
@@ -32,7 +29,7 @@ thalo = { version = "0.5.0", path = "../thalo", features = [
   "event-store",
   "tests-cfg",
 ] }
-uuid = { version  = "0.8", features = [ "v4", "serde" ] }
+uuid = { version = "0.8", features = ["v4", "serde"] }
 
 [features]
 default = ["debug"]

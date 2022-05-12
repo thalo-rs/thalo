@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use eventstore::{
     AppendToStreamOptions, Client, EventData, ExpectedRevision, ReadAllOptions, ReadStreamOptions,
-    StreamPosition, ResolvedEvent,
+    ResolvedEvent, StreamPosition,
 };
 use futures::TryFutureExt;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -18,18 +18,26 @@ use uuid::Uuid;
 
 use crate::Error;
 
-/// Event payload for EventStoreDB (ESDB) event store implementation
+/// Event payload for EventStoreDB (ESDB) event store implementation.
 #[derive(Serialize, Deserialize, Debug)]
-pub struct ESDBEventPayload {
+pub struct EventPayload {
     created_at: DateTime<Utc>,
     aggregate_type: String,
     aggregate_id: String,
     event_data: serde_json::Value,
 }
 
-impl ESDBEventPayload {
-    /// Convert event payload into AggregateEventEnvelope<A> for use in Thalo
-    pub fn into_event_envelope<A>(self, id: usize) -> Result<AggregateEventEnvelope<A>, Error>
+#[derive(Serialize, Deserialize, Debug)]
+struct BorrowedEventPayload<'a> {
+    created_at: DateTime<Utc>,
+    aggregate_type: &'a str,
+    aggregate_id: &'a str,
+    event_data: serde_json::Value,
+}
+
+impl EventPayload {
+    /// Convert event payload into AggregateEventEnvelope<A> for use in Thalo.
+    pub fn into_event_envelope<A>(self, id: u64) -> Result<AggregateEventEnvelope<A>, Error>
     where
         A: Aggregate,
         <A as Aggregate>::Event: DeserializeOwned,
@@ -40,8 +48,7 @@ impl ESDBEventPayload {
             aggregate_type: self.aggregate_type.to_string(),
             aggregate_id: self.aggregate_id,
             sequence: id,
-            event: serde_json::from_value(self.event_data)
-                .map_err(Error::DeserializeEvent)?,
+            event: serde_json::from_value(self.event_data).map_err(Error::DeserializeEvent)?,
         })
     }
 }
@@ -57,9 +64,14 @@ pub struct ESDBEventStore {
 }
 
 impl ESDBEventStore {
-    /// Creates an event store from an ESDB client
+    /// Creates an event store from an ESDB client.
     pub fn new(client: Client) -> Self {
         ESDBEventStore { client }
+    }
+
+    /// Gets a reference to the event store client.
+    pub fn client(&self) -> &Client {
+        &self.client
     }
 
     fn stream_id<A>(&self, id: Option<&<A as Aggregate>::ID>) -> String
@@ -81,7 +93,7 @@ impl ESDBEventStore {
     async fn read_stream(
         &self,
         stream_id: String,
-        options: ReadStreamOptions
+        options: ReadStreamOptions,
     ) -> Result<Vec<ResolvedEvent>, Error> {
         let mut stream = self
             .client
@@ -102,7 +114,7 @@ impl ESDBEventStore {
                 Err(e) => return Err(Error::ReadStreamError(e)),
             }
         }
-        
+
         Ok(rv)
     }
 }
@@ -131,9 +143,9 @@ impl EventStore for ESDBEventStore {
             let event_data = event.get_original_event();
 
             let event_payload = event_data
-                .as_json::<ESDBEventPayload>()
+                .as_json::<EventPayload>()
                 .map_err(Error::DeserializeEvent)?
-                .into_event_envelope::<A>(event_data.revision as usize)?;
+                .into_event_envelope::<A>(event_data.revision)?;
 
             rv.push(event_payload);
         }
@@ -143,7 +155,7 @@ impl EventStore for ESDBEventStore {
 
     async fn load_events_by_id<A>(
         &self,
-        ids: &[usize],
+        ids: &[u64],
     ) -> Result<Vec<AggregateEventEnvelope<A>>, Self::Error>
     where
         A: Aggregate,
@@ -176,10 +188,10 @@ impl EventStore for ESDBEventStore {
                 continue;
             }
 
-            let sequence = event_data.revision as usize;
+            let sequence = event_data.revision;
             if ids.contains(&sequence) {
                 let event_payload = event_data
-                    .as_json::<ESDBEventPayload>()
+                    .as_json::<EventPayload>()
                     .map_err(Error::DeserializeEvent)?
                     .into_event_envelope::<A>(sequence)?;
 
@@ -193,7 +205,7 @@ impl EventStore for ESDBEventStore {
     async fn load_aggregate_sequence<A>(
         &self,
         id: &<A as Aggregate>::ID,
-    ) -> Result<Option<usize>, Self::Error>
+    ) -> Result<Option<u64>, Self::Error>
     where
         A: Aggregate,
     {
@@ -201,10 +213,12 @@ impl EventStore for ESDBEventStore {
             .position(StreamPosition::End)
             .max_count(1);
 
-        let events = self.read_stream(self.stream_id::<A>(Some(id)), options).await?;
+        let events = self
+            .read_stream(self.stream_id::<A>(Some(id)), options)
+            .await?;
         if let Some(event) = events.get(0) {
             let event_data = event.get_original_event();
-            return Ok(Some(event_data.revision as usize));
+            return Ok(Some(event_data.revision));
         }
 
         Ok(None)
@@ -214,7 +228,7 @@ impl EventStore for ESDBEventStore {
         &self,
         id: &<A as Aggregate>::ID,
         events: &[<A as Aggregate>::Event],
-    ) -> Result<Vec<usize>, Self::Error>
+    ) -> Result<Vec<u64>, Self::Error>
     where
         A: Aggregate,
         <A as Aggregate>::Event: serde::Serialize,
@@ -232,13 +246,16 @@ impl EventStore for ESDBEventStore {
             }
         };
 
+        let aggregate_type = <A as TypeId>::type_id().to_string();
+        let aggregate_id = id.to_string();
+
         let payload = events
             .iter()
             .map(|event| {
-                let event_data_payload = ESDBEventPayload {
+                let event_data_payload = BorrowedEventPayload {
                     created_at: Utc::now(),
-                    aggregate_type: <A as TypeId>::type_id().to_string(),
-                    aggregate_id: id.to_string(),
+                    aggregate_type: &aggregate_type,
+                    aggregate_id: &aggregate_id,
                     event_data: serde_json::to_value(event).map_err(Error::SerializeEvent)?,
                 };
 
@@ -254,11 +271,11 @@ impl EventStore for ESDBEventStore {
         let res = self
             .client
             .append_to_stream(&self.stream_id::<A>(Some(id)), &options, payload)
-            .map_err(|err| Error::WriteStreamError(sequence.unwrap_or(0) as usize, err))
+            .map_err(|err| Error::WriteStreamError(sequence.unwrap_or(0), err))
             .await?;
 
-        let end_position = res.next_expected_version as usize;
-        let start_position = end_position - (events.len() - 1);
+        let end_position = res.next_expected_version;
+        let start_position = end_position - (events.len() as u64 - 1);
 
         Ok((start_position..end_position + 1).collect())
     }
@@ -274,7 +291,7 @@ impl ESDBEventStore {
     {
         let stream_res = self.client.read_all(&Default::default()).await;
 
-        let mut events: Vec<(Uuid, u64, ESDBEventPayload)> = vec![];
+        let mut events: Vec<(Uuid, u64, EventPayload)> = vec![];
         if let Ok(mut stream) = stream_res {
             while let Some(event) = stream.next().await.unwrap() {
                 let event_data = event.get_original_event();
@@ -294,7 +311,7 @@ impl ESDBEventStore {
                 events.push((
                     event_data.id,
                     event_data.revision,
-                    event_data.as_json::<ESDBEventPayload>().unwrap(),
+                    event_data.as_json().unwrap(),
                 ));
             }
         }
