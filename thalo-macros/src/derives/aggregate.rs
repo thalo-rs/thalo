@@ -106,7 +106,7 @@ impl Aggregate {
                 .event
                 .as_ref()
                 .map(|event| event.value())
-                .unwrap_or_else(|| format!("{}Event", ident.to_string()))
+                .unwrap_or_else(|| format!("{}Event", ident))
         );
 
         let apply_ident = attrs

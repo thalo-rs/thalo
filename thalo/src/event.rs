@@ -13,7 +13,7 @@ pub use thalo_macros::{Event, EventType};
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct EventEnvelope<E> {
     /// Auto-incrementing event id.
-    pub id: usize,
+    pub id: u64,
     /// Event timestamp.
     pub created_at: DateTime<FixedOffset>,
     /// Aggregate type identifier.
@@ -21,7 +21,7 @@ pub struct EventEnvelope<E> {
     /// Aggregate instance identifier.
     pub aggregate_id: String,
     /// Incrementing number unique where each aggregate instance starts from 0.
-    pub sequence: usize,
+    pub sequence: u64,
     /// Event data
     pub event: E,
 }
@@ -103,7 +103,7 @@ pub type AggregateEventEnvelope<A> = EventEnvelope<<A as Aggregate>::Event>;
 /// # struct BankAccountProjection;
 /// #
 /// # impl BankAccountProjection {
-/// #     async fn event_already_handled(&self, id: usize) -> bool {
+/// #     async fn event_already_handled(&self, id: u64) -> bool {
 /// #         false
 /// #     }
 /// #

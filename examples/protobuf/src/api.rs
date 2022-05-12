@@ -131,7 +131,7 @@ impl bank_account_server::BankAccount for BankAccountService {
 async fn broadcast_events(
     event_store: &InMemoryEventStore,
     event_stream: &Sender<AggregateEventEnvelope<BankAccount>>,
-    event_ids: &[usize],
+    event_ids: &[u64],
 ) -> Result<(), Status> {
     let event_envelopes = event_store
         .load_events_by_id::<BankAccount>(event_ids)

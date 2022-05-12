@@ -1,9 +1,9 @@
 [package]
-name = "thalo-postgres"
+name = "thalo-eventstoredb"
 version = "0.5.0"
-authors = ["Ari Seyhun <ariseyhun@live.com.au>"]
+authors = ["Mike Shearer <shearerbeard@gmail.com>"]
 edition = "2021"
-description = "Postgres event store for crates.io/thalo"
+description = "EventStoreDB event store for crates.io/thalo"
 readme = "../README.md"
 repository = "https://github.com/thalo-rs/thalo"
 license = "MIT OR Apache-2.0"
@@ -15,18 +15,22 @@ categories = [
   "rust-patterns",
   "web-programming::http-server",
 ]
-exclude = ["/docker-image"]
 
 [dependencies]
+thiserror = "1.0"
 async-trait = "0.1"
-bb8-postgres = { version = "0.8", features = [
-  "with-chrono-0_4",
-  "with-serde_json-1",
-] }
+chrono = "0.4"
+eventstore = "2.1.0"
+futures = "0.3"
+prettytable-rs = { version = "0.8", optional = true }
 serde = "1.0"
 serde_json = "1.0"
 thalo = { version = "0.5.0", path = "../thalo", features = [
   "event-store",
   "tests-cfg",
 ] }
-thiserror = "1.0"
+uuid = { version = "0.8", features = ["v4", "serde"] }
+
+[features]
+default = ["debug"]
+debug = ["prettytable-rs"]
