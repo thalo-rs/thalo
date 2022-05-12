@@ -19,7 +19,7 @@ exclude = ["/docker-image"]
 
 [dependencies]
 async-trait = "0.1"
-bb8-postgres = { version = "0.7", features = [
+bb8-postgres = { version = "0.8", features = [
   "with-chrono-0_4",
   "with-serde_json-1",
 ] }

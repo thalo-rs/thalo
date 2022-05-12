@@ -50,7 +50,7 @@ pub trait EventStore {
     /// Load events by ids.
     async fn load_event_by_id<A>(
         &self,
-        id: usize,
+        id: u64,
     ) -> Result<Option<AggregateEventEnvelope<A>>, Self::Error>
     where
         A: Aggregate,
@@ -62,7 +62,7 @@ pub trait EventStore {
     /// Load events by ids.
     async fn load_events_by_id<A>(
         &self,
-        ids: &[usize],
+        ids: &[u64],
     ) -> Result<Vec<AggregateEventEnvelope<A>>, Self::Error>
     where
         A: Aggregate,
@@ -91,7 +91,7 @@ pub trait EventStore {
     async fn load_aggregate_sequence<A>(
         &self,
         id: &<A as Aggregate>::ID,
-    ) -> Result<Option<usize>, Self::Error>
+    ) -> Result<Option<u64>, Self::Error>
     where
         A: Aggregate;
 
@@ -100,7 +100,7 @@ pub trait EventStore {
         &self,
         id: &<A as Aggregate>::ID,
         events: &[<A as Aggregate>::Event],
-    ) -> Result<Vec<usize>, Self::Error>
+    ) -> Result<Vec<u64>, Self::Error>
     where
         A: Aggregate,
         <A as Aggregate>::Event: Serialize;

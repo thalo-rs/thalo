@@ -29,12 +29,12 @@ pub struct EventRecord {
     created_at: DateTime<Utc>,
     aggregate_type: String,
     aggregate_id: String,
-    sequence: usize,
+    sequence: u64,
     event_data: serde_json::Value,
 }
 
 impl EventRecord {
-    fn event_envelope<A>(&self, id: usize) -> Result<AggregateEventEnvelope<A>, Error>
+    fn event_envelope<A>(&self, id: u64) -> Result<AggregateEventEnvelope<A>, Error>
     where
         A: Aggregate,
         <A as Aggregate>::Event: DeserializeOwned,
@@ -74,7 +74,7 @@ impl EventStore for InMemoryEventStore {
                         .map(|id| event.aggregate_id == id.to_string())
                         .unwrap_or(true)
             })
-            .map(|(index, event)| event.event_envelope::<A>(index))
+            .map(|(index, event)| event.event_envelope::<A>(index as u64))
             .collect::<Result<_, _>>()?;
 
         Ok(events)
@@ -82,7 +82,7 @@ impl EventStore for InMemoryEventStore {
 
     async fn load_events_by_id<A>(
         &self,
-        ids: &[usize],
+        ids: &[u64],
     ) -> Result<Vec<AggregateEventEnvelope<A>>, Self::Error>
     where
         A: Aggregate,
@@ -93,8 +93,8 @@ impl EventStore for InMemoryEventStore {
         ids.iter()
             .filter_map(|id| {
                 events_lock
-                    .get(*id)
-                    .map(|event| event.event_envelope::<A>(*id))
+                    .get(*id as usize)
+                    .map(|event| event.event_envelope::<A>(*id as u64))
             })
             .collect::<Result<_, _>>()
     }
@@ -102,7 +102,7 @@ impl EventStore for InMemoryEventStore {
     async fn load_aggregate_sequence<A>(
         &self,
         id: &<A as Aggregate>::ID,
-    ) -> Result<Option<usize>, Self::Error>
+    ) -> Result<Option<u64>, Self::Error>
     where
         A: Aggregate,
     {
@@ -126,7 +126,7 @@ impl EventStore for InMemoryEventStore {
         &self,
         id: &<A as Aggregate>::ID,
         events: &[<A as Aggregate>::Event],
-    ) -> Result<Vec<usize>, Self::Error>
+    ) -> Result<Vec<u64>, Self::Error>
     where
         A: Aggregate,
         <A as Aggregate>::Event: Serialize,
@@ -144,7 +144,9 @@ impl EventStore for InMemoryEventStore {
             let created_at = Utc::now();
             let aggregate_type = <A as TypeId>::type_id().to_string();
             let aggregate_id = id.to_string();
-            let sequence = sequence.map(|sequence| sequence + index + 1).unwrap_or(0);
+            let sequence = sequence
+                .map(|sequence| sequence + index as u64 + 1)
+                .unwrap_or(0);
             let event_data = serde_json::to_value(event).map_err(Error::SerializeEvent)?;
 
             events_lock.push(EventRecord {
@@ -154,7 +156,7 @@ impl EventStore for InMemoryEventStore {
                 sequence,
                 event_data,
             });
-            event_ids.push(events_lock.len() - 1);
+            event_ids.push((events_lock.len() - 1) as u64);
         }
 
         Ok(event_ids)
