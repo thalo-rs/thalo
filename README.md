@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="http://thalo.rs" target="_blank" rel="noopener noreferrer"><img width="124" src="https://raw.githubusercontent.com/thalo-rs/thalo/dev/logo.png" alt="Thalo logo"></a>
+  <a href="http://thalo.rs" target="_blank" rel="noopener noreferrer"><img width="124" src="https://raw.githubusercontent.com/thalo-rs/thalo/main/logo.png" alt="Thalo logo"></a>
 </p>
 
 <h1 align="center">Thalo</h1>
