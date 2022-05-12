@@ -1,3 +1,4 @@
 **/target
 *.env
 **/.DS_Store
+*.code-workspace
