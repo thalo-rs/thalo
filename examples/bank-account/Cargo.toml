@@ -11,4 +11,4 @@ serde = { version = "1.0", features = ["derive"] }
 thalo-testing = { path = "../../thalo-testing" }
 
 [build-dependencies]
-esdl = { version = "0.3", features = ["codegen-rust"] }
+esdl = { version = "0.4", features = ["codegen-rust"] }
