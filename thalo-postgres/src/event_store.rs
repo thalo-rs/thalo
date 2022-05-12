@@ -86,7 +86,7 @@ where
         Ok(rows
             .into_iter()
             .map(|row| {
-                let event_id = row.get::<_, i64>(0) as usize;
+                let event_id = row.get::<_, i64>(0) as u64;
 
                 let event_json = row.get(5);
                 let event = serde_json::from_value(event_json)
@@ -97,7 +97,7 @@ where
                     created_at: row.get(1),
                     aggregate_type: row.get(2),
                     aggregate_id: row.get(3),
-                    sequence: row.get::<_, i64>(4) as usize,
+                    sequence: row.get::<_, i64>(4) as u64,
                     event,
                 })
             })
@@ -106,7 +106,7 @@ where
 
     async fn load_events_by_id<A>(
         &self,
-        ids: &[usize],
+        ids: &[u64],
     ) -> Result<Vec<AggregateEventEnvelope<A>>, Self::Error>
     where
         A: Aggregate,
@@ -128,7 +128,7 @@ where
         Ok(rows
             .into_iter()
             .map(|row| {
-                let event_id = row.get::<_, i64>(0) as usize;
+                let event_id = row.get::<_, i64>(0) as u64;
 
                 let event_json = row.get(5);
                 let event = serde_json::from_value(event_json)
@@ -139,7 +139,7 @@ where
                     created_at: row.get(1),
                     aggregate_type: row.get(2),
                     aggregate_id: row.get(3),
-                    sequence: row.get::<_, i64>(4) as usize,
+                    sequence: row.get::<_, i64>(4) as u64,
                     event,
                 })
             })
@@ -149,7 +149,7 @@ where
     async fn load_aggregate_sequence<A>(
         &self,
         id: &<A as Aggregate>::ID,
-    ) -> Result<Option<usize>, Self::Error>
+    ) -> Result<Option<u64>, Self::Error>
     where
         A: Aggregate,
     {
@@ -162,16 +162,14 @@ where
             )
             .await?;
 
-        Ok(row
-            .get::<_, Option<i64>>(0)
-            .map(|sequence| sequence as usize))
+        Ok(row.get::<_, Option<i64>>(0).map(|sequence| sequence as u64))
     }
 
     async fn save_events<A>(
         &self,
         id: &<A as Aggregate>::ID,
         events: &[<A as Aggregate>::Event],
-    ) -> Result<Vec<usize>, Self::Error>
+    ) -> Result<Vec<u64>, Self::Error>
     where
         A: Aggregate,
         <A as Aggregate>::Event: Serialize,
@@ -204,7 +202,7 @@ where
 
         let event_ids: Vec<_> = rows
             .into_iter()
-            .map(|row| row.get::<_, i64>(0) as usize)
+            .map(|row| row.get::<_, i64>(0) as u64)
             .collect();
         let query = create_insert_outbox_events_query(&event_ids);
 
@@ -229,7 +227,7 @@ where
 
 fn create_insert_events_query<A>(
     id: &<A as Aggregate>::ID,
-    sequence: Option<usize>,
+    sequence: Option<u64>,
     events: &[<A as Aggregate>::Event],
 ) -> Result<(String, Vec<Box<dyn ToSql + Send + Sync>>), Error>
 where
@@ -245,7 +243,11 @@ where
             Result::<_, Error>::Ok((
                 Box::new(<A as TypeId>::type_id()),
                 Box::new(id.to_string()),
-                Box::new(sequence.map(|sequence| sequence + index + 1).unwrap_or(0) as i64),
+                Box::new(
+                    sequence
+                        .map(|sequence| sequence + index as u64 + 1)
+                        .unwrap_or(0) as i64,
+                ),
                 Box::new(event.event_type()),
                 Box::new(serde_json::to_value(event).map_err(Error::SerializeEvent)?),
             ))
@@ -282,7 +284,7 @@ where
     Ok((query, values))
 }
 
-fn create_insert_outbox_events_query(event_ids: &[usize]) -> String {
+fn create_insert_outbox_events_query(event_ids: &[u64]) -> String {
     INSERT_OUTBOX_EVENTS_QUERY.to_string()
         + &(1..event_ids.len() + 1)
             .into_iter()

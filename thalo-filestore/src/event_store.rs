@@ -70,7 +70,7 @@ impl EventStore for FlatFileEventStore {
 
     async fn load_events_by_id<A>(
         &self,
-        ids: &[usize],
+        ids: &[u64],
     ) -> Result<Vec<AggregateEventEnvelope<A>>, Self::Error>
     where
         A: Aggregate,
@@ -82,7 +82,7 @@ impl EventStore for FlatFileEventStore {
     async fn load_aggregate_sequence<A>(
         &self,
         id: &<A as Aggregate>::ID,
-    ) -> Result<Option<usize>, Self::Error>
+    ) -> Result<Option<u64>, Self::Error>
     where
         A: Aggregate,
     {
@@ -93,7 +93,7 @@ impl EventStore for FlatFileEventStore {
         &self,
         id: &<A as Aggregate>::ID,
         events: &[<A as Aggregate>::Event],
-    ) -> Result<Vec<usize>, Self::Error>
+    ) -> Result<Vec<u64>, Self::Error>
     where
         A: Aggregate,
         <A as Aggregate>::Event: Serialize,
@@ -107,7 +107,7 @@ impl EventStore for FlatFileEventStore {
             .map_err(|_| Error::RwPoison)?;
         let event_records: Vec<_> = event_ids
             .iter()
-            .filter_map(|event_id| raw_events.get(*event_id))
+            .filter_map(|event_id| raw_events.get(*event_id as usize))
             .collect();
         for event_record in event_records {
             self.append_event(event_record)?;
