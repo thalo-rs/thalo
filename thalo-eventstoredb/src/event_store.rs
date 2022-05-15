@@ -27,14 +27,6 @@ pub struct EventPayload {
     event_data: serde_json::Value,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-struct BorrowedEventPayload<'a> {
-    created_at: DateTime<Utc>,
-    aggregate_type: &'a str,
-    aggregate_id: &'a str,
-    event_data: serde_json::Value,
-}
-
 impl EventPayload {
     /// Convert event payload into AggregateEventEnvelope<A> for use in Thalo.
     pub fn into_event_envelope<A>(self, id: u64) -> Result<AggregateEventEnvelope<A>, Error>
@@ -246,20 +238,10 @@ impl EventStore for ESDBEventStore {
             }
         };
 
-        let aggregate_type = <A as TypeId>::type_id().to_string();
-        let aggregate_id = id.to_string();
-
         let payload = events
             .iter()
             .map(|event| {
-                let event_data_payload = BorrowedEventPayload {
-                    created_at: Utc::now(),
-                    aggregate_type: &aggregate_type,
-                    aggregate_id: &aggregate_id,
-                    event_data: serde_json::to_value(event).map_err(Error::SerializeEvent)?,
-                };
-
-                let event_data = EventData::json(event.event_type(), &event_data_payload)
+                let event_data = EventData::json(event.event_type(), &event)
                     .map_err(Error::SerializeEventDataPayload)?
                     .id(Uuid::new_v4());
 
