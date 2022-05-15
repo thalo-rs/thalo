@@ -11,7 +11,7 @@ use futures::TryFutureExt;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thalo::{
     aggregate::{Aggregate, TypeId},
-    event::{AggregateEventEnvelope, EventType},
+    event::{AggregateEventEnvelope, EventEnvelope, EventType},
     event_store::EventStore,
 };
 use uuid::Uuid;
@@ -79,9 +79,7 @@ impl ESDBEventStore {
 
         stream
     }
-}
 
-impl ESDBEventStore {
     async fn read_stream(
         &self,
         stream_id: String,
@@ -132,14 +130,7 @@ impl EventStore for ESDBEventStore {
         let mut rv = vec![];
 
         for event in events.iter() {
-            let event_data = event.get_original_event();
-
-            let event_payload = event_data
-                .as_json::<EventPayload>()
-                .map_err(Error::DeserializeEvent)?
-                .into_event_envelope::<A>(event_data.revision)?;
-
-            rv.push(event_payload);
+            rv.push(resolved_event_to_event_envelope::<A>(event)?);
         }
 
         Ok(rv)
@@ -182,12 +173,7 @@ impl EventStore for ESDBEventStore {
 
             let sequence = event_data.revision;
             if ids.contains(&sequence) {
-                let event_payload = event_data
-                    .as_json::<EventPayload>()
-                    .map_err(Error::DeserializeEvent)?
-                    .into_event_envelope::<A>(sequence)?;
-
-                rv.push(event_payload);
+                rv.push(resolved_event_to_event_envelope::<A>(&event)?);
             }
         }
 
@@ -238,12 +224,20 @@ impl EventStore for ESDBEventStore {
             }
         };
 
+        let aggregate_id = id.to_string();
+
         let payload = events
             .iter()
             .map(|event| {
                 let event_data = EventData::json(event.event_type(), &event)
                     .map_err(Error::SerializeEventDataPayload)?
-                    .id(Uuid::new_v4());
+                    .id(Uuid::new_v4())
+                    .metadata_as_json(BorrowedEventMetadata {
+                        created_at: &Utc::now(),
+                        aggregate_type: <A as TypeId>::type_id(),
+                        aggregate_id: &aggregate_id,
+                    })
+                    .map_err(Error::SerializeEventDataPayload)?;
 
                 Result::<_, Error>::Ok(event_data)
             })
@@ -261,6 +255,49 @@ impl EventStore for ESDBEventStore {
 
         Ok((start_position..end_position + 1).collect())
     }
+}
+
+fn resolved_event_to_event_envelope<A>(
+    resolved_event: &ResolvedEvent,
+) -> Result<AggregateEventEnvelope<A>, Error>
+where
+    A: Aggregate,
+    <A as Aggregate>::Event: DeserializeOwned,
+{
+    let event_data = resolved_event.get_original_event();
+
+    let event = event_data
+        .as_json::<<A as Aggregate>::Event>()
+        .map_err(Error::DeserializeEvent)?;
+
+    let metadata: EventMetadata =
+        serde_json::from_slice(&event_data.custom_metadata).map_err(Error::ParseMetadata)?;
+
+    Ok(EventEnvelope {
+        id: event_data.revision,
+        created_at: metadata.created_at.into(),
+        aggregate_type: metadata.aggregate_type,
+        aggregate_id: metadata.aggregate_id,
+        sequence: event_data.revision,
+        event,
+    })
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+pub struct EventMetadata {
+    /// Event timestamp.
+    pub created_at: DateTime<Utc>,
+    /// Aggregate type identifier.
+    pub aggregate_type: String,
+    /// Aggregate instance identifier.
+    pub aggregate_id: String,
+}
+
+#[derive(Serialize)]
+struct BorrowedEventMetadata<'a> {
+    pub created_at: &'a DateTime<Utc>,
+    pub aggregate_type: &'a str,
+    pub aggregate_id: &'a str,
 }
 
 #[cfg(feature = "debug")]
