@@ -4,8 +4,8 @@ use std::{fmt::Debug, vec};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use eventstore::{
-    AppendToStreamOptions, Client, EventData, ExpectedRevision, ReadAllOptions, ReadStreamOptions,
-    ResolvedEvent, StreamPosition,
+    AppendToStreamOptions, Client, ClientSettings, EventData, ExpectedRevision, ReadAllOptions,
+    ReadStreamOptions, ResolvedEvent, StreamPosition,
 };
 use futures::TryFutureExt;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -59,6 +59,20 @@ impl ESDBEventStore {
     /// Creates an event store from an ESDB client.
     pub fn new(client: Client) -> Self {
         ESDBEventStore { client }
+    }
+
+    /// Creates an event store from a connection string.
+    ///
+    /// See [eventstore::grpc::ClientSettings].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// ESDBEventStore::new_from_str("esdb://localhost:1234?tls=false")?;
+    /// ```
+    pub fn new_from_str(conn: &str) -> Result<Self, Error> {
+        let client = Client::new(ClientSettings::parse_str(conn)?)?;
+        Ok(ESDBEventStore { client })
     }
 
     /// Gets a reference to the event store client.
