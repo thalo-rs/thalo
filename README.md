@@ -141,16 +141,6 @@ Discord server or open an issue for any questions/discussions.
 Thalo doesn't follow a fixed release schedule, but as the project is in pre-release and active development,
 you can expect commits on a near daily basis, and version updates evey few days.
 
-## Thanks to our Sponsors
-
-<p align="left">
-  <a href="https://github.com/Shearerbeard">
-    <img src="https://github.com/Shearerbeard.png" width="32px" alt="Shearerbeard" style="border-radius:50%" />
-  </a>
-</p>
-
-[Become a sponsor](https://github.com/sponsors/tqwewe)
-
 ## License
 
 This project is licensed under the [MIT] OR [Apache-2.0] license.
