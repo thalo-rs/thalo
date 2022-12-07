@@ -1,79 +1,11 @@
+branch_whitelist = ["main"]
+
 pre_bump_hooks = [
-  # Prevent bumping from non-main branch
-  """
-  sh -c "if [[ \\"$(git rev-parse --abbrev-ref HEAD)\\" != \\"main\\" ]]; then echo \\"[error] you can only bump version on main branch\\"; exit 1; fi"
-  """,
-  "echo 'bumping from {{latest}} to {{version}}'",
-  # Update crate versions
-  """
-  sh -c "sed -i '' -e 's/^version.*$/version = \\"{{version}}\\"/' ./thalo/Cargo.toml"
-  """,
-  """
-  sh -c "sed -i '' -e 's/^version.*$/version = \\"{{version}}\\"/' ./thalo-inmemory/Cargo.toml"
-  """,
-  """
-  sh -c "sed -i '' -e 's/^version.*$/version = \\"{{version}}\\"/' ./thalo-filestore/Cargo.toml"
-  """,
-  """
-  sh -c "sed -i '' -e 's/^version.*$/version = \\"{{version}}\\"/' ./thalo-kafka/Cargo.toml"
-  """,
-  """
-  sh -c "sed -i '' -e 's/^version.*$/version = \\"{{version}}\\"/' ./thalo-macros/Cargo.toml"
-  """,
-  """
-  sh -c "sed -i '' -e 's/^version.*$/version = \\"{{version}}\\"/' ./thalo-postgres/Cargo.toml"
-  """,
-  """
-  sh -c "sed -i '' -e 's/^version.*$/version = \\"{{version}}\\"/' ./thalo-testing/Cargo.toml"
-  """,
-  # Update thalo dependency version in crates
-  """
-  sh -c "sed -i '' -e 's/^thalo [^,]*,/thalo = { version = \\"{{version}}\\",/' ./thalo-inmemory/Cargo.toml"
-  """,
-  """
-  sh -c "sed -i '' -e 's/^thalo [^,]*,/thalo = { version = \\"{{version}}\\",/' ./thalo-filestore/Cargo.toml"
-  """,
-  """
-  sh -c "sed -i '' -e 's/^thalo [^,]*,/thalo = { version = \\"{{version}}\\",/' ./thalo-kafka/Cargo.toml"
-  """,
-  """
-  sh -c "sed -i '' -e 's/^thalo [^,]*,/thalo = { version = \\"{{version}}\\",/' ./thalo-postgres/Cargo.toml"
-  """,
-  """
-  sh -c "sed -i '' -e 's/^thalo [^,]*,/thalo = { version = \\"{{version}}\\",/' ./thalo-testing/Cargo.toml"
-  """,
-  # Update thalo-macros version in thalo/Cargo.toml
-  """
-  sh -c "sed -i '' -e 's/^thalo-macros [^,]*,/thalo-macros = { version = \\"{{version}}\\",/' ./thalo/Cargo.toml"
-  """,
-  # Update thalo-inmemory version in thalo-filestore/Cargo.toml
-  """
-  sh -c "sed -i '' -e 's/^thalo-inmemory [^,]*,/thalo-inmemory = { version = \\"{{version}}\\",/' ./thalo-filestore/Cargo.toml"
-  """,
+  "./scripts/bump.sh {{latest}} {{version}}",
   "cargo build --workspace --release",
 ]
 
-post_bump_hooks = [
-  "git push",
-  "git push origin {{version}}",
-  "echo 'publishing thalo-macros {{version}}'",
-  "cargo publish -p thalo-macros",
-  "sleep 15",
-  "echo 'publishing thalo {{version}}'",
-  "cargo publish -p thalo",
-  "sleep 15",
-  "echo 'publishing thalo-inmemory {{version}}'",
-  "cargo publish -p thalo-inmemory",
-  "sleep 15",
-  "echo 'publishing thalo-filestore {{version}}'",
-  "cargo publish -p thalo-filestore",
-  "echo 'publishing thalo-kafka {{version}}'",
-  "cargo publish -p thalo-kafka",
-  "echo 'publishing thalo-postgres {{version}}'",
-  "cargo publish -p thalo-postgres",
-  "echo 'publishing thalo-testing {{version}}'",
-  "cargo publish -p thalo-testing",
-]
+post_bump_hooks = ["git push", "git push origin {{version}}"]
 
 [changelog]
 path = "CHANGELOG.md"

@@ -1,0 +1,16 @@
+[package]
+name = "thalo_macros"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+darling = "0.14.2"
+esdl = { workspace = true }
+heck = "0.4.0"
+proc-macro-error = "1.0.4"
+proc-macro2 = "1.0.47"
+quote = "1.0.21"
+syn = "1.0.103"

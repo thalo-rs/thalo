@@ -1,0 +1,95 @@
+version: '3.8'
+services:
+  db:
+    container_name: postgres
+    image: postgres-semver # postgres:15.1-alpine
+    restart: always
+    command: postgres -c message_store.sql_condition=on
+    environment:
+      # - POSTGRES_USER=thalo_runtime
+      - POSTGRES_PASSWORD=password
+      # - POSTGRES_DB=thalo
+    ports:
+      - '5432:5432'
+    volumes:
+      - ./db:/var/lib/postgresql/data
+      # - ./eventstore.sql:/docker-entrypoint-initdb.d/eventstore.sql
+
+  pgadmin:
+    container_name: pgadmin
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-pgadmin4@pgadmin.org}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+      - pgadmin:/var/lib/pgadmin
+
+    ports:
+      - '${PGADMIN_PORT:-5050}:80'
+    networks:
+      - db
+    restart: unless-stopped
+
+  # redpanda:
+  #   # NOTE: Please use the latest version here!
+  #   image: docker.redpanda.com/vectorized/redpanda:latest
+  #   container_name: redpanda-1
+  #   # restart: always
+  #   command:
+  #     - redpanda
+  #     - start
+  #     # - --smp
+  #     # - "1"
+  #     - --reserve-memory
+  #     - 0M
+  #     - --overprovisioned
+  #     # - --set redpanda.empty_seed_starts_cluster=false
+  #     # - --seeds "redpanda-1:33145"
+  #     - --kafka-addr
+  #     - PLAINTEXT://0.0.0.0:29092,OUTSIDE://0.0.0.0:9092
+  #     - --advertise-kafka-addr
+  #     - PLAINTEXT://redpanda:29092,OUTSIDE://localhost:9092
+  #     - --pandaproxy-addr
+  #     - PLAINTEXT://0.0.0.0:28082,OUTSIDE://0.0.0.0:8082
+  #     - --advertise-pandaproxy-addr
+  #     - PLAINTEXT://redpanda:28082,OUTSIDE://localhost:8082
+  #   ports:
+  #     - 8081:8081
+  #     - 8082:8082
+  #     - 9092:9092
+  #     - 9644:9644
+  #     - 28082:28082
+  #     - 29092:29092
+
+  mongo:
+    container_name: mongodb
+    image: mongo
+    restart: always
+    ports:
+      - 27017:27017
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+
+  mongo-express:
+    container_name: mongo-express
+    image: mongo-express
+    restart: always
+    ports:
+      - 8088:8081
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: root
+      ME_CONFIG_MONGODB_ADMINPASSWORD: example
+      ME_CONFIG_MONGODB_URL: mongodb://root:example@mongo:27017/
+
+networks:
+  db:
+    driver: bridge
+  # redpanda:
+  #   driver: bridge
+
+volumes:
+  db:
+    driver: local
+  pgadmin:
