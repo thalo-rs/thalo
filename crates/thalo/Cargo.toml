@@ -1,0 +1,21 @@
+[package]
+name = "thalo"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+chrono = { workspace = true }
+futures = { workspace = true }
+message_db = { workspace = true, default-features = false }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thalo_macros = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+wit-bindgen-guest-rust = { git = "https://github.com/bytecodealliance/wit-bindgen" }
+
+[features]
+consumer = ["message_db/database"]
