@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-message_db = { workspace = true }
 thalo = { workspace = true, features = ["consumer"] }
 thalo_registry = { workspace = true }
 
@@ -16,9 +15,10 @@ derive_more = { workspace = true }
 directories-next = { workspace = true }
 esdl = { workspace = true }
 futures = { workspace = true }
+message_db = { workspace = true }
 quinn = { workspace = true }
-rcgen = { version = "0.10.0", features = ["pem", "x509-parser"] }
 rand = "0.8.5"
+rcgen = { version = "0.10.0", features = ["pem", "x509-parser"] }
 rmp-serde = { workspace = true }
 rustls = { workspace = true }
 rustls-pemfile = "1.0.1"
