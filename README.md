@@ -1,6 +1,6 @@
-![Thalo — Event sourcing runtime for wasm][splash]
+[![Thalo — Event sourcing runtime for wasm][splash]](/)
 
-[splash]: https://raw.githubusercontent.com/thalo-rs/thalo/runtime-rewrite/splash.svg
+[splash]: https://raw.githubusercontent.com/thalo-rs/thalo/runtime-rewrite/splashim.svg
 
 [![Crates.io][crates-badge]][crates-url]
 [![Documentation][docs-badge]][docs-url]
