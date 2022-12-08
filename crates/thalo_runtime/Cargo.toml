@@ -32,6 +32,3 @@ tracing-subscriber = { workspace = true }
 wasmtime = { git = "https://github.com/bytecodealliance/wasmtime", features = [
   "component-model",
 ] }
-wit-bindgen-host-wasmtime-rust = { git = "https://github.com/bytecodealliance/wit-bindgen", features = [
-  "tracing",
-] }

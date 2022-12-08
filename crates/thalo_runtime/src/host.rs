@@ -8,7 +8,7 @@ use rand::rngs::StdRng;
 use rand::SeedableRng;
 pub use table::Table;
 
-wit_bindgen_host_wasmtime_rust::generate!({
+wasmtime::component::bindgen!({
     path: "../../wit/wasi.wit",
     tracing: true,
 });
@@ -17,7 +17,7 @@ pub fn add_to_linker<T>(
     l: &mut wasmtime::component::Linker<T>,
     f: impl (Fn(&mut T) -> &mut WasiCtx) + Copy + Send + Sync + 'static,
 ) -> anyhow::Result<()> {
-    wasi_clocks::add_to_linker(l, f.clone())?;
+    wasi_clocks::add_to_linker(l, f)?;
     wasi_default_clocks::add_to_linker(l, f)?;
     wasi_filesystem::add_to_linker(l, f)?;
     wasi_logging::add_to_linker(l, f)?;
