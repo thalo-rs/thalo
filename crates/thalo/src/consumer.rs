@@ -27,14 +27,14 @@ pub trait EventHandler: Sized {
     async fn handle(&self, message: Message<Self::Event>) -> anyhow::Result<()>;
 }
 
-pub struct MessageDbEventListener<H> {
+pub struct MessageStoreEventListener<H> {
     message_store: MessageStore,
     handler: H,
 }
 
-impl<H> MessageDbEventListener<H> {
+impl<H> MessageStoreEventListener<H> {
     pub fn new(message_store: MessageStore, handler: H) -> Self {
-        MessageDbEventListener {
+        MessageStoreEventListener {
             message_store,
             handler,
         }
@@ -42,7 +42,7 @@ impl<H> MessageDbEventListener<H> {
 }
 
 #[async_trait]
-impl<H> EventListener for MessageDbEventListener<H>
+impl<H> EventListener for MessageStoreEventListener<H>
 where
     H: EventHandler + Send + Sync + 'static,
     <H as EventHandler>::Event: Send,

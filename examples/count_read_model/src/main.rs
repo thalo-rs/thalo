@@ -6,7 +6,7 @@ use message_db::message::Message;
 use mongodb::bson::{doc, Document};
 use mongodb::options::{ClientOptions, UpdateOptions};
 use mongodb::{Client, Collection};
-use thalo::consumer::{EventCollection, EventHandler, EventListener, MessageDbEventListener};
+use thalo::consumer::{EventCollection, EventHandler, EventListener, MessageStoreEventListener};
 use tracing_subscriber::EnvFilter;
 
 #[derive(Debug, EventCollection)]
@@ -70,7 +70,7 @@ async fn main() -> Result<()> {
         MessageStore::connect("postgres://thalo_runtime:password@localhost:5432/postgres").await?;
 
     let handler = CounterEventHandler { collection };
-    let listener = MessageDbEventListener::new(message_store, handler);
+    let listener = MessageStoreEventListener::new(message_store, handler);
 
     listener
         .listen(
