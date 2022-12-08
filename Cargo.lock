@@ -2549,7 +2549,7 @@ dependencies = [
 
 [[package]]
 name = "thalo"
-version = "0.1.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2588,7 +2588,7 @@ dependencies = [
 
 [[package]]
 name = "thalo_macros"
-version = "0.1.0"
+version = "0.6.0"
 dependencies = [
  "darling 0.14.2",
  "esdl",
