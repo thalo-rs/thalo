@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use async_trait::async_trait;
 use futures::future::{self};
 use futures::{FutureExt, StreamExt};
-use message_db::database::{MessageDb, SubscribeToCategoryOpts};
+use message_db::database::{MessageStore, SubscribeToCategoryOpts};
 use message_db::message::{GenericMessage, Message, MessageData};
 pub use thalo_macros::EventCollection;
 use tracing::{info, trace};
@@ -28,14 +28,14 @@ pub trait EventHandler: Sized {
 }
 
 pub struct MessageDbEventListener<H> {
-    message_db: MessageDb,
+    message_store: MessageStore,
     handler: H,
 }
 
 impl<H> MessageDbEventListener<H> {
-    pub fn new(message_db: MessageDb, handler: H) -> Self {
+    pub fn new(message_store: MessageStore, handler: H) -> Self {
         MessageDbEventListener {
-            message_db,
+            message_store,
             handler,
         }
     }
@@ -50,8 +50,12 @@ where
     async fn listen(&self, opts: &SubscribeToCategoryOpts) -> anyhow::Result<()> {
         let entity_names = H::Event::entity_names();
         let streams = future::join_all(entity_names.iter().map(|entity_name| {
-            MessageDb::subscribe_to_category::<MessageData, _>(&self.message_db, entity_name, opts)
-                .boxed()
+            MessageStore::subscribe_to_category::<MessageData, _>(
+                &self.message_store,
+                entity_name,
+                opts,
+            )
+            .boxed()
         }))
         .await
         .into_iter()

@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, bail, Context as AnyhowContext, Result};
 use futures::StreamExt;
-use message_db::database::{MessageDb, SubscribeToCategoryOpts, WriteMessageOpts};
+use message_db::database::{MessageStore, SubscribeToCategoryOpts, WriteMessageOpts};
 use message_db::message::MessageData;
 use message_db::stream_name::{Category, StreamName};
 use semver::VersionReq;
@@ -24,12 +24,12 @@ pub struct Runtime {
     modules: Arc<RwLock<BTreeMap<ModuleID, Arc<Module>>>>,
     registry: Arc<RwLock<Registry>>,
     command_router: CommandRouter,
-    message_db: MessageDb,
+    message_store: MessageStore,
     registry_db: RegistryDb,
 }
 
 impl Runtime {
-    pub fn new(message_db: MessageDb, registry_db: RegistryDb) -> Self {
+    pub fn new(message_store: MessageStore, registry_db: RegistryDb) -> Self {
         let mut config = wasmtime::Config::new();
         config.async_support(true).wasm_component_model(true);
         let engine = Engine::new(&config).unwrap();
@@ -39,13 +39,13 @@ impl Runtime {
             modules: Arc::new(RwLock::new(BTreeMap::new())),
             registry: Arc::new(RwLock::new(Registry::default())),
             command_router: CommandRouter::start(),
-            message_db,
+            message_store,
             registry_db,
         }
     }
 
-    pub fn message_db(&self) -> &MessageDb {
-        &self.message_db
+    pub fn message_store(&self) -> &MessageStore {
+        &self.message_store
     }
 
     pub async fn init(&self) -> Result<()> {
@@ -75,8 +75,8 @@ impl Runtime {
 
         trace!("subscribing to category '{category_name}'");
         tokio::spawn(async move {
-            let mut stream = MessageDb::subscribe_to_category::<MessageData, _>(
-                &runtime.message_db,
+            let mut stream = MessageStore::subscribe_to_category::<MessageData, _>(
+                &runtime.message_store,
                 &category_name,
                 &SubscribeToCategoryOpts::builder()
                     .identifier("thalo_runtime")
@@ -145,7 +145,7 @@ impl Runtime {
             .command_router
             .execute(
                 self.clone(),
-                self.message_db.clone(),
+                self.message_store.clone(),
                 name,
                 id,
                 ctx,
@@ -180,8 +180,8 @@ impl Runtime {
             id: Some(id.parse()?),
         };
 
-        let position = MessageDb::write_message(
-            &self.message_db,
+        let position = MessageStore::write_message(
+            &self.message_store,
             &stream_name.to_string(),
             command,
             data,

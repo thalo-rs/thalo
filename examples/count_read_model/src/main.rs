@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use counter::{Decremented, Incremented};
-use message_db::database::{MessageDb, SubscribeToCategoryOpts};
+use message_db::database::{MessageStore, SubscribeToCategoryOpts};
 use message_db::message::Message;
 use mongodb::bson::{doc, Document};
 use mongodb::options::{ClientOptions, UpdateOptions};
@@ -66,11 +66,11 @@ async fn main() -> Result<()> {
     let db = client.database("read_model");
     let collection = db.collection("count");
 
-    let message_db =
-        MessageDb::connect("postgres://thalo_runtime:password@localhost:5432/postgres").await?;
+    let message_store =
+        MessageStore::connect("postgres://thalo_runtime:password@localhost:5432/postgres").await?;
 
     let handler = CounterEventHandler { collection };
-    let listener = MessageDbEventListener::new(message_db, handler);
+    let listener = MessageDbEventListener::new(message_store, handler);
 
     listener
         .listen(

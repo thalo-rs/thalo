@@ -3,7 +3,7 @@ mod handler;
 use std::collections::HashMap;
 
 use anyhow::{anyhow, Result};
-use message_db::database::MessageDb;
+use message_db::database::MessageStore;
 use message_db::stream_name::{Category, StreamName, ID};
 use semver::VersionReq;
 use serde_json::Value;
@@ -23,7 +23,7 @@ pub struct CommandRouter {
 struct ExecuteMsg {
     tx: oneshot::Sender<Result<ExecuteResult>>,
     runtime: Runtime,
-    message_db: MessageDb,
+    message_store: MessageStore,
     name: ModuleName,
     id: String,
     ctx: Context,
@@ -42,7 +42,7 @@ impl CommandRouter {
     pub async fn execute(
         &self,
         runtime: Runtime,
-        message_db: MessageDb,
+        message_store: MessageStore,
         name: ModuleName,
         id: String,
         ctx: Context,
@@ -50,7 +50,7 @@ impl CommandRouter {
         payload: Value,
     ) -> Result<ExecuteResult> {
         let (tx, rx) = oneshot::channel();
-        self.do_execute(tx, runtime, message_db, name, id, ctx, command, payload)
+        self.do_execute(tx, runtime, message_store, name, id, ctx, command, payload)
             .await?;
         rx.await?
     }
@@ -60,7 +60,7 @@ impl CommandRouter {
         &self,
         tx: oneshot::Sender<Result<ExecuteResult>>,
         runtime: Runtime,
-        message_db: MessageDb,
+        message_store: MessageStore,
         name: ModuleName,
         id: String,
         ctx: Context,
@@ -71,7 +71,7 @@ impl CommandRouter {
             .send(ExecuteMsg {
                 tx,
                 runtime,
-                message_db,
+                message_store,
                 name,
                 id,
                 ctx,
@@ -110,7 +110,7 @@ async fn command_router(mut rx: Receiver<ExecuteMsg>) {
             None => {
                 match CommandHandler::start(
                     &req.runtime,
-                    req.message_db,
+                    req.message_store,
                     &req.name,
                     stream_name.clone(),
                     &VersionReq::STAR,

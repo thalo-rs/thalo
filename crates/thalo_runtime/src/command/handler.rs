@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::{anyhow, Context as AnyhowContext, Result};
 use futures::TryFutureExt;
-use message_db::database::{GetStreamMessagesOpts, MessageDb, WriteMessageOpts};
+use message_db::database::{GetStreamMessagesOpts, MessageStore, WriteMessageOpts};
 use message_db::message::{MessageData, MetadataRef};
 use message_db::stream_name::StreamName;
 use semver::VersionReq;
@@ -28,7 +28,7 @@ struct ExecuteMsg {
 impl CommandHandler {
     pub async fn start(
         runtime: &Runtime,
-        message_db: MessageDb,
+        message_store: MessageStore,
         module_name: &ModuleName,
         stream_name: StreamName,
         version: &VersionReq,
@@ -48,8 +48,8 @@ impl CommandHandler {
         let opts = GetStreamMessagesOpts::default();
         let (module_res, events_res) = tokio::join!(
             module_fut,
-            MessageDb::get_stream_messages::<MessageData, _>(
-                &message_db,
+            MessageStore::get_stream_messages::<MessageData, _>(
+                &message_store,
                 &stream_name_string,
                 &opts
             )
@@ -87,7 +87,7 @@ impl CommandHandler {
         let (tx, rx) = mpsc::channel(64);
         tokio::spawn(command_handler(
             rx,
-            message_db,
+            message_store,
             instance,
             stream_name,
             version,
@@ -123,14 +123,14 @@ impl CommandHandler {
 
 async fn command_handler(
     mut rx: Receiver<ExecuteMsg>,
-    message_db: MessageDb,
+    message_store: MessageStore,
     mut instance: ModuleInstance,
     stream_name: StreamName,
     mut version: i64,
 ) {
     while let Some(req) = rx.recv().await {
         let res = handle_command(
-            &message_db,
+            &message_store,
             &mut instance,
             &stream_name,
             &mut version,
@@ -144,7 +144,7 @@ async fn command_handler(
 }
 
 async fn handle_command(
-    message_db: &MessageDb,
+    message_store: &MessageStore,
     instance: &mut ModuleInstance,
     stream_name: &StreamName,
     version: &mut i64,
@@ -159,7 +159,7 @@ async fn handle_command(
 
     if let ExecuteResult::Events(events) = &result {
         if !events.is_empty() {
-            *version = save_events(message_db, stream_name, *version, &ctx, events).await?;
+            *version = save_events(message_store, stream_name, *version, &ctx, events).await?;
         }
     }
 
@@ -167,7 +167,7 @@ async fn handle_command(
 }
 
 async fn save_events(
-    message_db: &MessageDb,
+    message_store: &MessageStore,
     stream_name: &StreamName,
     version: i64,
     ctx: &Context,
@@ -207,7 +207,7 @@ async fn save_events(
         .map(|(event, data, opts)| (event.event_type.as_str(), data, opts))
         .collect();
 
-    let version = message_db
+    let version = message_store
         .write_messages(&stream_name_string, &messages)
         .await?;
 

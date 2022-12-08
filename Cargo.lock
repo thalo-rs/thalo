@@ -1421,7 +1421,7 @@ dependencies = [
 [[package]]
 name = "message_db"
 version = "0.1.0"
-source = "git+https://github.com/thalo-rs/message_db#0512292fe463bd685a9af429446a2bcfc31e72bc"
+source = "git+https://github.com/thalo-rs/message_db#02e61a90244404b16880b0b0134166d162799013"
 dependencies = [
  "chrono",
  "either",

@@ -7,7 +7,7 @@ use std::time::Duration;
 use anyhow::{anyhow, bail, Context, Result};
 use esdl::schema::Schema;
 use futures::{StreamExt, TryFutureExt};
-use message_db::database::{MessageDb, SubscribeToCategoryOpts};
+use message_db::database::{MessageStore, SubscribeToCategoryOpts};
 use message_db::message::MessageData;
 use message_db::stream_name::{Category, StreamName};
 use quinn::{RecvStream, SendStream};
@@ -243,8 +243,8 @@ pub async fn handle_execute(
         "metadata->>'causation_message_stream_name' = '{command_stream_name}' AND metadata->>'causation_message_position' = '{command_position}'"
     );
 
-    let mut stream = MessageDb::subscribe_to_category::<MessageData, _>(
-        runtime.message_db(),
+    let mut stream = MessageStore::subscribe_to_category::<MessageData, _>(
+        runtime.message_store(),
         &event_category,
         &SubscribeToCategoryOpts::builder()
             .position_update_interval(0)
