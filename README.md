@@ -36,12 +36,31 @@ where it is used by the runtime to handle commands.
 [message db]: https://github.com/message-db/message-db
 [supported programming language]: #supported-languages
 
-**Crates**
+### Getting Started
+
+**Crates are not published yet as they depend on some git dependencies.**
+**Once [wit-bindgen] crates are published, then Thalo may be also published to crates.io**
+
+**The Thalo crates currently published to crates.io are outdated and are an old incompatible version.**
+
+To use Thalo now, you'll need to import it with the git url.
+
+```toml
+[dependencies]
+thalo = { git = "https://github.com/thalo-rs/thalo" }
+```
+
+Current crates in this repository include:
 
 - [thalo](crates/thalo) - Core library.
 - [thalo_cli](crates/thalo_cli) - CLI utility for publishing modules and executing commands.
 - [thalo_runtime](crates/thalo_runtime) - Runtime used to handle commands and persist events.
 - [thalo_registry](crates/thalo_registry) - Module registry, for storing and retrieving modules.
+
+The best way to get started for now is by looking at the [examples](/examples), or reaching out on our [Discord](discord-url) server.
+
+[wit-bindgen]: https://github.com/bytecodealliance/wit-bindgen
+[examples]: /examples
 
 ## What is Event Sourcing
 
