@@ -1,23 +1,29 @@
-  <p align="center">
-    <a href="http://thalo.rs" target="_blank" rel="noopener noreferrer"><img width="124" src="https://raw.githubusercontent.com/thalo-rs/thalo/main/logo.png" alt="Thalo logo"></a>
-  </p>
+![Thalo — Event sourcing runtime for wasm][splash]
 
-  <h1 align="center">Thalo</h1>
-  <p align="center">An event sourcing runtime for wasm.</p>
+[splash]: https://raw.githubusercontent.com/thalo-rs/thalo/runtime-rewrite/splash.svg
 
-  <p align="center">
-    <a href="https://crates.io/crates/thalo"><img src="https://img.shields.io/crates/v/thalo?style=flat-square" alt="Crates.io"></a>
-    <a href="https://docs.rs/thalo/latest/thalo/"><img src="https://img.shields.io/docsrs/thalo?style=flat-square" alt="Docs.io"></a>
-    <img src="https://img.shields.io/crates/l/thalo?style=flat-square" alt="License">
-    <a href="http://makeapullrequest.com"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square" alt="Pull Requests Welcome"></a>
-    <a href="https://github.com/thalo-rs/thalo/stargazers"><img src="https://img.shields.io/github/stars/thalo-rs/thalo?style=flat-square" alt="Stargazers"></a>
-    <a href="https://github.com/thalo-rs/thalo/commits"><img src="https://img.shields.io/github/last-commit/thalo-rs/thalo?style=flat-square" alt="Last Commit"></a>
-    <a href="https://discord.gg/4Cq8NnPYPA"><img src="https://img.shields.io/discord/913402468895965264?color=%23414EED&label=Discord&logo=Discord&logoColor=%23FFFFFF&style=flat-square" alt="Discord"></a>
-  </p>
+[![Crates.io][crates-badge]][crates-url]
+[![Documentation][docs-badge]][docs-url]
+![MIT OR Apache-2.0][license-badge]
+[![Stargazers][stars-badge]][stars-url]
+[![Last commit][commits-badge]][commits-url]
+[![Discord][discord-badge]][discord-url]
+
+[crates-badge]: https://img.shields.io/crates/v/thalo.svg
+[crates-url]: https://crates.io/crates/thalo
+[docs-badge]: https://docs.rs/thalo/badge.svg
+[docs-url]: https://docs.rs/thalo
+[license-badge]: https://img.shields.io/crates/l/thalo
+[stars-badge]: https://img.shields.io/github/stars/thalo-rs/thalo.svg
+[stars-url]: https://github.com/thalo-rs/thalo/stargazers
+[commits-badge]: https://img.shields.io/github/last-commit/thalo-rs/thalo.svg
+[commits-url]: https://github.com/thalo-rs/thalo/commits
+[discord-badge]: https://img.shields.io/discord/913402468895965264?color=%23414EED&label=Discord&logo=Discord&logoColor=%23FFFFFF
+[discord-url]: https://discord.gg/4Cq8NnPYPA
 
 ## Overview
 
-Thalo is an [event sourcing] wasm runtime for building distributed systems.
+Thalo is an [event sourcing] runtime for building distributed systems.
 It is built on top of [Wasmtime] for components, and uses [Message DB] for the message store.
 
 **Thalo is still in alpha, consider carefully before using for any production apps.**
