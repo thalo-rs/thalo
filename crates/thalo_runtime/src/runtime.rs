@@ -9,7 +9,7 @@ use message_db::stream_name::{Category, StreamName};
 use semver::VersionReq;
 use serde_json::Value;
 use thalo::Context;
-use thalo_registry::RegistryDb;
+use thalo_registry::Registry as RegistryStore;
 use tokio::sync::RwLock;
 use tracing::{error, info, instrument, trace, warn};
 use wasmtime::Engine;
@@ -25,11 +25,11 @@ pub struct Runtime {
     registry: Arc<RwLock<Registry>>,
     command_router: CommandRouter,
     message_store: MessageStore,
-    registry_db: RegistryDb,
+    registry_store: RegistryStore,
 }
 
 impl Runtime {
-    pub fn new(message_store: MessageStore, registry_db: RegistryDb) -> Self {
+    pub fn new(message_store: MessageStore, registry_store: RegistryStore) -> Self {
         let mut config = wasmtime::Config::new();
         config.async_support(true).wasm_component_model(true);
         let engine = Engine::new(&config).unwrap();
@@ -40,7 +40,7 @@ impl Runtime {
             registry: Arc::new(RwLock::new(Registry::default())),
             command_router: CommandRouter::start(),
             message_store,
-            registry_db,
+            registry_store,
         }
     }
 
@@ -50,7 +50,7 @@ impl Runtime {
 
     pub async fn init(&self) -> Result<()> {
         let modules = self
-            .registry_db
+            .registry_store
             .load_all_schema_modules()
             .await
             .context("failed to load all modules from registry")?;
@@ -196,7 +196,7 @@ impl Runtime {
         let mut registry = self.registry.write().await;
 
         let latest_version = self
-            .registry_db
+            .registry_store
             .load_module_latest_version(&schema_module.schema().aggregate.name)
             .await?;
         if let Some(latest_version) = latest_version {
@@ -205,7 +205,7 @@ impl Runtime {
             }
         }
 
-        self.registry_db
+        self.registry_store
             .save_schema_module(schema_module.schema(), schema_module.module())
             .await?;
 

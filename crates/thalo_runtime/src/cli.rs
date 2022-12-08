@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use anyhow::Result;
 use clap::Parser;
 use message_db::database::MessageStore;
-use thalo_registry::RegistryDb;
+use thalo_registry::Registry;
 use thalo_runtime::interface::quic::load_certs;
 use thalo_runtime::interface::{self};
 use thalo_runtime::runtime::Runtime;
@@ -38,8 +38,8 @@ pub async fn start() -> Result<()> {
     let cli = Cli::parse();
 
     let message_store = MessageStore::connect(&cli.database_url).await?;
-    let registry_db = RegistryDb::connect(&cli.database_url).await?;
-    let runtime = Runtime::new(message_store, registry_db);
+    let registry_store = Registry::connect(&cli.database_url).await?;
+    let runtime = Runtime::new(message_store, registry_store);
     runtime.init().await?;
     runtime.start().await;
 

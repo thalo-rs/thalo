@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, PgPool};
 
 #[derive(Clone)]
-pub struct RegistryDb {
+pub struct Registry {
     pool: PgPool,
 }
 
@@ -17,9 +17,9 @@ pub struct RegistryRow {
     pub module: Vec<u8>,
 }
 
-impl RegistryDb {
+impl Registry {
     pub async fn connect(url: &str) -> Result<Self> {
-        Ok(RegistryDb {
+        Ok(Registry {
             pool: PgPool::connect(url).await?,
         })
     }
