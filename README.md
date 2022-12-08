@@ -11,7 +11,7 @@
     <img src="https://img.shields.io/crates/l/thalo?style=flat-square" alt="License">
     <a href="http://makeapullrequest.com"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square" alt="Pull Requests Welcome"></a>
     <a href="https://github.com/thalo-rs/thalo/stargazers"><img src="https://img.shields.io/github/stars/thalo-rs/thalo?style=flat-square" alt="Stargazers"></a>
-    <a href="https://github.com/thalo-rs/thalo/commits"><img src="https://img.shields.io/github/last-commit/thalo-rs/thalo/dev?style=flat-square" alt="Last Commit"></a>
+    <a href="https://github.com/thalo-rs/thalo/commits"><img src="https://img.shields.io/github/last-commit/thalo-rs/thalo?style=flat-square" alt="Last Commit"></a>
     <a href="https://discord.gg/4Cq8NnPYPA"><img src="https://img.shields.io/discord/913402468895965264?color=%23414EED&label=Discord&logo=Discord&logoColor=%23FFFFFF&style=flat-square" alt="Discord"></a>
   </p>
 
