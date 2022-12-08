@@ -5,8 +5,7 @@
 // });
 
 use anyhow::anyhow;
-#[allow(unused_imports)]
-use wit_bindgen_host_wasmtime_rust::{anyhow, wasmtime};
+
 pub type StateParam<'a> = &'a [u8];
 pub type StateResult = Vec<u8>;
 #[derive(wasmtime::component::ComponentType, wasmtime::component::Lower)]
@@ -146,12 +145,6 @@ impl core::fmt::Display for Error {
     }
 }
 impl std::error::Error for Error {}
-
-impl From<Error> for wit_bindgen_host_wasmtime_rust::Error<Error> {
-    fn from(e: Error) -> wit_bindgen_host_wasmtime_rust::Error<Error> {
-        wit_bindgen_host_wasmtime_rust::Error::new(e)
-    }
-}
 
 #[derive(Clone, Copy, Debug)]
 pub struct Aggregate {

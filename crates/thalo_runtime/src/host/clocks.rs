@@ -73,10 +73,9 @@ impl wasi_clocks::WasiClocks for WasiCtx {
     ) -> anyhow::Result<wasi_clocks::Instant> {
         let clock = self.table.get::<MonotonicClock>(fd)?;
         let now = clock.now();
-        Ok(now
-            .as_nanos()
+        now.as_nanos()
             .try_into()
-            .context("converting monotonic time to nanos u64")?)
+            .context("converting monotonic time to nanos u64")
     }
     fn monotonic_clock_resolution(
         &mut self,
@@ -84,10 +83,9 @@ impl wasi_clocks::WasiClocks for WasiCtx {
     ) -> anyhow::Result<wasi_clocks::Instant> {
         let clock = self.table.get::<MonotonicClock>(fd)?;
         let res = clock.resolution();
-        Ok(res
-            .as_nanos()
+        res.as_nanos()
             .try_into()
-            .context("converting monotonic resolution to nanos u64")?)
+            .context("converting monotonic resolution to nanos u64")
     }
 
     fn monotonic_clock_new_timer(
@@ -97,6 +95,7 @@ impl wasi_clocks::WasiClocks for WasiCtx {
     ) -> anyhow::Result<wasi_clocks::MonotonicTimer> {
         let clock = self.table.get::<MonotonicClock>(fd)?;
         let timer = clock.new_timer(std::time::Duration::from_micros(initial));
+        #[allow(clippy::drop_ref)]
         drop(clock);
         let timer_fd = self.table.push(Box::new(timer))?;
         Ok(timer_fd)
@@ -107,7 +106,7 @@ impl wasi_clocks::WasiClocks for WasiCtx {
         fd: wasi_clocks::WallClock,
     ) -> anyhow::Result<wasi_clocks::Datetime> {
         let clock = self.table.get::<WallClock>(fd)?;
-        Ok(clock.now().try_into()?)
+        clock.now().try_into()
     }
 
     fn wall_clock_resolution(
@@ -115,7 +114,7 @@ impl wasi_clocks::WasiClocks for WasiCtx {
         fd: wasi_clocks::WallClock,
     ) -> anyhow::Result<wasi_clocks::Datetime> {
         let clock = self.table.get::<WallClock>(fd)?;
-        Ok(clock.resolution().try_into()?)
+        clock.resolution().try_into()
     }
 
     fn monotonic_timer_current(
@@ -123,10 +122,10 @@ impl wasi_clocks::WasiClocks for WasiCtx {
         fd: wasi_clocks::MonotonicTimer,
     ) -> anyhow::Result<wasi_clocks::Instant> {
         let timer = self.table.get::<MonotonicTimer>(fd)?;
-        Ok(timer
+        timer
             .current()
             .as_nanos()
             .try_into()
-            .context("converting monotonic timer to nanos u64")?)
+            .context("converting monotonic timer to nanos u64")
     }
 }
