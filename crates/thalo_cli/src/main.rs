@@ -16,7 +16,7 @@ async fn main() {
         )
         .init();
 
-    if let Err(err) = cli::start().await {
+    if let Err(err) = cli::run().await {
         println!("[error]: {err}");
         err.chain()
             .skip(1)

@@ -30,7 +30,7 @@ struct Cli {
     keylog: bool,
     /// Url of host runtime
     #[clap(short, long)]
-    url: Url,
+    url: Option<Url>,
     /// Override hostname used for certificate verification
     #[clap(long)]
     host: Option<String>,
@@ -47,12 +47,15 @@ enum Commands {
     Publish(Publish),
 }
 
-pub async fn start() -> Result<()> {
+pub async fn run() -> Result<()> {
     let cli = Cli::try_parse()?;
+    let url = cli
+        .url
+        .unwrap_or_else(|| "http://localhost:4433".parse().unwrap());
 
     let remote = (
-        cli.url.host_str().context("missing host in url")?,
-        cli.url.port().unwrap_or(4433),
+        url.host_str().context("missing host in url")?,
+        url.port().unwrap_or(4433),
     )
         .to_socket_addrs()?
         .next()
@@ -91,7 +94,7 @@ pub async fn start() -> Result<()> {
     let host = cli
         .host
         .as_ref()
-        .map_or_else(|| cli.url.host_str(), |x| Some(x))
+        .map_or_else(|| url.host_str(), |x| Some(x))
         .ok_or_else(|| anyhow!("no hostname specified"))?;
 
     trace!("connecting to {} at {}", host, remote);
