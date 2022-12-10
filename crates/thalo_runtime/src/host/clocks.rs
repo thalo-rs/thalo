@@ -1,3 +1,5 @@
+#![allow(clippy::drop_ref, clippy::drop_copy)]
+
 use anyhow::Context;
 
 use super::{wasi_clocks, wasi_default_clocks, WasiCtx};
@@ -67,6 +69,24 @@ impl wasi_default_clocks::WasiDefaultClocks for WasiCtx {
 }
 
 impl wasi_clocks::WasiClocks for WasiCtx {
+    fn subscribe_wall_clock(
+        &mut self,
+        when: wasi_clocks::Datetime,
+        absolute: bool,
+    ) -> anyhow::Result<wasi_clocks::WasiFuture> {
+        drop((when, absolute));
+        todo!()
+    }
+
+    fn subscribe_monotonic_clock(
+        &mut self,
+        when: wasi_clocks::Instant,
+        absolute: bool,
+    ) -> anyhow::Result<wasi_clocks::WasiFuture> {
+        drop((when, absolute));
+        todo!()
+    }
+
     fn monotonic_clock_now(
         &mut self,
         fd: wasi_clocks::MonotonicClock,
@@ -95,7 +115,6 @@ impl wasi_clocks::WasiClocks for WasiCtx {
     ) -> anyhow::Result<wasi_clocks::MonotonicTimer> {
         let clock = self.table.get::<MonotonicClock>(fd)?;
         let timer = clock.new_timer(std::time::Duration::from_micros(initial));
-        #[allow(clippy::drop_ref)]
         drop(clock);
         let timer_fd = self.table.push(Box::new(timer))?;
         Ok(timer_fd)

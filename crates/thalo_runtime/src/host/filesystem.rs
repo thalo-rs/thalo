@@ -1,8 +1,6 @@
 #![allow(unused_variables)]
 
-use wasmtime::component::Error;
-
-use super::{wasi_filesystem, WasiCtx};
+use super::{wasi_filesystem, HostResult, WasiCtx};
 
 impl wasi_filesystem::WasiFilesystem for WasiCtx {
     fn fadvise(
@@ -11,37 +9,28 @@ impl wasi_filesystem::WasiFilesystem for WasiCtx {
         offset: wasi_filesystem::Filesize,
         len: wasi_filesystem::Filesize,
         advice: wasi_filesystem::Advice,
-    ) -> Result<(), Error<wasi_filesystem::Errno>> {
-        todo!()
-    }
-
-    fn fallocate(
-        &mut self,
-        fd: wasi_filesystem::Descriptor,
-        offset: u64,
-        len: u64,
-    ) -> Result<(), Error<wasi_filesystem::Errno>> {
+    ) -> HostResult<(), wasi_filesystem::Errno> {
         todo!()
     }
 
     fn datasync(
         &mut self,
         fd: wasi_filesystem::Descriptor,
-    ) -> Result<(), Error<wasi_filesystem::Errno>> {
+    ) -> HostResult<(), wasi_filesystem::Errno> {
         todo!()
     }
 
     fn flags(
         &mut self,
         fd: wasi_filesystem::Descriptor,
-    ) -> Result<wasi_filesystem::DescriptorFlags, Error<wasi_filesystem::Errno>> {
+    ) -> HostResult<wasi_filesystem::DescriptorFlags, wasi_filesystem::Errno> {
         todo!()
     }
 
     fn todo_type(
         &mut self,
         fd: wasi_filesystem::Descriptor,
-    ) -> Result<wasi_filesystem::DescriptorType, Error<wasi_filesystem::Errno>> {
+    ) -> HostResult<wasi_filesystem::DescriptorType, wasi_filesystem::Errno> {
         todo!()
     }
 
@@ -49,7 +38,7 @@ impl wasi_filesystem::WasiFilesystem for WasiCtx {
         &mut self,
         fd: wasi_filesystem::Descriptor,
         flags: wasi_filesystem::DescriptorFlags,
-    ) -> Result<(), Error<wasi_filesystem::Errno>> {
+    ) -> HostResult<(), wasi_filesystem::Errno> {
         todo!()
     }
 
@@ -57,7 +46,7 @@ impl wasi_filesystem::WasiFilesystem for WasiCtx {
         &mut self,
         fd: wasi_filesystem::Descriptor,
         size: wasi_filesystem::Filesize,
-    ) -> Result<(), Error<wasi_filesystem::Errno>> {
+    ) -> HostResult<(), wasi_filesystem::Errno> {
         todo!()
     }
 
@@ -66,7 +55,7 @@ impl wasi_filesystem::WasiFilesystem for WasiCtx {
         fd: wasi_filesystem::Descriptor,
         atim: wasi_filesystem::NewTimestamp,
         mtim: wasi_filesystem::NewTimestamp,
-    ) -> Result<(), Error<wasi_filesystem::Errno>> {
+    ) -> HostResult<(), wasi_filesystem::Errno> {
         todo!()
     }
 
@@ -75,7 +64,7 @@ impl wasi_filesystem::WasiFilesystem for WasiCtx {
         fd: wasi_filesystem::Descriptor,
         len: wasi_filesystem::Size,
         offset: wasi_filesystem::Filesize,
-    ) -> Result<Vec<u8>, Error<wasi_filesystem::Errno>> {
+    ) -> HostResult<Vec<u8>, wasi_filesystem::Errno> {
         todo!()
     }
 
@@ -84,7 +73,7 @@ impl wasi_filesystem::WasiFilesystem for WasiCtx {
         fd: wasi_filesystem::Descriptor,
         buf: Vec<u8>,
         offset: wasi_filesystem::Filesize,
-    ) -> Result<wasi_filesystem::Size, Error<wasi_filesystem::Errno>> {
+    ) -> HostResult<wasi_filesystem::Size, wasi_filesystem::Errno> {
         let out = std::str::from_utf8(&buf)
             .map(|s| s.to_string())
             .unwrap_or_else(|_| format!("binary: {:?}", buf));
@@ -95,8 +84,14 @@ impl wasi_filesystem::WasiFilesystem for WasiCtx {
     fn readdir(
         &mut self,
         fd: wasi_filesystem::Descriptor,
-        rewind: bool,
-    ) -> Result<Vec<u8>, Error<wasi_filesystem::Errno>> {
+    ) -> HostResult<wasi_filesystem::DirEntryStream, wasi_filesystem::Errno> {
+        todo!()
+    }
+
+    fn read_dir_entry(
+        &mut self,
+        stream: wasi_filesystem::DirEntryStream,
+    ) -> HostResult<wasi_filesystem::DirEntry, wasi_filesystem::Errno> {
         todo!()
     }
 
@@ -104,21 +99,18 @@ impl wasi_filesystem::WasiFilesystem for WasiCtx {
         &mut self,
         fd: wasi_filesystem::Descriptor,
         from: wasi_filesystem::SeekFrom,
-    ) -> Result<wasi_filesystem::Filesize, Error<wasi_filesystem::Errno>> {
+    ) -> HostResult<wasi_filesystem::Filesize, wasi_filesystem::Errno> {
         todo!()
     }
 
-    fn sync(
-        &mut self,
-        fd: wasi_filesystem::Descriptor,
-    ) -> Result<(), Error<wasi_filesystem::Errno>> {
+    fn sync(&mut self, fd: wasi_filesystem::Descriptor) -> HostResult<(), wasi_filesystem::Errno> {
         todo!()
     }
 
     fn tell(
         &mut self,
         fd: wasi_filesystem::Descriptor,
-    ) -> Result<wasi_filesystem::Filesize, Error<wasi_filesystem::Errno>> {
+    ) -> HostResult<wasi_filesystem::Filesize, wasi_filesystem::Errno> {
         todo!()
     }
 
@@ -126,14 +118,14 @@ impl wasi_filesystem::WasiFilesystem for WasiCtx {
         &mut self,
         fd: wasi_filesystem::Descriptor,
         path: String,
-    ) -> Result<(), Error<wasi_filesystem::Errno>> {
+    ) -> HostResult<(), wasi_filesystem::Errno> {
         todo!()
     }
 
     fn stat(
         &mut self,
         fd: wasi_filesystem::Descriptor,
-    ) -> Result<wasi_filesystem::DescriptorStat, Error<wasi_filesystem::Errno>> {
+    ) -> HostResult<wasi_filesystem::DescriptorStat, wasi_filesystem::Errno> {
         todo!()
     }
 
@@ -142,7 +134,7 @@ impl wasi_filesystem::WasiFilesystem for WasiCtx {
         fd: wasi_filesystem::Descriptor,
         at_flags: wasi_filesystem::AtFlags,
         path: String,
-    ) -> Result<wasi_filesystem::DescriptorStat, Error<wasi_filesystem::Errno>> {
+    ) -> HostResult<wasi_filesystem::DescriptorStat, wasi_filesystem::Errno> {
         todo!()
     }
 
@@ -153,7 +145,7 @@ impl wasi_filesystem::WasiFilesystem for WasiCtx {
         path: String,
         atim: wasi_filesystem::NewTimestamp,
         mtim: wasi_filesystem::NewTimestamp,
-    ) -> Result<(), Error<wasi_filesystem::Errno>> {
+    ) -> HostResult<(), wasi_filesystem::Errno> {
         todo!()
     }
 
@@ -164,7 +156,7 @@ impl wasi_filesystem::WasiFilesystem for WasiCtx {
         old_path: String,
         new_descriptor: wasi_filesystem::Descriptor,
         new_path: String,
-    ) -> Result<(), Error<wasi_filesystem::Errno>> {
+    ) -> HostResult<(), wasi_filesystem::Errno> {
         todo!()
     }
 
@@ -176,7 +168,11 @@ impl wasi_filesystem::WasiFilesystem for WasiCtx {
         oflags: wasi_filesystem::OFlags,
         flags: wasi_filesystem::DescriptorFlags,
         mode: wasi_filesystem::Mode,
-    ) -> Result<wasi_filesystem::Descriptor, Error<wasi_filesystem::Errno>> {
+    ) -> HostResult<wasi_filesystem::Descriptor, wasi_filesystem::Errno> {
+        todo!()
+    }
+
+    fn close(&mut self, fd: wasi_filesystem::Descriptor) -> anyhow::Result<()> {
         todo!()
     }
 
@@ -184,7 +180,7 @@ impl wasi_filesystem::WasiFilesystem for WasiCtx {
         &mut self,
         fd: wasi_filesystem::Descriptor,
         path: String,
-    ) -> Result<String, Error<wasi_filesystem::Errno>> {
+    ) -> HostResult<String, wasi_filesystem::Errno> {
         todo!()
     }
 
@@ -192,7 +188,7 @@ impl wasi_filesystem::WasiFilesystem for WasiCtx {
         &mut self,
         fd: wasi_filesystem::Descriptor,
         path: String,
-    ) -> Result<(), Error<wasi_filesystem::Errno>> {
+    ) -> HostResult<(), wasi_filesystem::Errno> {
         todo!()
     }
 
@@ -202,7 +198,7 @@ impl wasi_filesystem::WasiFilesystem for WasiCtx {
         old_path: String,
         new_fd: wasi_filesystem::Descriptor,
         new_path: String,
-    ) -> Result<(), Error<wasi_filesystem::Errno>> {
+    ) -> HostResult<(), wasi_filesystem::Errno> {
         todo!()
     }
 
@@ -211,7 +207,7 @@ impl wasi_filesystem::WasiFilesystem for WasiCtx {
         fd: wasi_filesystem::Descriptor,
         old_path: String,
         new_path: String,
-    ) -> Result<(), Error<wasi_filesystem::Errno>> {
+    ) -> HostResult<(), wasi_filesystem::Errno> {
         todo!()
     }
 
@@ -219,7 +215,7 @@ impl wasi_filesystem::WasiFilesystem for WasiCtx {
         &mut self,
         fd: wasi_filesystem::Descriptor,
         path: String,
-    ) -> Result<(), Error<wasi_filesystem::Errno>> {
+    ) -> HostResult<(), wasi_filesystem::Errno> {
         todo!()
     }
 
@@ -229,7 +225,7 @@ impl wasi_filesystem::WasiFilesystem for WasiCtx {
         at_flags: wasi_filesystem::AtFlags,
         path: String,
         mode: wasi_filesystem::Mode,
-    ) -> Result<(), Error<wasi_filesystem::Errno>> {
+    ) -> HostResult<(), wasi_filesystem::Errno> {
         todo!()
     }
 
@@ -239,7 +235,42 @@ impl wasi_filesystem::WasiFilesystem for WasiCtx {
         at_flags: wasi_filesystem::AtFlags,
         path: String,
         mode: wasi_filesystem::Mode,
-    ) -> Result<(), Error<wasi_filesystem::Errno>> {
+    ) -> HostResult<(), wasi_filesystem::Errno> {
+        todo!()
+    }
+
+    fn lock_shared(
+        &mut self,
+        fd: wasi_filesystem::Descriptor,
+    ) -> HostResult<(), wasi_filesystem::Errno> {
+        todo!()
+    }
+
+    fn lock_exclusive(
+        &mut self,
+        fd: wasi_filesystem::Descriptor,
+    ) -> HostResult<(), wasi_filesystem::Errno> {
+        todo!()
+    }
+
+    fn try_lock_shared(
+        &mut self,
+        fd: wasi_filesystem::Descriptor,
+    ) -> HostResult<(), wasi_filesystem::Errno> {
+        todo!()
+    }
+
+    fn try_lock_exclusive(
+        &mut self,
+        fd: wasi_filesystem::Descriptor,
+    ) -> HostResult<(), wasi_filesystem::Errno> {
+        todo!()
+    }
+
+    fn unlock(
+        &mut self,
+        fd: wasi_filesystem::Descriptor,
+    ) -> HostResult<(), wasi_filesystem::Errno> {
         todo!()
     }
 }

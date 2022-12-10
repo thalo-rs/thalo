@@ -7,11 +7,14 @@ mod table;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 pub use table::Table;
+use wasmtime::component::Error;
 
 wasmtime::component::bindgen!({
     path: "../../wit/wasi.wit",
     tracing: true,
 });
+
+pub type HostResult<T, E> = Result<T, Error<E>>;
 
 pub fn add_to_linker<T>(
     l: &mut wasmtime::component::Linker<T>,

@@ -1,7 +1,7 @@
-//interface command {
-//  type descriptor = u32
-//  command: func(stdin: descriptor, stdout: descriptor, args: list<string>)
-//}
+interface command {
+  type descriptor = u32
+  command: func(stdin: descriptor, stdout: descriptor, args: list<string>)
+}
 
 /// # WASI Clocks API
 ///
@@ -38,6 +38,16 @@ interface wasi-clocks {
       seconds: u64,
       nanoseconds: u32,
   }
+
+  /// An asynchronous operation. In the future, this will be replaced by a handle type.
+  /// TODO: `use` the `wasi-poll` version
+  type wasi-future = u32
+
+  /// Create a future which will resolve once the specified time has been reached.
+  subscribe-wall-clock: func(when: datetime, absolute: bool) -> wasi-future
+
+  /// Create a future which will resolve once the specified time has been reached.
+  subscribe-monotonic-clock: func(when: instant, absolute: bool) -> wasi-future
 
   /// Read the current value of the clock.
   ///
@@ -170,6 +180,10 @@ interface wasi-random {
 interface wasi-filesystem {
   /// A "file" descriptor. In the future, this will be replaced by handle types.
   type descriptor = u32
+
+  /// A directory entry stream. In the future, this will be replaced by an
+  /// actual stream.
+  type dir-entry-stream = u32
 
   /// Size of a range of bytes in memory.
   type size = u32
@@ -308,13 +322,18 @@ interface wasi-filesystem {
   }
 
   /// A directory entry.
-  record dirent {
-      /// The serial number of the file referred to by this directory entry.
-      ino: inode,
-      /// The length of the name of the directory entry.
-      namelen: size,
+  record dir-entry {
+      /// The serial number of the object referred to by this directory entry.
+      /// May be none if the inode value is not known.
+      ///
+      /// When this is none, libc implementations might do an extra `stat-at`
+      /// call to retrieve the inode number to fill their `d_ino` fields, so
+      /// implementations which can set this to a non-none value should do so.
+      ino: option<inode>,
       /// The type of the file referred to by this directory entry.
       %type: descriptor-type,
+      /// The name of the object.
+      name: string,
   }
 
   /// Error codes returned by functions.
@@ -338,6 +357,8 @@ interface wasi-filesystem {
       already,
       /// Bad message.
       badmsg,
+      /// Bad descriptor.
+      badf,
       /// Device or resource busy.
       busy,
       /// Operation canceled.
@@ -500,18 +521,6 @@ interface wasi-filesystem {
       advice: advice
   ) -> result<_, errno>
 
-  /// Force the allocation of space in a file.
-  ///
-  /// Note: This is similar to `posix_fallocate` in POSIX.
-  fallocate: func(
-      /// The resource to operate on.
-      fd: descriptor,
-      /// The offset at which to start the allocation.
-      offset: filesize,
-      /// The length of the area that is allocated.
-      len: filesize
-  ) -> result<_, errno>
-
   /// Synchronize the data of a file to disk.
   ///
   /// Note: This is similar to `fdatasync` in POSIX.
@@ -610,25 +619,12 @@ interface wasi-filesystem {
 
   /// Read directory entries from a directory.
   ///
-  /// TODO this shouldnt be a binary interface. Instead, define the struct
-  /// and whatever of its members are required here, and then return a list
-  /// of those structs. Delete the rewind argument.
-  ///
-  /// When successful, the contents of the output buffer consist of a sequence of
-  /// directory entries. Each directory entry consists of a `dirent` object,
-  /// followed by `dirent::d_namlen` bytes holding the name of the directory
-  /// entry.
-  ///
-  /// This function fills the output buffer as much as possible, potentially
-  /// truncating the last directory entry. This allows the caller to grow its
-  /// read buffer size in case it's too small to fit a single large directory
-  /// entry, or skip the oversized directory entry.
-  readdir: func(
-      /// The resource to operate on.
-      fd: descriptor,
-      /// If true, rewind the current position to the beginning before reading.
-      rewind: bool
-  ) -> result<list<u8>, errno>
+  /// This always returns a new stream which starts at the beginning of the
+  /// directory.
+  readdir: func(fd: descriptor) -> result<dir-entry-stream, errno>
+
+  /// Read a single directory entry from a `dir-entry-stream`.
+  read-dir-entry: func(dir-stream: dir-entry-stream) -> result<dir-entry, errno>
 
   /// Move the offset of a descriptor.
   ///
@@ -754,6 +750,13 @@ interface wasi-filesystem {
       mode: mode
   ) -> result<descriptor, errno>
 
+  /// Close a file or directory handle.
+  ///
+  /// Until wit supports handles, use an explicit `close` function.
+  ///
+  /// Note: This is similar to `close` in POSIX.
+  close: func(fd: descriptor)
+
   /// Read the contents of a symbolic link.
   ///
   /// Note: This is similar to `readlinkat` in POSIX.
@@ -850,6 +853,103 @@ interface wasi-filesystem {
       /// The new permissions for the directory.
       mode: mode,
   ) -> result<_, errno>
+
+  /// Request a shared advisory lock for an open file.
+  ///
+  /// This requests a *shared* lock; more than one shared lock can be held for
+  /// a file at the same time.
+  ///
+  /// If the open file has an exclusive lock, this function downgrades the lock
+  /// to a shared lock. If it has a shared lock, this function has no effect.
+  ///
+  /// This requests an *advisory* lock, meaning that the file could be accessed
+  /// by other programs that don't hold the lock.
+  ///
+  /// It is unspecified how shared locks interact with locks acquired by
+  /// non-WASI programs.
+  ///
+  /// This function blocks until the lock can be acquired.
+  ///
+  /// Not all filesystems support locking; on filesystems which don't support
+  /// locking, this function returns `errno::notsup`.
+  ///
+  /// Note: This is similar to `flock(fd, LOCK_SH)` in Unix.
+  lock-shared: func(fd: descriptor) -> result<_, errno>
+
+  /// Request an exclusive advisory lock for an open file.
+  ///
+  /// This requests an *exclusive* lock; no other locks may be held for the
+  /// file while an exclusive lock is held.
+  ///
+  /// If the open file has a shared lock and there are no exclusive locks held
+  /// for the fhile, this function upgrades the lock to an exclusive lock. If the
+  /// open file already has an exclusive lock, this function has no effect.
+  ///
+  /// This requests an *advisory* lock, meaning that the file could be accessed
+  /// by other programs that don't hold the lock.
+  ///
+  /// It is unspecified whether this function succeeds if the file descriptor
+  /// is not opened for writing. It is unspecified how exclusive locks interact
+  /// with locks acquired by non-WASI programs.
+  ///
+  /// This function blocks until the lock can be acquired.
+  ///
+  /// Not all filesystems support locking; on filesystems which don't support
+  /// locking, this function returns `errno::notsup`.
+  ///
+  /// Note: This is similar to `flock(fd, LOCK_EX)` in Unix.
+  lock-exclusive: func(fd: descriptor) -> result<_, errno>
+
+  /// Request a shared advisory lock for an open file.
+  ///
+  /// This requests a *shared* lock; more than one shared lock can be held for
+  /// a file at the same time.
+  ///
+  /// If the open file has an exclusive lock, this function downgrades the lock
+  /// to a shared lock. If it has a shared lock, this function has no effect.
+  ///
+  /// This requests an *advisory* lock, meaning that the file could be accessed
+  /// by other programs that don't hold the lock.
+  ///
+  /// It is unspecified how shared locks interact with locks acquired by
+  /// non-WASI programs.
+  ///
+  /// This function returns `errno::wouldblock` if the lock cannot be acquired.
+  ///
+  /// Not all filesystems support locking; on filesystems which don't support
+  /// locking, this function returns `errno::notsup`.
+  ///
+  /// Note: This is similar to `flock(fd, LOCK_SH | LOCK_NB)` in Unix.
+  try-lock-shared: func(fd: descriptor) -> result<_, errno>
+
+  /// Request an exclusive advisory lock for an open file.
+  ///
+  /// This requests an *exclusive* lock; no other locks may be held for the
+  /// file while an exclusive lock is held.
+  ///
+  /// If the open file has a shared lock and there are no exclusive locks held
+  /// for the fhile, this function upgrades the lock to an exclusive lock. If the
+  /// open file already has an exclusive lock, this function has no effect.
+  ///
+  /// This requests an *advisory* lock, meaning that the file could be accessed
+  /// by other programs that don't hold the lock.
+  ///
+  /// It is unspecified whether this function succeeds if the file descriptor
+  /// is not opened for writing. It is unspecified how exclusive locks interact
+  /// with locks acquired by non-WASI programs.
+  ///
+  /// This function returns `errno::wouldblock` if the lock cannot be acquired.
+  ///
+  /// Not all filesystems support locking; on filesystems which don't support
+  /// locking, this function returns `errno::notsup`.
+  ///
+  /// Note: This is similar to `flock(fd, LOCK_EX | LOCK_NB)` in Unix.
+  try-lock-exclusive: func(fd: descriptor) -> result<_, errno>
+
+  /// Release a shared or exclusive lock on an open file.
+  ///
+  /// Note: This is similar to `flock(fd, LOCK_UN)` in Unix.
+  unlock: func(fd: descriptor) -> result<_, errno>
 }
 
 /// # WASI Poll API
@@ -857,59 +957,11 @@ interface wasi-filesystem {
 /// WASI Poll is a poll API intended to let users wait for I/O events on
 /// multiple handles at once.
 interface wasi-poll {
-  /// A "file" descriptor. In the future, this will be replaced by a handle type.
-  type descriptor = u32
-
   /// An asynchronous operation. In the future, this will be replaced by a handle type.
   type wasi-future = u32
 
   /// Dispose of the specified future, after which it may no longer be used.
   drop-future: func(f: wasi-future)
-
-  /// Result of querying bytes readable or writable for a `descriptor`
-  record bytes-result {
-      /// Indicates the number of bytes readable or writable for a still-open descriptor
-      nbytes: u64,
-      /// Indicates whether the other end of the stream has disconnected, in which case
-      /// no further data will be received (when reading) or accepted (when writing) on
-      /// this stream.
-      is-closed: bool
-  }
-
-  /// Query the specified `descriptor` for how many bytes are available to read.
-  bytes-readable: func(fd: descriptor) -> bytes-result
-
-  /// Query the specified `descriptor` for the number of bytes ready to be accepted.
-  bytes-writable: func(fd: descriptor) -> bytes-result
-
-  /// Create a future which will resolve once either the specified descriptor has bytes
-  /// available to read or the other end of the stream has been closed.
-  subscribe-read: func(fd: descriptor) -> wasi-future
-
-  /// Create a future which will resolve once either the specified descriptor is ready
-  /// to accept bytes or the other end of the stream has been closed.
-  subscribe-write: func(fd: descriptor) -> wasi-future
-
-  /// Create a future which will resolve once the specified time has been reached.
-  subscribe-wall-clock: func(when: datetime, absolute: bool) -> wasi-future
-
-  /// Create a future which will resolve once the specified time has been reached.
-  subscribe-monotonic-clock: func(when: instant, absolute: bool) -> wasi-future
-
-  /// A timestamp in nanoseconds.
-  ///
-  /// TODO: When wit-bindgen supports importing types from other wit files, use
-  /// the type from wasi-clocks.
-  type instant = u64
-
-  /// A time and date in seconds plus nanoseconds.
-  ///
-  /// TODO: When wit-bindgen supports importing types from other wit files, use
-  /// the type from wasi-clocks.
-  record datetime {
-      seconds: u64,
-      nanoseconds: u32,
-  }
 
   /// Poll for completion on a set of futures.
   ///
@@ -919,7 +971,58 @@ interface wasi-poll {
   /// many times. In the future, it may be accompanied by an API similar to
   /// Linux's `epoll` which allows sets of subscriptions to be registered and
   /// made efficiently reusable.
-  poll-oneoff: func(in: list<wasi-future>) -> list<bool>
+  ///
+  /// Note that the return type would ideally be `list<bool>`, but that would
+  /// be more difficult to polyfill given the current state of `wit-bindgen`.
+  /// See https://github.com/bytecodealliance/preview2-prototyping/pull/11#issuecomment-1329873061
+  /// for details.  For now, we use zero to mean "not ready" and non-zero to
+  /// mean "ready".
+  poll-oneoff: func(in: list<wasi-future>) -> list<u8>
+}
+
+interface wasi-tcp {
+  /// A socket pseudo-handle. In the future, this will be replaced by a handle type.
+  type socket = u32
+
+  /// An asynchronous operation. In the future, this will be replaced by a handle type.
+  // TODO: `use` the `wasi-poll` version
+  type wasi-future = u32
+
+  /// Errors which may be encountered when performing socket-related operations
+  // TODO: expand this list
+  enum error {
+      connection-aborted,
+      connection-refused,
+      connection-reset,
+      host-unreachable,
+      network-down,
+      network-unreachable,
+      timeout
+  }
+
+  /// Result of querying bytes readable or writable for a `socket`
+  record bytes-result {
+      /// Indicates the number of bytes readable or writable for a still-open socket
+      nbytes: u64,
+      /// Indicates whether the other end of the stream has disconnected, in which case
+      /// no further data will be received (when reading) or accepted (when writing) on
+      /// this stream.
+      is-closed: bool
+  }
+
+  /// Query the specified `socket` for how many bytes are available to read.
+  bytes-readable: func(s: socket) -> result<bytes-result, error>
+
+  /// Query the specified `socket` for the number of bytes ready to be accepted.
+  bytes-writable: func(s: socket) -> result<bytes-result, error>
+
+  /// Create a future which will resolve once either the specified socket has bytes
+  /// available to read or the other end of the stream has been closed.
+  subscribe-read: func(s: socket) -> wasi-future
+
+  /// Create a future which will resolve once either the specified socket is ready
+  /// to accept bytes or the other end of the stream has been closed.
+  subscribe-write: func(s: socket) -> wasi-future
 }
 
 world wasi {
@@ -929,6 +1032,7 @@ world wasi {
   import wasi-filesystem: wasi-filesystem
   import wasi-random: wasi-random
   import wasi-poll: wasi-poll
+  import wasi-tcp: wasi-tcp
 
-  //default export command
+  default export command
 }
