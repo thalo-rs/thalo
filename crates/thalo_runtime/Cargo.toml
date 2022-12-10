@@ -3,6 +3,10 @@ name = "thalo_runtime"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "thalo"
+path = "./src/main.rs"
+
 [dependencies]
 thalo = { workspace = true, features = ["consumer"] }
 thalo_registry = { workspace = true }
