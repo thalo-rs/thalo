@@ -27,7 +27,7 @@ chrono = "0.4"
 clap = { version = "4.0", features = ["derive", "env"] }
 derive_more = "0.99"
 directories-next = "2.0"
-esdl = { git = "https://github.com/thalo-rs/esdl" }
+esdl = "0.6.0"
 futures = "0.3.25"
 messagedb = { version = "0.1.0", default-features = false }
 quinn = "0.9"

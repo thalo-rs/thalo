@@ -823,8 +823,9 @@ dependencies = [
 
 [[package]]
 name = "esdl"
-version = "0.5.0"
-source = "git+https://github.com/thalo-rs/esdl#8601cce3336a772fd8fecfee84460830d7ed4ccf"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "74c3ce55cd825c3e3afd8040c67506836433a79d2f035f154cfda5b33bb23bc4"
 dependencies = [
  "nom",
  "nom-supreme",
