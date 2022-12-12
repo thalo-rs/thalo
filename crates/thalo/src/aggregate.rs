@@ -81,7 +81,7 @@ pub mod wit_aggregate {
             let stream_name = ctx
                 .stream_name
                 .parse()
-                .map_err(|err: message_db::Error| Error::DeserializeContext(err.to_string()))?;
+                .map_err(|err: messagedb::Error| Error::DeserializeContext(err.to_string()))?;
             let metadata = serde_json::from_slice(&ctx.metadata)
                 .map_err(|err| Error::DeserializeContext(err.to_string()))?;
             let Some(time) = Utc.timestamp_opt(ctx.time / 1_000, (ctx.time % 1_000_000) as u32).single() else {

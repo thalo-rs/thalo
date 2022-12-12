@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::Parser;
-use message_db::database::MessageStore;
+use messagedb::database::MessageStore;
 use thalo_registry::Registry;
 use thalo_runtime::interface::quic::load_certs;
 use thalo_runtime::interface::{self};

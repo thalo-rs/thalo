@@ -54,9 +54,9 @@ impl DeriveEventCollection {
                 }
 
                 fn deserialize_event(
-                    message: ::message_db::message::GenericMessage,
+                    message: ::messagedb::message::GenericMessage,
                 ) -> ::std::result::Result<
-                    ::std::option::Option<::message_db::message::Message<Self>>,
+                    ::std::option::Option<::messagedb::message::Message<Self>>,
                     ::thalo::serde_json::Error,
                 > {
                     let entity_name = &message.stream_name.category.entity_name;

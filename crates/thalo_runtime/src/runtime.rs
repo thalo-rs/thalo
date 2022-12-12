@@ -3,9 +3,9 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, bail, Context as AnyhowContext, Result};
 use futures::StreamExt;
-use message_db::database::{MessageStore, SubscribeToCategoryOpts, WriteMessageOpts};
-use message_db::message::MessageData;
-use message_db::stream_name::{Category, StreamName};
+use messagedb::database::{MessageStore, SubscribeToCategoryOpts, WriteMessageOpts};
+use messagedb::message::MessageData;
+use messagedb::stream_name::{Category, StreamName};
 use semver::VersionReq;
 use serde_json::Value;
 use thalo::Context;

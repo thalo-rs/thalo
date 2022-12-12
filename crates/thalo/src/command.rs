@@ -1,8 +1,8 @@
 use std::fmt;
 
 use chrono::{DateTime, Utc};
-use message_db::message::Metadata;
-use message_db::stream_name::StreamName;
+use messagedb::message::Metadata;
+use messagedb::stream_name::StreamName;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 

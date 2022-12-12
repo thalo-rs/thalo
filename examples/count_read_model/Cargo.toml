@@ -10,7 +10,7 @@ thalo = { workspace = true, features = ["consumer"] }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
-message_db = { workspace = true }
+messagedb = { workspace = true }
 mongodb = { version = "2.3" }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

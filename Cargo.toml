@@ -29,7 +29,7 @@ derive_more = "0.99"
 directories-next = "2.0"
 esdl = { git = "https://github.com/thalo-rs/esdl" }
 futures = "0.3.25"
-message_db = { git = "https://github.com/thalo-rs/message_db", default-features = false }
+messagedb = { version = "0.1.0", default-features = false }
 quinn = "0.9"
 rmp-serde = "1.1"
 rustls = "0.20"

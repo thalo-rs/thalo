@@ -19,7 +19,7 @@ derive_more = { workspace = true }
 directories-next = { workspace = true }
 esdl = { workspace = true }
 futures = { workspace = true }
-message_db = { workspace = true }
+messagedb = { workspace = true }
 quinn = { workspace = true }
 rand = "0.8.5"
 rcgen = { version = "0.10.0", features = ["pem", "x509-parser"] }
