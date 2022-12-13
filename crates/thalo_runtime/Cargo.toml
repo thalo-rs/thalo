@@ -19,6 +19,7 @@ derive_more = { workspace = true }
 directories-next = { workspace = true }
 esdl = { workspace = true }
 futures = { workspace = true }
+host = { git = "https://github.com/bytecodealliance/preview2-prototyping" }
 message_db = { workspace = true }
 quinn = { workspace = true }
 rand = "0.8.5"
@@ -33,6 +34,7 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+wasi-cap-std-sync = { git = "https://github.com/bytecodealliance/preview2-prototyping" }
 wasmtime = { git = "https://github.com/bytecodealliance/wasmtime", features = [
   "component-model",
 ] }

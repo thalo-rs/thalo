@@ -15,11 +15,11 @@ use serde::{Deserialize, Serialize};
 use thalo::Context;
 use tokio::sync::Mutex;
 use tracing::trace;
+use wasi_cap_std_sync::WasiCtxBuilder;
 use wasmtime::component::{Component, Linker};
 use wasmtime::{Engine, Store};
 
 use self::wit_aggregate::{Aggregate, Command};
-use crate::host;
 
 #[derive(Clone)]
 pub struct Module {
@@ -77,7 +77,7 @@ impl Module {
     where
         T: AsRef<Path> + fmt::Debug,
     {
-        let mut store = Store::new(&engine, WasiCtx::default());
+        let mut store = Store::new(&engine, WasiCtxBuilder::new().build());
         let component = Component::from_file(&engine, &file).unwrap();
         let mut linker = Linker::new(&engine);
         host::add_to_linker(&mut linker, |x| x)?;
@@ -97,7 +97,7 @@ impl Module {
     }
 
     pub async fn from_binary(engine: Engine, id: ModuleID, binary: &[u8]) -> Result<Self> {
-        let mut store = Store::new(&engine, WasiCtx::default());
+        let mut store = Store::new(&engine, WasiCtxBuilder::new().build());
         let component = Component::from_binary(&engine, binary).unwrap();
         let mut linker = Linker::new(&engine);
         host::add_to_linker(&mut linker, |x| x)?;
