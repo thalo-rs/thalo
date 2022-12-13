@@ -1422,7 +1422,8 @@ dependencies = [
 [[package]]
 name = "message_db"
 version = "0.1.0"
-source = "git+https://github.com/thalo-rs/message_db#02e61a90244404b16880b0b0134166d162799013"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70d381c9f3119ab0702f5fc9c859c29f21902025c958645fb7978473dd0b1de2"
 dependencies = [
  "chrono",
  "either",
