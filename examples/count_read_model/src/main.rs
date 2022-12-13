@@ -1,8 +1,8 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use counter::{Decremented, Incremented};
-use messagedb::database::{MessageStore, SubscribeToCategoryOpts};
-use messagedb::message::Message;
+use message_db::database::{MessageStore, SubscribeToCategoryOpts};
+use message_db::message::Message;
 use mongodb::bson::{doc, Document};
 use mongodb::options::{ClientOptions, UpdateOptions};
 use mongodb::{Client, Collection};

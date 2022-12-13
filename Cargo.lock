@@ -320,7 +320,7 @@ dependencies = [
  "async-trait",
  "counter",
  "futures",
- "messagedb",
+ "message_db",
  "mongodb",
  "serde",
  "serde_json",
@@ -1420,10 +1420,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "messagedb"
+name = "message_db"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ab4391209aa1a28c0663d0c681d9e4ccda7660a9cb8563fe2880d6781093e69"
+source = "git+https://github.com/thalo-rs/message_db#02e61a90244404b16880b0b0134166d162799013"
 dependencies = [
  "chrono",
  "either",
@@ -2556,7 +2555,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "futures",
- "messagedb",
+ "message_db",
  "serde",
  "serde_json",
  "thalo_macros",
@@ -2624,7 +2623,7 @@ dependencies = [
  "directories-next",
  "esdl",
  "futures",
- "messagedb",
+ "message_db",
  "quinn",
  "rand",
  "rcgen",

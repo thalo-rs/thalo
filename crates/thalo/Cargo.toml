@@ -8,7 +8,7 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 chrono = { workspace = true }
 futures = { workspace = true }
-messagedb = { workspace = true, default-features = false }
+message_db = { workspace = true, default-features = false }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thalo_macros = { workspace = true }
@@ -18,4 +18,4 @@ uuid = { workspace = true }
 wit-bindgen-guest-rust = { git = "https://github.com/bytecodealliance/wit-bindgen" }
 
 [features]
-consumer = ["messagedb/database"]
+consumer = ["message_db/database"]

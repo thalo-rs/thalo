@@ -3,8 +3,8 @@ use std::collections::HashSet;
 use async_trait::async_trait;
 use futures::future::{self};
 use futures::{FutureExt, StreamExt};
-use messagedb::database::{MessageStore, SubscribeToCategoryOpts};
-use messagedb::message::{GenericMessage, Message, MessageData};
+use message_db::database::{MessageStore, SubscribeToCategoryOpts};
+use message_db::message::{GenericMessage, Message, MessageData};
 pub use thalo_macros::EventCollection;
 use tracing::{info, trace};
 

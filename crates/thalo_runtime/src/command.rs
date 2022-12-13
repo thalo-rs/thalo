@@ -3,8 +3,8 @@ mod handler;
 use std::collections::HashMap;
 
 use anyhow::{anyhow, Result};
-use messagedb::database::MessageStore;
-use messagedb::stream_name::{Category, StreamName, ID};
+use message_db::database::MessageStore;
+use message_db::stream_name::{Category, StreamName, ID};
 use semver::VersionReq;
 use serde_json::Value;
 use thalo::Context;

@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use anyhow::{anyhow, Context as AnyhowContext, Result};
 use futures::TryFutureExt;
-use messagedb::database::{GetStreamMessagesOpts, MessageStore, WriteMessageOpts};
-use messagedb::message::{MessageData, MetadataRef};
-use messagedb::stream_name::StreamName;
+use message_db::database::{GetStreamMessagesOpts, MessageStore, WriteMessageOpts};
+use message_db::message::{MessageData, MetadataRef};
+use message_db::stream_name::StreamName;
 use semver::VersionReq;
 use serde_json::Value;
 use thalo::Context;
@@ -187,7 +187,7 @@ async fn save_events(
         .enumerate()
         .map(|(i, (event, event_ctx))| {
             let data = serde_json::from_slice(&event.payload)
-                .map_err(messagedb::Error::DeserializeData)?;
+                .map_err(message_db::Error::DeserializeData)?;
             let opts = WriteMessageOpts::builder()
                 .expected_version(version + i as i64)
                 .metadata(MetadataRef {

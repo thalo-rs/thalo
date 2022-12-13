@@ -1,6 +1,6 @@
 use anyhow::Result;
 use bytes::Bytes;
-use messagedb::message::GenericMessage;
+use message_db::message::GenericMessage;
 use quinn::RecvStream;
 use serde::{Deserialize, Serialize};
 
