@@ -48,9 +48,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.66"
+version = "1.0.71"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "216261ddc8289130e551ddcd5ce8a064710c0d064a4d2895c67151c92b5443f6"
+checksum = "9c7d0618f0e0b7e8ff11427422b64564d5fb0be1940354bfe2e0529b18a9d9b8"
 
 [[package]]
 name = "arrayvec"
@@ -82,7 +82,7 @@ checksum = "726535892e8eae7e70657b4c8ea93d26b8553afb1ce617caee529ef96d7dee6c"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.105",
  "synstructure",
 ]
 
@@ -94,7 +94,7 @@ checksum = "2777730b2039ac0f95f093556e61b6d26cebed5393ca6f152717777cec3a42ed"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.105",
 ]
 
 [[package]]
@@ -105,7 +105,7 @@ checksum = "31e6e93155431f3931513b243d371981bb2770112b370c82745a1d19d2f99364"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.105",
 ]
 
 [[package]]
@@ -162,6 +162,12 @@ name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
+
+[[package]]
+name = "bitflags"
+version = "2.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "24a6904aef64d73cf10ab17ebace7befb918b82164785cb89907993be7f83813"
 
 [[package]]
 name = "block-buffer"
@@ -319,7 +325,7 @@ version = "4.0.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4d63b9e9c07271b9957ad22c173bae2a4d9a81127680962039296abcd2f8251d"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "clap_derive",
  "clap_lex",
  "is-terminal",
@@ -338,7 +344,7 @@ dependencies = [
  "proc-macro-error",
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.105",
 ]
 
 [[package]]
@@ -512,7 +518,7 @@ dependencies = [
  "itertools",
  "log",
  "smallvec",
- "wasmparser",
+ "wasmparser 0.95.0",
  "wasmtime-types",
 ]
 
@@ -627,7 +633,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "scratch",
- "syn",
+ "syn 1.0.105",
 ]
 
 [[package]]
@@ -644,7 +650,7 @@ checksum = "1362b0ddcfc4eb0a1f57b68bd77dd99f0e826958a96abd0ae9bd092e114ffed6"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.105",
 ]
 
 [[package]]
@@ -678,7 +684,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "strsim",
- "syn",
+ "syn 1.0.105",
 ]
 
 [[package]]
@@ -692,7 +698,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "strsim",
- "syn",
+ "syn 1.0.105",
 ]
 
 [[package]]
@@ -703,7 +709,7 @@ checksum = "9c972679f83bdf9c42bd905396b6c3588a843a17f0f16dfcfa3e2c5d57441835"
 dependencies = [
  "darling_core 0.13.4",
  "quote",
- "syn",
+ "syn 1.0.105",
 ]
 
 [[package]]
@@ -714,7 +720,7 @@ checksum = "7618812407e9402654622dd402b0a89dff9ba93badd6540781526117b92aab7e"
 dependencies = [
  "darling_core 0.14.2",
  "quote",
- "syn",
+ "syn 1.0.105",
 ]
 
 [[package]]
@@ -745,7 +751,7 @@ checksum = "fcc3dd5e9e9c0b295d6e1e4d811fb6f157d5ffd784b8d202fc62eac8035a770b"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.105",
 ]
 
 [[package]]
@@ -758,7 +764,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rustc_version 0.4.0",
- "syn",
+ "syn 1.0.105",
 ]
 
 [[package]]
@@ -821,7 +827,7 @@ checksum = "3bf95dc3f046b9da4f2d51833c0d3547d8564ef6910f5c1ed130306a75b92886"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.105",
 ]
 
 [[package]]
@@ -854,7 +860,7 @@ dependencies = [
  "heck",
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.105",
 ]
 
 [[package]]
@@ -1019,7 +1025,7 @@ checksum = "bdfb8ce053d86b91919aad980c220b1fb8401a9394410e1c289ed7e66b61835d"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.105",
 ]
 
 [[package]]
@@ -1581,7 +1587,7 @@ checksum = "b5a1df476ac9541b0e4fdc8e2cc48884e66c92c933cd17a1fd75e68caf75752e"
 dependencies = [
  "async-trait",
  "base64",
- "bitflags",
+ "bitflags 1.3.2",
  "bson",
  "chrono",
  "derivative",
@@ -1842,7 +1848,7 @@ checksum = "069bdb1e05adc7a8990dce9cc75370895fbe4e3d58b9b73bf1aee56359344a55"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.105",
 ]
 
 [[package]]
@@ -1872,7 +1878,7 @@ dependencies = [
  "proc-macro-error-attr",
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.105",
  "version_check",
 ]
 
@@ -1889,9 +1895,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.47"
+version = "1.0.56"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ea3d908b0e36316caf9e9e2c4625cdde190a7e6f440d794667ed17a1855e725"
+checksum = "2b63bdb0cd06f1f4dedf69b254734f9b45af66e4a031e42a7480257d9898b435"
 dependencies = [
  "unicode-ident",
 ]
@@ -1911,7 +1917,7 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ffade02495f22453cd593159ea2f59827aae7f53fa8323f756799b670881dcf8"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "memchr",
  "unicase",
 ]
@@ -1974,9 +1980,9 @@ dependencies = [
 
 [[package]]
 name = "quote"
-version = "1.0.21"
+version = "1.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbe448f377a7d6961e30f5955f9b8d106c3f5e449d493ee1b125c1d43c2b5179"
+checksum = "8f4f29d145265ec1c483c7c654450edde0bfe043d3938d6972630663356d9500"
 dependencies = [
  "proc-macro2",
 ]
@@ -2052,7 +2058,7 @@ version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fb5a58c1855b4b6819d59012155603f0b22ad30cad752600aadfcb695265519a"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
 ]
 
 [[package]]
@@ -2206,7 +2212,7 @@ version = "0.36.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a3807b5d10909833d3e9acd1eb5fb988f79376ff10fce42937de71a449c4c588"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "errno",
  "io-lifetimes",
  "itoa",
@@ -2302,7 +2308,7 @@ version = "2.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2bc1bb97804af6631813c55739f771071e0f2ed33ee20b68c86ec505d906356c"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "core-foundation",
  "core-foundation-sys",
  "libc",
@@ -2369,7 +2375,7 @@ checksum = "42a3df25b0713732468deadad63ab9da1f1fd75a48a15024b50363f128db627e"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.105",
 ]
 
 [[package]]
@@ -2403,7 +2409,7 @@ dependencies = [
  "darling 0.13.4",
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.105",
 ]
 
 [[package]]
@@ -2515,7 +2521,7 @@ dependencies = [
  "ahash",
  "atoi",
  "base64",
- "bitflags",
+ "bitflags 1.3.2",
  "byteorder",
  "bytes",
  "chrono",
@@ -2577,7 +2583,7 @@ dependencies = [
  "sha2",
  "sqlx-core",
  "sqlx-rt",
- "syn",
+ "syn 1.0.105",
  "url",
 ]
 
@@ -2632,6 +2638,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "syn"
+version = "2.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a34fcf3e8b60f57e6a14301a2e916d323af98b0ea63c599441eec8558660c822"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "unicode-ident",
+]
+
+[[package]]
 name = "synstructure"
 version = "0.12.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2639,7 +2656,7 @@ checksum = "f36bdaa60a83aca3921b5259d5400cbf5e90fc51931376a9bd4a0eb79aa7210f"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.105",
  "unicode-xid",
 ]
 
@@ -2649,7 +2666,7 @@ version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77b5f685b54fe35201ca824534425d4af3562470fb67682cf20130c568b49042"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "cap-fs-ext",
  "cap-std",
  "io-lifetimes",
@@ -2694,7 +2711,7 @@ dependencies = [
  "thiserror",
  "tracing",
  "uuid 1.2.2",
- "wit-bindgen-guest-rust",
+ "wit-bindgen",
 ]
 
 [[package]]
@@ -2728,7 +2745,7 @@ dependencies = [
  "proc-macro-error",
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.105",
 ]
 
 [[package]]
@@ -2772,7 +2789,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "wasi-cap-std-sync",
+ "wasi-common",
  "wasmtime",
 ]
 
@@ -2793,7 +2810,7 @@ checksum = "982d17546b47146b28f7c22e3d08465f6b8903d0ea13c1660d9d84a6e7adcdbb"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.105",
 ]
 
 [[package]]
@@ -2892,7 +2909,7 @@ checksum = "d266c00fde287f55d3f1c3e96c500c362a2b8c695076ec180f27918820bc6df8"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.105",
 ]
 
 [[package]]
@@ -2960,7 +2977,7 @@ checksum = "4017f8f45139870ca7e672686113917c71c7a6e02d4924eda67186083c03081a"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.105",
 ]
 
 [[package]]
@@ -3055,7 +3072,7 @@ checksum = "89851716b67b937e393b3daa8423e67ddfc4bbbf1654bcf05488e95e0828db0c"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.105",
 ]
 
 [[package]]
@@ -3066,7 +3083,7 @@ checksum = "47a126a40dbff39e8320900cd61b8de053a2706e1f782cd27145792feb8fd41e"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.105",
 ]
 
 [[package]]
@@ -3219,7 +3236,7 @@ source = "git+https://github.com/bytecodealliance/preview2-prototyping#6e8bb31f3
 dependencies = [
  "anyhow",
  "async-trait",
- "bitflags",
+ "bitflags 1.3.2",
  "cap-rand",
  "cap-std",
  "io-extras",
@@ -3250,7 +3267,7 @@ dependencies = [
  "once_cell",
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.105",
  "wasm-bindgen-shared",
 ]
 
@@ -3272,7 +3289,7 @@ checksum = "07bc0c051dc5f23e307b13285f9d75df86bfdf816c5721e573dec1f9b8aa193c"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.105",
  "wasm-bindgen-backend",
  "wasm-bindgen-shared",
 ]
@@ -3293,10 +3310,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasm-encoder"
+version = "0.26.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d05d0b6fcd0aeb98adf16e7975331b3c17222aa815148f5b976370ce589d80ef"
+dependencies = [
+ "leb128",
+]
+
+[[package]]
+name = "wasm-metadata"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dbdef99fafff010c57fabb7bc703f0903ec16fcee49207a22dcc4f78ea44562f"
+dependencies = [
+ "anyhow",
+ "indexmap",
+ "serde",
+ "wasm-encoder 0.26.0",
+ "wasmparser 0.104.0",
+]
+
+[[package]]
 name = "wasmparser"
 version = "0.95.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2ea896273ea99b15132414be1da01ab0d8836415083298ecaffbe308eaac87a"
+dependencies = [
+ "indexmap",
+ "url",
+]
+
+[[package]]
+name = "wasmparser"
+version = "0.104.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a396af81a7c56ad976131d6a35e4b693b78a1ea0357843bd436b4577e254a7d"
 dependencies = [
  "indexmap",
  "url",
@@ -3309,7 +3358,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ae24500f9cc27a4b2b338e66693ff53c08b17cf920bdc81e402a09fe7a204eea"
 dependencies = [
  "anyhow",
- "wasmparser",
+ "wasmparser 0.95.0",
 ]
 
 [[package]]
@@ -3332,7 +3381,7 @@ dependencies = [
  "rayon",
  "serde",
  "target-lexicon",
- "wasmparser",
+ "wasmparser 0.95.0",
  "wasmtime-cache",
  "wasmtime-component-macro",
  "wasmtime-component-util",
@@ -3379,10 +3428,10 @@ source = "git+https://github.com/bytecodealliance/wasmtime#7adf3cacc50a10512e001
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.105",
  "wasmtime-component-util",
  "wasmtime-wit-bindgen",
- "wit-parser",
+ "wit-parser 0.3.1",
 ]
 
 [[package]]
@@ -3406,7 +3455,7 @@ dependencies = [
  "object",
  "target-lexicon",
  "thiserror",
- "wasmparser",
+ "wasmparser 0.95.0",
  "wasmtime-environ",
 ]
 
@@ -3424,8 +3473,8 @@ dependencies = [
  "serde",
  "target-lexicon",
  "thiserror",
- "wasm-encoder",
- "wasmparser",
+ "wasm-encoder 0.20.0",
+ "wasmparser 0.95.0",
  "wasmprinter",
  "wasmtime-component-util",
  "wasmtime-types",
@@ -3520,7 +3569,7 @@ dependencies = [
  "cranelift-entity",
  "serde",
  "thiserror",
- "wasmparser",
+ "wasmparser 0.95.0",
 ]
 
 [[package]]
@@ -3529,7 +3578,7 @@ version = "5.0.0"
 source = "git+https://github.com/bytecodealliance/wasmtime#7adf3cacc50a10512e001552aa5b9d84ab238cac"
 dependencies = [
  "heck",
- "wit-parser",
+ "wit-parser 0.3.1",
 ]
 
 [[package]]
@@ -3541,7 +3590,7 @@ dependencies = [
  "leb128",
  "memchr",
  "unicode-width",
- "wasm-encoder",
+ "wasm-encoder 0.20.0",
 ]
 
 [[package]]
@@ -3745,86 +3794,79 @@ version = "0.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9baf690e238840de84bbfad6ad72d6628c41d34c1a5e276dab7fb2c9167ca1ac"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "io-lifetimes",
  "windows-sys 0.42.0",
 ]
 
 [[package]]
+name = "wit-bindgen"
+version = "0.6.0"
+source = "git+https://github.com/bytecodealliance/wit-bindgen#0d398ceee814f97ca9e1762cf0904d71ee41af3e"
+dependencies = [
+ "bitflags 2.2.1",
+ "wit-bindgen-rust-macro",
+]
+
+[[package]]
 name = "wit-bindgen-core"
-version = "0.3.0"
-source = "git+https://github.com/bytecodealliance/wit-bindgen#d47b6c53613f1fd3f927cce5116f9a53fcc1b1c5"
+version = "0.6.0"
+source = "git+https://github.com/bytecodealliance/wit-bindgen#0d398ceee814f97ca9e1762cf0904d71ee41af3e"
 dependencies = [
  "anyhow",
  "wit-component",
- "wit-parser",
+ "wit-parser 0.7.1",
 ]
 
 [[package]]
-name = "wit-bindgen-gen-guest-rust"
-version = "0.3.0"
-source = "git+https://github.com/bytecodealliance/wit-bindgen#d47b6c53613f1fd3f927cce5116f9a53fcc1b1c5"
+name = "wit-bindgen-rust"
+version = "0.6.0"
+source = "git+https://github.com/bytecodealliance/wit-bindgen#0d398ceee814f97ca9e1762cf0904d71ee41af3e"
 dependencies = [
  "heck",
+ "wasm-metadata",
  "wit-bindgen-core",
- "wit-bindgen-gen-rust-lib",
+ "wit-bindgen-rust-lib",
  "wit-component",
 ]
 
 [[package]]
-name = "wit-bindgen-gen-rust-lib"
-version = "0.3.0"
-source = "git+https://github.com/bytecodealliance/wit-bindgen#d47b6c53613f1fd3f927cce5116f9a53fcc1b1c5"
+name = "wit-bindgen-rust-lib"
+version = "0.6.0"
+source = "git+https://github.com/bytecodealliance/wit-bindgen#0d398ceee814f97ca9e1762cf0904d71ee41af3e"
 dependencies = [
  "heck",
  "wit-bindgen-core",
 ]
 
 [[package]]
-name = "wit-bindgen-guest-rust"
-version = "0.3.0"
-source = "git+https://github.com/bytecodealliance/wit-bindgen#d47b6c53613f1fd3f927cce5116f9a53fcc1b1c5"
+name = "wit-bindgen-rust-macro"
+version = "0.6.0"
+source = "git+https://github.com/bytecodealliance/wit-bindgen#0d398ceee814f97ca9e1762cf0904d71ee41af3e"
 dependencies = [
- "bitflags",
- "wit-bindgen-guest-rust-macro",
-]
-
-[[package]]
-name = "wit-bindgen-guest-rust-macro"
-version = "0.3.0"
-source = "git+https://github.com/bytecodealliance/wit-bindgen#d47b6c53613f1fd3f927cce5116f9a53fcc1b1c5"
-dependencies = [
+ "anyhow",
  "proc-macro2",
- "syn",
+ "syn 2.0.15",
  "wit-bindgen-core",
- "wit-bindgen-gen-guest-rust",
- "wit-bindgen-rust-macro-shared",
-]
-
-[[package]]
-name = "wit-bindgen-rust-macro-shared"
-version = "0.3.0"
-source = "git+https://github.com/bytecodealliance/wit-bindgen#d47b6c53613f1fd3f927cce5116f9a53fcc1b1c5"
-dependencies = [
- "proc-macro2",
- "syn",
- "wit-bindgen-core",
+ "wit-bindgen-rust",
  "wit-component",
 ]
 
 [[package]]
 name = "wit-component"
-version = "0.3.2"
+version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "292a4db4b7de170ce349e2575f305ad592623ce16cbe824344894a10e60ab879"
+checksum = "e291ff83cb9c8e59963cc6922bdda77ed8f5517d6835f0c98070c4e7f1ae4996"
 dependencies = [
  "anyhow",
- "bitflags",
+ "bitflags 1.3.2",
  "indexmap",
  "log",
- "wasm-encoder",
- "wasmparser",
- "wit-parser",
+ "url",
+ "wasm-encoder 0.26.0",
+ "wasm-metadata",
+ "wasmparser 0.104.0",
+ "wit-parser 0.7.1",
 ]
 
 [[package]]
@@ -3838,6 +3880,21 @@ dependencies = [
  "indexmap",
  "pulldown-cmark",
  "unicode-xid",
+]
+
+[[package]]
+name = "wit-parser"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5ca2581061573ef6d1754983d7a9b3ed5871ef859d52708ea9a0f5af32919172"
+dependencies = [
+ "anyhow",
+ "id-arena",
+ "indexmap",
+ "log",
+ "pulldown-cmark",
+ "unicode-xid",
+ "url",
 ]
 
 [[package]]

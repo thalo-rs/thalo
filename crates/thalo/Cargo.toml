@@ -15,7 +15,7 @@ thalo_macros = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
-wit-bindgen-guest-rust = { git = "https://github.com/bytecodealliance/wit-bindgen" }
+wit-bindgen = { git = "https://github.com/bytecodealliance/wit-bindgen" }
 
 [features]
 consumer = ["message_db/database"]

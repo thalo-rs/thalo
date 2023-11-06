@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use thalo::Context;
 use tokio::sync::Mutex;
 use tracing::trace;
-use wasi_cap_std_sync::WasiCtxBuilder;
+use wasi_common::WasiCtxBuilder;
 use wasmtime::component::{Component, Linker};
 use wasmtime::{Engine, Store};
 

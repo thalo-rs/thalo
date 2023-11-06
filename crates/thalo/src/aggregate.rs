@@ -17,7 +17,7 @@ where
 
 #[doc(hidden)]
 pub mod wit_aggregate {
-    wit_bindgen_guest_rust::generate!("../../wit/aggregate.wit");
+    wit_bindgen::generate!("../../wit/aggregate.wit");
 
     pub use aggregate::*;
     use chrono::{TimeZone, Utc};
