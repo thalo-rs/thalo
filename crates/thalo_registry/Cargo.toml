@@ -5,8 +5,10 @@ edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
-esdl = { workspace = true }
+derive_more = { workspace = true }
+itertools = "0.11.0"
+# esdl = { workspace = true }
 semver = { workspace = true, features = ["serde"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
-sqlx = { workspace = true }
+sled = "0.34.7"

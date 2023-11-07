@@ -1,20 +1,22 @@
 use anyhow::Result;
 use bytes::Bytes;
-use message_db::message::GenericMessage;
 use quinn::RecvStream;
+use semver::Version;
 use serde::{Deserialize, Serialize};
-
-use crate::module::ModuleName;
+use thalo_message_store::message::GenericMessage;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Request {
     Execute {
-        name: ModuleName,
+        name: String,
         id: String,
         command: String,
         data: Vec<u8>,
     },
-    Publish {},
+    Publish {
+        name: String,
+        version: Version,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -25,7 +27,7 @@ pub enum Response {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ExecutedResult {
-    Events(Vec<GenericMessage>),
+    Events(Vec<GenericMessage<'static>>),
     TimedOut,
 }
 

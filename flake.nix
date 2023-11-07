@@ -19,7 +19,7 @@
         (self: super: {
           rustToolchain = super.rust-bin.selectLatestNightlyWith (toolchain: toolchain.default.override {
             extensions = [ "rust-src" ];
-            targets = [ "wasm32-unknown-unknown" ];
+            targets = [ "wasm32-wasi" "wasm32-unknown-unknown" ];
           });
         })
       ];

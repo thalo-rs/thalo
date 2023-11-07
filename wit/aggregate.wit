@@ -1,45 +1,40 @@
-interface aggregate {
-    type state = list<u8>
-
-    record event {
-        ctx: context,
-        event-type: string,
-        payload: list<u8>,
-    }
-
-    record command {
-        command: string,
-        payload: list<u8>,
-    }
-
-    record context {
-        id: string,
-        stream-name: string,
-        position: s64,
-        global-position: s64,
-        metadata: list<u8>,
-        time: s64,
-    }
-
-    variant error {
-        command(string),
-        ignore(option<string>),
-        deserialize-command(string),
-        deserialize-context(string),
-        deserialize-event(string),
-        deserialize-state(string),
-        serialize-command(string),
-        serialize-event(string),
-        serialize-state(string),
-        unknown-command,
-        unknown-event,
-    }
-
-    init: func(id: string) -> result<state, error>
-    apply: func(state: state, events: list<event>) -> result<state, error>
-    handle: func(state: state, ctx: context, command: command) -> result<list<event>, error>
-}
+package thalo:aggregate;
 
 world aggregate {
-  export aggregate: aggregate
+    export aggregate: interface {
+        record context {
+            id: u64,
+            stream-name: string,
+            position: u64,
+            metadata: string,
+            time: u64,
+        }
+
+        record event {
+            ctx: context,
+            event: string,
+            payload: string,
+        }
+
+        record command {
+            ctx: context,
+            command: string,
+            payload: string,
+        }
+
+        variant error {
+            command(string),
+            ignore(option<string>),
+            instance-not-found,
+            deserialize-command(string),
+            deserialize-context(string),
+            deserialize-event(string),
+            serialize-event(string),
+            parse-id(string),
+        }
+
+        init: func(id: string) -> result<_, error>;
+        apply: func(id: string, events: list<event>) -> result<_, error>;
+        handle: func(id: string, command: command) -> result<list<event>, error>;
+    }
 }

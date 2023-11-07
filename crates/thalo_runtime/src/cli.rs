@@ -3,7 +3,8 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::Parser;
-use message_db::database::MessageStore;
+use thalo::StreamName;
+use thalo_message_store::message_store::MessageStore;
 use thalo_registry::Registry;
 use thalo_runtime::interface::quic::load_certs;
 use thalo_runtime::interface::{self};
@@ -25,10 +26,12 @@ struct Cli {
     /// Enable stateless retries
     #[clap(long)]
     stateless_retry: bool,
-    /// Database connection url
-    /// - Example: "postgres://postgres:postgres@localhost:5432/postgres"
-    #[clap(short, long, env = "DATABASE_URL")]
-    database_url: String,
+    /// Message store path
+    #[clap(short, long, default_value = "./message-store")]
+    message_store_path: PathBuf,
+    /// Registry path
+    #[clap(short, long, default_value = "./registry")]
+    registry_path: PathBuf,
     /// Address to listen on
     #[clap(long, default_value = "[::1]:4433")]
     listen: SocketAddr,
@@ -37,11 +40,26 @@ struct Cli {
 pub async fn start() -> Result<()> {
     let cli = Cli::parse();
 
-    let message_store = MessageStore::connect(&cli.database_url).await?;
-    let registry_store = Registry::connect(&cli.database_url).await?;
-    let runtime = Runtime::new(message_store, registry_store);
-    runtime.init().await?;
-    runtime.start().await;
+    let message_store = MessageStore::open(&cli.message_store_path)?;
+    let registry_store = Registry::open(&cli.registry_path)?;
+    let runtime = Runtime::new(message_store.clone(), registry_store);
+
+    // tokio::spawn(async move {
+    //     // let stream = message_store
+    //     //     .stream(StreamName::new("counter:command").unwrap())
+    //     //     .unwrap();
+    //     let mut sub = message_store
+    //         .db
+    //         .open_tree("counter:command-123")
+    //         .unwrap()
+    //         .watch_prefix(vec![]);
+    //     while let Some(event) = (&mut sub).await {
+    //         dbg!(event);
+    //     }
+    // });
+
+    // runtime.init().await?;
+    runtime.start().await?;
 
     let (certs, key) = load_certs(cli.key, cli.cert).await?;
     interface::quic::run(

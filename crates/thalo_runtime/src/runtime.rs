@@ -1,35 +1,36 @@
-use std::collections::BTreeMap;
+use std::borrow::Cow;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
-use anyhow::{anyhow, bail, Context as AnyhowContext, Result};
-use futures::StreamExt;
-use message_db::database::{MessageStore, SubscribeToCategoryOpts, WriteMessageOpts};
-use message_db::message::MessageData;
-use message_db::stream_name::{Category, StreamName};
-use semver::VersionReq;
+use anyhow::{anyhow, bail, Result};
+// use message_db::database::{MessageStore, SubscribeToCategoryOpts, WriteMessageOpts};
+// use message_db::message::MessageData;
+// use message_db::stream_name::{Category, StreamName};
+use semver::{Version, VersionReq};
 use serde_json::Value;
-use thalo::Context;
-use thalo_registry::Registry as RegistryStore;
+use thalo::{Category, Context, Metadata, StreamName};
+use thalo_message_store::message::MessageData;
+use thalo_message_store::message_store::MessageStore;
+use thalo_registry::Registry;
 use tokio::sync::RwLock;
+use tokio::task::JoinHandle;
 use tracing::{error, info, instrument, trace, warn};
 use wasmtime::Engine;
 
 use crate::command::CommandRouter;
-use crate::module::{ExecuteResult, Module, ModuleID, ModuleName, SchemaModule};
-use crate::registry::Registry;
+use crate::module::{ExecuteResult, Module, ModuleID};
 
 #[derive(Clone)]
 pub struct Runtime {
     engine: Engine,
     modules: Arc<RwLock<BTreeMap<ModuleID, Arc<Module>>>>,
-    registry: Arc<RwLock<Registry>>,
     command_router: CommandRouter,
     message_store: MessageStore,
-    registry_store: RegistryStore,
+    registry: Registry,
 }
 
 impl Runtime {
-    pub fn new(message_store: MessageStore, registry_store: RegistryStore) -> Self {
+    pub fn new(message_store: MessageStore, registry: Registry) -> Self {
         let mut config = wasmtime::Config::new();
         config.async_support(true).wasm_component_model(true);
         let engine = Engine::new(&config).unwrap();
@@ -37,10 +38,9 @@ impl Runtime {
         Runtime {
             engine,
             modules: Arc::new(RwLock::new(BTreeMap::new())),
-            registry: Arc::new(RwLock::new(Registry::default())),
             command_router: CommandRouter::start(),
             message_store,
-            registry_store,
+            registry,
         }
     }
 
@@ -48,96 +48,98 @@ impl Runtime {
         &self.message_store
     }
 
-    pub async fn init(&self) -> Result<()> {
-        let modules = self
-            .registry_store
-            .load_all_schema_modules()
-            .await
-            .context("failed to load all modules from registry")?;
-        for module in modules {
-            let module_id = ModuleID::new(module.name.parse()?, module.version);
-            let mut registry = self.registry.write().await;
-            registry.add_module(module_id, module.module);
+    pub async fn start(&self) -> Result<()> {
+        for res in self.registry.iter_all_latest() {
+            let (name, _version, _module) = res?;
+            self.start_module(&name)?;
         }
-
         Ok(())
     }
 
-    pub async fn start(&self) {
-        for module_name in self.registry.read().await.modules.keys().cloned() {
-            self.start_module(module_name);
-        }
-    }
-
-    fn start_module(&self, module_name: ModuleName) {
+    fn start_module(&self, module_name: &str) -> Result<JoinHandle<Result<()>>> {
         let runtime = self.clone();
-        let category_name = format!("{}:command", Category::normalize(&module_name.to_string()));
+        let category = Category::from_parts(Category::normalize(&module_name), &["command"])?;
+        let stream_name = StreamName::from_parts(category, None)?;
+        let stream = runtime.message_store.stream(stream_name.as_borrowed())?;
+        let mut subscriber = stream.watch::<MessageData>();
 
-        trace!("subscribing to category '{category_name}'");
-        tokio::spawn(async move {
-            let mut stream = MessageStore::subscribe_to_category::<MessageData, _>(
-                &runtime.message_store,
-                &category_name,
-                &SubscribeToCategoryOpts::builder()
-                    .identifier("thalo_runtime")
-                    .build(),
-            )
-            .await
-            .unwrap();
-            while let Some(batch) = stream.next().await {
-                match batch {
-                    Ok(commands) => {
-                        for command in commands {
-                            let id = match &command.stream_name.id {
-                                Some(id) => id.cardinal_id().to_string(),
+        trace!("subscribing to category '{}'", stream_name.category());
+        let handle = tokio::spawn(async move {
+            while let Some(raw_message) = (&mut subscriber).await {
+                match raw_message.message() {
+                    Ok(message) => {
+                        let id = match message.metadata.properties.get(&Cow::Borrowed("id")) {
+                            Some(id) => match id.as_str() {
+                                Some(id) => id,
                                 None => {
-                                    warn!(command_id = ?command.id, "missing id from command");
+                                    warn!(command_id = ?message.id, "command id is not a string");
                                     continue;
                                 }
-                            };
+                            },
+                            None => {
+                                warn!(command_id = ?message.id, "missing id from command");
+                                continue;
+                            }
+                        };
+                        // let stream_id = message.stream_name.id();
+                        // let id = match &stream_id {
+                        //     Some(id) => id.cardinal_id(),
+                        //     None => {
+                        //         warn!(command_id = ?message.id, "missing id from command");
+                        //         continue;
+                        //     }
+                        // };
 
-                            trace!(
-                                command_id = ?command.id,
-                                command_type = %command.msg_type,
-                                entity_name = %command.stream_name.category.entity_name,
-                                entity_id = %id,
-                                "handling command"
-                            );
+                        trace!(
+                            command_id = ?message.id,
+                            command_type = %message.msg_type,
+                            entity_name =
+                                %message.stream_name.category().entity_name(),
+                            entity_id = %id,
+                            "handling command"
+                        );
 
-                            let ctx = Context {
-                                id: command.id,
-                                stream_name: command.stream_name,
-                                position: command.position,
-                                global_position: command.global_position,
-                                metadata: command.metadata,
-                                time: command.time,
-                            };
+                        let name = stream_name.category().entity_name().to_string();
+                        let id = id.to_string();
+                        let ctx = Context {
+                            id: message.id,
+                            stream_name: message.stream_name.into_owned(),
+                            position: message.position,
+                            metadata: message.metadata.into_owned(),
+                            time: message.time,
+                        };
 
-                            let _ = runtime
-                                .execute(
-                                    module_name.clone(),
-                                    id,
-                                    ctx,
-                                    command.msg_type.clone(),
-                                    command.data,
-                                )
-                                .await;
+                        if let Err(err) = runtime
+                            .execute(
+                                name,
+                                id,
+                                ctx,
+                                message.msg_type.into_owned(),
+                                message.data.into_owned(),
+                            )
+                            .await
+                        {
+                            error!("{err}");
                         }
                     }
                     Err(err) => {
-                        error!(stream = %category_name, "failed to read command: {err}");
+                        error!("{err}");
                     }
                 }
             }
+
+            Ok::<_, anyhow::Error>(())
         });
+
+        Ok(handle)
     }
 
     #[instrument(skip(self, ctx, payload))]
     pub async fn execute(
         &self,
-        name: ModuleName,
+        name: String,
         id: String,
-        ctx: Context,
+        ctx: Context<'static>,
         command: String,
         payload: Value,
     ) -> Result<ExecuteResult> {
@@ -169,79 +171,74 @@ impl Runtime {
 
     pub async fn submit_command(
         &self,
-        name: &ModuleName,
+        name: &str,
         id: &str,
         command: &str,
         data: &Value,
-    ) -> Result<i64> {
-        let category = Category::new(Category::normalize(name), vec!["command".to_string()])?;
-        let stream_name = StreamName {
-            category,
-            id: Some(id.parse()?),
-        };
-
-        let position = MessageStore::write_message(
-            &self.message_store,
-            &stream_name.to_string(),
-            command,
-            data,
-            &WriteMessageOpts::default(),
-        )
-        .await?;
+    ) -> Result<u64> {
+        let category = Category::from_parts(Category::normalize(name), &["command"])?;
+        // let id = ID::new(id)?;
+        let stream_name = StreamName::from_parts(category, None)?;
+        let mut stream = self.message_store.stream(stream_name.as_borrowed())?;
+        let position = stream
+            .write_message(
+                command,
+                data,
+                &Metadata {
+                    stream_name: stream_name.as_borrowed(),
+                    position: 0,
+                    causation_message_stream_name: stream_name.as_borrowed(),
+                    causation_message_position: 0,
+                    reply_stream_name: None,
+                    schema_version: None,
+                    properties: HashMap::from_iter([(
+                        Cow::Borrowed("id"),
+                        Cow::Owned(Value::String(id.to_string())),
+                    )]),
+                },
+                None,
+            )
+            .await?;
 
         Ok(position)
     }
 
-    pub async fn publish_module(&self, schema_module: SchemaModule) -> Result<()> {
-        let mut registry = self.registry.write().await;
-
-        let latest_version = self
-            .registry_store
-            .load_module_latest_version(&schema_module.schema().aggregate.name)
-            .await?;
-        if let Some(latest_version) = latest_version {
-            if schema_module.schema().version <= latest_version {
+    pub async fn publish_module(&self, name: &str, version: Version, module: &[u8]) -> Result<()> {
+        let module_versions = self.registry.module(name)?;
+        if let Some((latest_version, _)) = module_versions.get_latest()? {
+            if version <= latest_version {
                 bail!("version must be greater than latest version {latest_version}");
             }
         }
 
-        self.registry_store
-            .save_schema_module(schema_module.schema(), schema_module.module())
-            .await?;
+        module_versions.insert(version, module).await?;
 
-        let (schema, module) = schema_module.into_inner();
-        let module_name: ModuleName = schema.aggregate.name.parse()?;
-        let id = ModuleID::new(module_name.clone(), schema.version);
-        registry.add_module(id, module);
-
-        self.start_module(module_name);
+        self.start_module(name)?;
 
         Ok(())
     }
 
     pub async fn load_module(
         &self,
-        name: &ModuleName,
+        name: &str,
         version: &VersionReq,
     ) -> Result<(ModuleID, Arc<Module>)> {
         if let Some((module_id, module)) = self.load_module_opt(name, version).await {
             return Ok((module_id, module));
         }
 
-        let (module, module_id) = {
-            let registry = self.registry.read().await;
-            let (version, binary) = registry
-                .get_module(name, version)
-                .ok_or_else(|| anyhow!("module does not exist"))?;
-            let module = Module::from_binary(
-                self.engine.clone(),
-                ModuleID::new(name.clone(), version.clone()),
-                binary,
-            )
-            .await?;
-            let module_id = ModuleID::new(name.clone(), version.clone());
-            (module, module_id)
-        };
+        let module_versions = self.registry.module(name)?;
+        let (version, binary) = module_versions
+            .get(version)?
+            .ok_or_else(|| anyhow!("module does not exist"))?;
+
+        let module = Module::from_binary(
+            self.engine.clone(),
+            ModuleID::new(name.to_string(), version.clone()),
+            &binary,
+        )
+        .await?;
+        let module_id = ModuleID::new(name.to_string(), version);
         let mut modules = self.modules.write().await;
         let module = modules
             .entry(module_id.clone())
@@ -252,7 +249,7 @@ impl Runtime {
 
     async fn load_module_opt(
         &self,
-        name: &ModuleName,
+        name: &str,
         version: &VersionReq,
     ) -> Option<(ModuleID, Arc<Module>)> {
         let modules_read = self.modules.read().await;

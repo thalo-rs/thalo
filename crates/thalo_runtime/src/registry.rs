@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use semver::{Version, VersionReq};
 
-use crate::module::{ModuleID, ModuleName};
+use crate::module::ModuleID;
 
 #[derive(Default)]
 pub struct Registry {

@@ -1,54 +1,57 @@
 use serde::{Deserialize, Serialize};
-use thalo::{export_aggregate, Aggregate, Context, Error};
+use thalo::*;
 
 export_aggregate!(Counter);
 
-#[derive(Aggregate, Serialize, Deserialize)]
-#[aggregate(schema = "examples/counter/counter.esdl")]
 pub struct Counter {
-    id: String,
     count: i64,
-    sequence: i64,
+    sequence: Option<u64>,
 }
 
-impl CounterAggregate for Counter {
-    fn new(id: String) -> Result<Self, Error> {
-        Ok(Counter {
-            id,
+#[derive(Deserialize)]
+#[serde(tag = "command", content = "payload")]
+pub enum Command {
+    Increment { amount: i64 },
+    Decrement { amount: i64 },
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "event", content = "payload")]
+pub enum Event {
+    Incremented { amount: i64 },
+    Decremented { amount: i64 },
+}
+
+impl Aggregate for Counter {
+    type ID = String;
+    type Command = Command;
+    type Event = Event;
+    type Error = &'static str;
+
+    fn init(_id: Self::ID) -> Self {
+        Counter {
             count: 0,
-            sequence: -1,
-        })
+            sequence: None,
+        }
     }
 
-    fn apply_incremented(&mut self, ctx: Context, event: Incremented) {
-        self.count += event.amount as i64;
-        self.sequence = ctx.position;
+    fn apply(&mut self, ctx: Context, evt: Self::Event) {
+        self.sequence = Some(ctx.position);
+
+        match evt {
+            Event::Incremented { amount } => self.count += amount,
+            Event::Decremented { amount } => self.count -= amount,
+        }
     }
 
-    fn apply_decremented(&mut self, ctx: Context, event: Decremented) {
-        self.count -= event.amount as i64;
-        self.sequence = ctx.position;
-    }
-
-    fn handle_increment(&self, ctx: &mut Context, amount: i32) -> Result<Incremented, Error> {
-        if ctx.processed(self.sequence) {
-            return Err(Error::ignore());
+    fn handle(&self, ctx: Context, cmd: Self::Command) -> Result<Vec<Self::Event>, Self::Error> {
+        if self.sequence.map(|seq| ctx.processed(seq)).unwrap_or(false) {
+            return Ok(vec![]);
         }
 
-        Ok(Incremented {
-            amount,
-            count: self.count + amount as i64,
-        })
-    }
-
-    fn handle_decrement(&self, ctx: &mut Context, amount: i32) -> Result<Decremented, Error> {
-        if ctx.processed(self.sequence) {
-            return Err(Error::ignore());
+        match cmd {
+            Command::Increment { amount } => Ok(vec![Event::Incremented { amount }]),
+            Command::Decrement { amount } => Ok(vec![Event::Decremented { amount }]),
         }
-
-        Ok(Decremented {
-            amount,
-            count: self.count - amount as i64,
-        })
     }
 }

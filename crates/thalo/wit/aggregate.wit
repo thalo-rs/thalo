@@ -1,0 +1,45 @@
+interface aggregate-api {
+    type state = list<u8>
+
+    record event {
+        ctx: context,
+        event-type: string,
+        payload: list<u8>,
+    }
+
+    record command {
+        command: string,
+        payload: list<u8>,
+    }
+
+    record context {
+        id: string,
+        stream-name: string,
+        position: s64,
+        global-position: s64,
+        metadata: list<u8>,
+        time: s64,
+    }
+
+    variant error {
+        command(string),
+        ignore(option<string>),
+        deserialize-command(string),
+        deserialize-context(string),
+        deserialize-event(string),
+        deserialize-state(string),
+        serialize-command(string),
+        serialize-event(string),
+        serialize-state(string),
+        unknown-command,
+        unknown-event,
+    }
+
+    init: func(id: string) -> result<state, error>
+    apply: func(state: state, events: list<event>) -> result<state, error>
+    handle: func(state: state, ctx: context, command: command) -> result<list<event>, error>
+}
+
+default world aggregate {
+  export aggregate: self.aggregate-api
+}

@@ -2,21 +2,16 @@ use std::io;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
 
 use anyhow::{anyhow, bail, Context, Result};
-use esdl::schema::Schema;
-use futures::{StreamExt, TryFutureExt};
-use message_db::database::{MessageStore, SubscribeToCategoryOpts};
-use message_db::message::MessageData;
-use message_db::stream_name::{Category, StreamName};
+use futures::TryFutureExt;
 use quinn::{RecvStream, SendStream};
 use rustls::PrivateKey;
+use semver::Version;
 use tokio::fs;
-use tracing::{error, info, info_span, warn, Instrument};
+use tracing::{error, info, info_span, trace, trace_span, Instrument};
 
 use crate::interface::message::{pack, receive, receive_raw, ExecutedResult, Request, Response};
-use crate::module::{ModuleName, SchemaModule};
 use crate::runtime::Runtime;
 
 pub const ALPN_QUIC_HTTP: &[&[u8]] = &[b"hq-29"];
@@ -50,7 +45,7 @@ pub async fn run(
     info!("listening on {}", endpoint.local_addr()?);
 
     while let Some(conn) = endpoint.accept().await {
-        info!("connection incoming");
+        trace!("connection incoming");
         let fut = handle_connection(runtime.clone(), conn);
         tokio::spawn(async move {
             if let Err(e) = fut.await {
@@ -145,7 +140,7 @@ pub async fn load_certs(
 
 async fn handle_connection(runtime: Runtime, conn: quinn::Connecting) -> Result<()> {
     let connection = conn.await?;
-    let span = info_span!(
+    let span = trace_span!(
         "connection",
         remote = %connection.remote_address(),
         protocol = %connection
@@ -156,14 +151,14 @@ async fn handle_connection(runtime: Runtime, conn: quinn::Connecting) -> Result<
             .map_or_else(|| "<none>".into(), |x| String::from_utf8_lossy(&x).into_owned())
     );
     async {
-        info!("established");
+        trace!("established connection");
 
         // Each stream initiated by the client constitutes a new request.
         loop {
             let stream = connection.accept_bi().await;
             let stream = match stream {
                 Err(quinn::ConnectionError::ApplicationClosed { .. }) => {
-                    info!("connection closed");
+                    trace!("connection closed");
                     return Ok(());
                 }
                 Err(e) => {
@@ -178,7 +173,7 @@ async fn handle_connection(runtime: Runtime, conn: quinn::Connecting) -> Result<
                         error!("failed: {reason}", reason = e.to_string());
                     }
                 }
-                .instrument(info_span!("request")),
+                .instrument(trace_span!("request")),
             );
         }
     }
@@ -199,7 +194,9 @@ async fn handle_request(
             command,
             data,
         } => handle_execute(&runtime, name, id, command, data).await,
-        Request::Publish {} => handle_publish(&runtime, &mut recv).await,
+        Request::Publish { name, version } => {
+            handle_publish(&runtime, name, version, &mut recv).await
+        }
     };
 
     let resp = resp.map_err(|err| {
@@ -216,62 +213,76 @@ async fn handle_request(
         .await
         .map_err(|e| anyhow!("failed to shutdown stream: {}", e))?;
 
-    info!("handled request");
+    trace!("handled request");
     Ok(())
 }
 
 pub async fn handle_execute(
     runtime: &Runtime,
-    name: ModuleName,
+    name: String,
     id: String,
     command: String,
     data: Vec<u8>,
 ) -> Result<Response> {
     let data = serde_json::from_slice(&data).context("invalid command data json")?;
-    let command_position = runtime.submit_command(&name, &id, &command, &data).await?;
+    let _command_position = runtime.submit_command(&name, &id, &command, &data).await?;
 
-    let event_category = Category::normalize(&name);
+    Ok(Response::Executed(ExecutedResult::Events(Vec::new())))
 
-    let mut command_category: Category = event_category.parse()?;
-    command_category.types.push("command".to_string());
-    let command_stream_name = StreamName {
-        category: command_category,
-        id: Some(id.parse()?),
-    };
+    // let category = Category::from_parts(Category::normalize(&name), &["command"])?;
+    // let id = ID::new(id)?;
+    // let stream_name = StreamName::from_parts(category, Some(&id));
 
-    let condition = format!(
-        "metadata->>'causation_message_stream_name' = '{command_stream_name}' AND metadata->>'causation_message_position' = '{command_position}'"
-    );
+    // let stream = runtime.message_store().stream(stream_name)?;
+    // let subscriber = stream.watch_category::<MessageData>();
+    // let fut = async move {
+    //     while let Some(raw_message) = (&mut subscriber).await {
+    //         let message = raw_message.message()?;
+    //         if message.metadata.causation_message_stream_name != stream_name || message.metadata.causation_message_position != command_position {
+    //             continue;
+    //         }
 
-    let mut stream = MessageStore::subscribe_to_category::<MessageData, _>(
-        runtime.message_store(),
-        &event_category,
-        &SubscribeToCategoryOpts::builder()
-            .position_update_interval(0)
-            .condition(&condition)
-            .build(),
-    )
-    .await?;
+    //     }
+    // }
+    // (&mut subscriber).
+    // while let foo = timeout(Duration::from_secs(10), (&mut subscriber)).await { /* use it */
+    // }
 
-    tokio::select! {
-        Some(result) = stream.next() => {
-            let events = result?;
-            Ok(Response::Executed(ExecutedResult::Events(events)))
-        }
-        _ = tokio::time::sleep(Duration::from_secs(10)) => {
-            warn!("command timed out when waiting for causation events");
-            Ok(Response::Executed(ExecutedResult::TimedOut))
-        }
-    }
+    // let condition = format!(
+    //     "metadata->>'causation_message_stream_name' = '{command_stream_name}' AND metadata->>'causation_message_position' = '{command_position}'"
+    // );
+
+    // let mut stream = MessageStore::subscribe_to_category::<MessageData, _>(
+    //     runtime.message_store(),
+    //     &event_category,
+    //     &SubscribeToCategoryOpts::builder()
+    //         .position_update_interval(0)
+    //         .condition(&condition)
+    //         .build(),
+    // )
+    // .await?;
+
+    // tokio::select! {
+    //     Some(result) = stream.next() => {
+    //         let events = result?;
+    //         Ok(Response::Executed(ExecutedResult::Events(events)))
+    //     }
+    //     _ = tokio::time::sleep(Duration::from_secs(10)) => {
+    //         warn!("command timed out when waiting for causation events");
+    //         Ok(Response::Executed(ExecutedResult::TimedOut))
+    //     }
+    // }
 }
 
-pub async fn handle_publish(runtime: &Runtime, recv: &mut RecvStream) -> Result<Response> {
-    let schema: Schema = receive(recv).await?;
+pub async fn handle_publish(
+    runtime: &Runtime,
+    name: String,
+    version: Version,
+    recv: &mut RecvStream,
+) -> Result<Response> {
     let module = receive_raw(recv).await?;
 
-    runtime
-        .publish_module(SchemaModule::new(schema, module)?)
-        .await?;
+    runtime.publish_module(&name, version, &module).await?;
 
     Ok(Response::Published {})
 }

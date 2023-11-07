@@ -3,16 +3,15 @@ mod handler;
 use std::collections::HashMap;
 
 use anyhow::{anyhow, Result};
-use message_db::database::MessageStore;
-use message_db::stream_name::{Category, StreamName, ID};
 use semver::VersionReq;
 use serde_json::Value;
-use thalo::Context;
+use thalo::{Category, Context, StreamName, ID};
+use thalo_message_store::message_store::MessageStore;
 use tokio::sync::mpsc::{self, Receiver, Sender};
 use tokio::sync::oneshot;
 
 use self::handler::CommandHandler;
-use crate::module::{ExecuteResult, ModuleName};
+use crate::module::ExecuteResult;
 use crate::runtime::Runtime;
 
 #[derive(Clone, Debug)]
@@ -24,9 +23,9 @@ struct ExecuteMsg {
     tx: oneshot::Sender<Result<ExecuteResult>>,
     runtime: Runtime,
     message_store: MessageStore,
-    name: ModuleName,
+    name: String,
     id: String,
-    ctx: Context,
+    ctx: Context<'static>,
     command: String,
     payload: Value,
 }
@@ -43,9 +42,9 @@ impl CommandRouter {
         &self,
         runtime: Runtime,
         message_store: MessageStore,
-        name: ModuleName,
+        name: String,
         id: String,
-        ctx: Context,
+        ctx: Context<'static>,
         command: String,
         payload: Value,
     ) -> Result<ExecuteResult> {
@@ -61,9 +60,9 @@ impl CommandRouter {
         tx: oneshot::Sender<Result<ExecuteResult>>,
         runtime: Runtime,
         message_store: MessageStore,
-        name: ModuleName,
+        name: String,
         id: String,
-        ctx: Context,
+        ctx: Context<'static>,
         command: String,
         payload: Value,
     ) -> Result<()> {
@@ -84,24 +83,21 @@ impl CommandRouter {
 }
 
 async fn command_router(mut rx: Receiver<ExecuteMsg>) {
-    let mut streams: HashMap<Category, CommandHandler> = HashMap::new();
+    let mut streams: HashMap<StreamName<'static>, CommandHandler> = HashMap::new();
 
     while let Some(req) = rx.recv().await {
-        let stream_name = match Category::normalize(&req.name)
-            .parse()
-            .and_then(|category: Category| Ok((category, ID::new(req.id)?)))
-        {
-            Ok((category, id)) => StreamName {
-                category,
-                id: Some(id),
-            },
-            Err(err) => {
-                let _ = req.tx.send(Err(err.into()));
-                continue;
-            }
-        };
+        let stream_name =
+            match Category::new(Category::normalize(&req.name)).and_then(|category: Category| {
+                StreamName::from_parts(category, Some(&ID::new(&req.id)?))
+            }) {
+                Ok(stream_name) => stream_name,
+                Err(err) => {
+                    let _ = req.tx.send(Err(err.into()));
+                    continue;
+                }
+            };
 
-        match streams.get(&stream_name.category) {
+        match streams.get(&stream_name) {
             Some(handler) => {
                 let _ = handler
                     .do_execute(req.tx, req.ctx, req.command, req.payload)
@@ -121,7 +117,7 @@ async fn command_router(mut rx: Receiver<ExecuteMsg>) {
                         let _ = handler
                             .do_execute(req.tx, req.ctx, req.command, req.payload)
                             .await;
-                        streams.insert(stream_name.category, handler);
+                        streams.insert(stream_name, handler);
                     }
                     Err(err) => {
                         let _ = req.tx.send(Err(anyhow!("failed to start handler: {err}")));

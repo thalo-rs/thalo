@@ -1,22 +1,25 @@
 [workspace]
+resolver = "2"
 members = [
   # Core
   "crates/thalo",
   "crates/thalo_cli",
-  "crates/thalo_macros",
+  "crates/thalo_message_store",
+  # "crates/thalo_macros",
   "crates/thalo_registry",
   "crates/thalo_runtime",
 
   # Examples
-  "examples/bank_account",
-  "examples/count_read_model",
+  # "examples/bank_account",
+  # "examples/count_read_model",
   "examples/counter",
-  "examples/todos",
+  # "examples/todos",
 ]
 
 [workspace.dependencies]
 thalo = { path = "crates/thalo" }
 thalo_macros = { path = "crates/thalo_macros" }
+thalo_message_store = { path = "crates/thalo_message_store" }
 thalo_registry = { path = "crates/thalo_registry" }
 thalo_runtime = { path = "crates/thalo_runtime" }
 

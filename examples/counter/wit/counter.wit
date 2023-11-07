@@ -1,0 +1,23 @@
+default world entity {
+    import commands: self.commands
+    import events: self.events
+}
+
+interface state {
+    record state {
+        
+    }
+}
+ 
+interface commands {
+    import self.state.state
+    import self.events.added
+    
+    add: func(state: state) -> added
+}
+
+interface events {
+    record added {
+        amount: s64
+    }
+}

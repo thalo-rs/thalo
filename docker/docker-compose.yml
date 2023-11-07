@@ -2,7 +2,7 @@ version: '3.8'
 services:
   db:
     container_name: postgres
-    image: postgres-semver # postgres:15.1-alpine
+    image: abrt/postgres-semver # postgres:15.1-alpine
     restart: always
     command: postgres -c message_store.sql_condition=on
     environment:

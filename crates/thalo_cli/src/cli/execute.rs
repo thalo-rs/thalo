@@ -5,7 +5,6 @@ use clap::Args;
 use quinn::{RecvStream, SendStream};
 use serde_json::Value;
 use thalo_runtime::interface::message::{pack, Request};
-use thalo_runtime::module::ModuleName;
 use uuid::Uuid;
 
 use super::handle_response;
@@ -14,7 +13,7 @@ use super::handle_response;
 #[derive(Args, Clone, Debug)]
 pub struct Execute {
     /// Name of aggregate
-    name: ModuleName,
+    name: String,
     /// ID of aggregate instance
     id: String,
     /// Command to execute

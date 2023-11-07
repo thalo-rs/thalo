@@ -9,6 +9,7 @@ path = "./src/main.rs"
 
 [dependencies]
 thalo = { workspace = true, features = ["consumer"] }
+thalo_message_store = { workspace = true }
 thalo_registry = { workspace = true }
 
 anyhow = { workspace = true }
@@ -19,8 +20,8 @@ derive_more = { workspace = true }
 directories-next = { workspace = true }
 esdl = { workspace = true }
 futures = { workspace = true }
-host = { git = "https://github.com/bytecodealliance/preview2-prototyping" }
-message_db = { workspace = true }
+itertools = "0.11.0"
+# message_db = { workspace = true }
 quinn = { workspace = true }
 rand = "0.8.5"
 rcgen = { version = "0.10.0", features = ["pem", "x509-parser"] }
@@ -30,11 +31,14 @@ rustls-pemfile = "1.0.1"
 semver = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+serde_cbor = "0.11.2"
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-wasi-common = { git = "https://github.com/bytecodealliance/preview2-prototyping" }
-wasmtime = { git = "https://github.com/bytecodealliance/wasmtime", features = [
-  "component-model",
-] }
+# wasi-common = "14.0"
+wasmtime-wasi = { version = "14.0.4", features = ["tokio"] }
+wasmtime = { version = "14.0", features = ["component-model"] }
+ractor = "0.9.3"
+async-trait = "0.1.74"
+moka = { version = "0.12.1", features = ["future"] }
