@@ -1,16 +1,5 @@
 mod cli;
 
-use std::collections::HashMap;
-use std::time::{Duration, UNIX_EPOCH};
-
-use serde_json::json;
-use thalo::{Context, Metadata, StreamName};
-use thalo_message_store::message::MessageData;
-use thalo_message_store::message_store::MessageStore;
-use thalo_registry::Registry;
-use thalo_runtime::runtime::Runtime;
-use tracing::error;
-use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
@@ -25,13 +14,35 @@ async fn main() {
         // .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
         .init();
 
-    // let message_store = MessageStore::open("./message-store")?;
+    // let message_store = MessageStore::open("./message-store").unwrap();
     // let registry = Registry::open("./registry").unwrap();
     // for res in registry.iter_all_latest() {
     //     let (name, version, _) = res.unwrap();
     //     println!("{name}@{version}");
     // }
-    // let runtime = Runtime::new(message_store, registry);
+    // let runtime = Runtime::new(message_store, "modules").await.unwrap();
+    // let count = 100_000;
+    // let start = Instant::now();
+    // for _ in 0..count {
+    //     runtime
+    //         .execute(
+    //             Category::new("counter").unwrap(),
+    //             ID::new("123").unwrap(),
+    //             "Increment".to_string(),
+    //             json!({
+    //                 "amount": 10
+    //             }),
+    //         )
+    //         .await
+    //         .unwrap();
+    //     println!("{}", start.elapsed().as_micros());
+    // }
+    // let dur = start.elapsed();
+    // println!(
+    //     "TOTAL: {}      -  {} / sec",
+    //     dur.as_millis(),
+    //     count * 1000 / dur.as_millis()
+    // );
 
     // let res = runtime
     //     .execute(
@@ -76,7 +87,7 @@ async fn main() {
     // Ok(())
 
     if let Err(err) = cli::start().await {
-        error!("{err}");
+        eprintln!("{err}");
         err.chain()
             .skip(1)
             .for_each(|cause| eprintln!("because: {}", cause));

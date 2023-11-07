@@ -2,17 +2,21 @@ use std::io;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::{anyhow, bail, Context, Result};
 use futures::TryFutureExt;
 use quinn::{RecvStream, SendStream};
+use ractor::rpc::CallResult;
 use rustls::PrivateKey;
-use semver::Version;
+use thalo::{Category, ID};
 use tokio::fs;
-use tracing::{error, info, info_span, trace, trace_span, Instrument};
+use tracing::{error, info, trace, trace_span, Instrument};
 
-use crate::interface::message::{pack, receive, receive_raw, ExecutedResult, Request, Response};
+use crate::interface::message::{pack, receive, receive_raw, Request, Response};
 use crate::runtime::Runtime;
+
+use super::message::ExecutedResult;
 
 pub const ALPN_QUIC_HTTP: &[&[u8]] = &[b"hq-29"];
 
@@ -192,10 +196,11 @@ async fn handle_request(
             name,
             id,
             command,
-            data,
-        } => handle_execute(&runtime, name, id, command, data).await,
-        Request::Publish { name, version } => {
-            handle_publish(&runtime, name, version, &mut recv).await
+            payload,
+            timeout,
+        } => handle_execute(&runtime, name, id, command, payload, timeout).await,
+        Request::Publish { name, timeout } => {
+            handle_publish(&runtime, name, timeout, &mut recv).await
         }
     };
 
@@ -222,67 +227,37 @@ pub async fn handle_execute(
     name: String,
     id: String,
     command: String,
-    data: Vec<u8>,
+    payload: String,
+    timeout: Option<Duration>,
 ) -> Result<Response> {
-    let data = serde_json::from_slice(&data).context("invalid command data json")?;
-    let _command_position = runtime.submit_command(&name, &id, &command, &data).await?;
+    let payload = serde_json::from_str(&payload).context("invalid command payload json")?;
+    let result = runtime
+        .execute_wait(
+            Category::new(Category::normalize(&name))?,
+            ID::new(id)?,
+            command,
+            payload,
+            timeout,
+        )
+        .await?;
 
-    Ok(Response::Executed(ExecutedResult::Events(Vec::new())))
-
-    // let category = Category::from_parts(Category::normalize(&name), &["command"])?;
-    // let id = ID::new(id)?;
-    // let stream_name = StreamName::from_parts(category, Some(&id));
-
-    // let stream = runtime.message_store().stream(stream_name)?;
-    // let subscriber = stream.watch_category::<MessageData>();
-    // let fut = async move {
-    //     while let Some(raw_message) = (&mut subscriber).await {
-    //         let message = raw_message.message()?;
-    //         if message.metadata.causation_message_stream_name != stream_name || message.metadata.causation_message_position != command_position {
-    //             continue;
-    //         }
-
-    //     }
-    // }
-    // (&mut subscriber).
-    // while let foo = timeout(Duration::from_secs(10), (&mut subscriber)).await { /* use it */
-    // }
-
-    // let condition = format!(
-    //     "metadata->>'causation_message_stream_name' = '{command_stream_name}' AND metadata->>'causation_message_position' = '{command_position}'"
-    // );
-
-    // let mut stream = MessageStore::subscribe_to_category::<MessageData, _>(
-    //     runtime.message_store(),
-    //     &event_category,
-    //     &SubscribeToCategoryOpts::builder()
-    //         .position_update_interval(0)
-    //         .condition(&condition)
-    //         .build(),
-    // )
-    // .await?;
-
-    // tokio::select! {
-    //     Some(result) = stream.next() => {
-    //         let events = result?;
-    //         Ok(Response::Executed(ExecutedResult::Events(events)))
-    //     }
-    //     _ = tokio::time::sleep(Duration::from_secs(10)) => {
-    //         warn!("command timed out when waiting for causation events");
-    //         Ok(Response::Executed(ExecutedResult::TimedOut))
-    //     }
-    // }
+    match result {
+        CallResult::Success(events) => Ok(Response::Executed(ExecutedResult::Events(events))),
+        CallResult::Timeout => Ok(Response::Executed(ExecutedResult::TimedOut)),
+        CallResult::SenderError => Err(anyhow!("module '{name}' doesn't exist")),
+    }
 }
 
 pub async fn handle_publish(
     runtime: &Runtime,
     name: String,
-    version: Version,
+    timeout: Option<Duration>,
     recv: &mut RecvStream,
 ) -> Result<Response> {
+    let name = Category::new(Category::normalize(&name))?;
     let module = receive_raw(recv).await?;
 
-    runtime.publish_module(&name, version, &module).await?;
+    runtime.save_module_wait(name, &module, timeout).await?;
 
     Ok(Response::Published {})
 }

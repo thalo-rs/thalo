@@ -2,22 +2,22 @@ package thalo:aggregate;
 
 world aggregate {
     export aggregate: interface {
-        record context {
-            id: u64,
-            stream-name: string,
-            position: u64,
-            metadata: string,
-            time: u64,
-        }
+        // record context {
+        //     id: u64,
+        //     stream-name: string,
+        //     position: u64,
+        //     metadata: string,
+        //     time: u64,
+        // }
 
         record event {
-            ctx: context,
+            // ctx: context,
             event: string,
             payload: string,
         }
 
         record command {
-            ctx: context,
+            // ctx: context,
             command: string,
             payload: string,
         }
@@ -25,16 +25,16 @@ world aggregate {
         variant error {
             command(string),
             ignore(option<string>),
-            instance-not-found,
             deserialize-command(string),
             deserialize-context(string),
             deserialize-event(string),
             serialize-event(string),
-            parse-id(string),
         }
 
-        init: func(id: string) -> result<_, error>;
-        apply: func(id: string, events: list<event>) -> result<_, error>;
-        handle: func(id: string, command: command) -> result<list<event>, error>;
+        resource agg {
+            constructor(id: string);
+            apply: func(events: list<event>) -> result<_, error>;
+            handle: func(command: command) -> result<list<event>, error>;
+        }
     }
 }

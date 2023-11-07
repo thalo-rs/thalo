@@ -3,9 +3,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::Parser;
-use thalo::StreamName;
 use thalo_message_store::message_store::MessageStore;
-use thalo_registry::Registry;
 use thalo_runtime::interface::quic::load_certs;
 use thalo_runtime::interface::{self};
 use thalo_runtime::runtime::Runtime;
@@ -27,11 +25,11 @@ struct Cli {
     #[clap(long)]
     stateless_retry: bool,
     /// Message store path
-    #[clap(short, long, default_value = "./message-store")]
+    #[clap(short, long, default_value = "message-store.db")]
     message_store_path: PathBuf,
     /// Registry path
-    #[clap(short, long, default_value = "./registry")]
-    registry_path: PathBuf,
+    #[clap(short, long, default_value = "modules")]
+    modules_path: PathBuf,
     /// Address to listen on
     #[clap(long, default_value = "[::1]:4433")]
     listen: SocketAddr,
@@ -41,25 +39,7 @@ pub async fn start() -> Result<()> {
     let cli = Cli::parse();
 
     let message_store = MessageStore::open(&cli.message_store_path)?;
-    let registry_store = Registry::open(&cli.registry_path)?;
-    let runtime = Runtime::new(message_store.clone(), registry_store);
-
-    // tokio::spawn(async move {
-    //     // let stream = message_store
-    //     //     .stream(StreamName::new("counter:command").unwrap())
-    //     //     .unwrap();
-    //     let mut sub = message_store
-    //         .db
-    //         .open_tree("counter:command-123")
-    //         .unwrap()
-    //         .watch_prefix(vec![]);
-    //     while let Some(event) = (&mut sub).await {
-    //         dbg!(event);
-    //     }
-    // });
-
-    // runtime.init().await?;
-    runtime.start().await?;
+    let runtime = Runtime::new(message_store.clone(), cli.modules_path).await?;
 
     let (certs, key) = load_certs(cli.key, cli.cert).await?;
     interface::quic::run(

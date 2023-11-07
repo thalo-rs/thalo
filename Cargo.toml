@@ -6,6 +6,7 @@ members = [
   "crates/thalo_cli",
   "crates/thalo_message_store",
   # "crates/thalo_macros",
+  "crates/thalo_derive",
   "crates/thalo_registry",
   "crates/thalo_runtime",
 
@@ -19,6 +20,7 @@ members = [
 [workspace.dependencies]
 thalo = { path = "crates/thalo" }
 thalo_macros = { path = "crates/thalo_macros" }
+thalo_derive = { path = "crates/thalo_derive" }
 thalo_message_store = { path = "crates/thalo_message_store" }
 thalo_registry = { path = "crates/thalo_registry" }
 thalo_runtime = { path = "crates/thalo_runtime" }

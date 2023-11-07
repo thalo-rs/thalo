@@ -6,16 +6,16 @@ use std::path::Path;
 use std::sync::Arc;
 use std::{fmt, str};
 
-use anyhow::{anyhow, Context as AnyhowContext, Result};
+use anyhow::{anyhow, bail, Context as AnyhowContext, Result};
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use thalo::Context;
 use tokio::sync::Mutex;
-use tracing::trace;
+use tracing::{info, trace};
 // use wasi_common::{Table, WasiCtx, WasiCtxBuilder, WasiView};
-use wasmtime::component::{Component, Linker};
+use wasmtime::component::{Component, Linker, ResourceAny};
 use wasmtime::{Engine, Store};
-use wasmtime_wasi::preview2::{command, Table, WasiCtx, WasiCtxBuilder, WasiView};
+use wasmtime_wasi::preview2::{command, Stdout, Table, WasiCtx, WasiCtxBuilder, WasiView};
 
 use self::wit_aggregate::Aggregate;
 
@@ -24,15 +24,15 @@ pub struct Module {
     // TODO: This Arc shouldn't be necessary, but `wasmtime::component::bindgen` doesn't generate
     // Clone implementations.
     aggregate: Arc<Aggregate>,
-    module_id: ModuleID,
     store: Arc<Mutex<Store<CommandCtx>>>,
 }
 
+#[derive(Clone)]
 pub struct ModuleInstance {
     aggregate: Arc<Aggregate>,
-    module_id: ModuleID,
     store: Arc<Mutex<Store<CommandCtx>>>,
-    instance_id: String,
+    resource: ResourceAny,
+    sequence: Option<u64>,
 }
 
 /// A module verified against a schema.
@@ -47,15 +47,15 @@ pub struct ModuleID {
     pub version: Version,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum ExecuteResult {
-    Events(Vec<Event<'static>>),
-    Ignored(Option<String>),
-}
+// #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+// pub enum ExecuteResult {
+//     Events(Vec<Event<'static>>),
+//     Ignored(Option<String>),
+// }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Event<'a> {
-    pub ctx: Context<'a>,
+    // pub ctx: Context<'a>,
     pub event: Cow<'a, str>,
     pub payload: Cow<'a, str>,
 }
@@ -67,12 +67,12 @@ pub struct CommandCtx {
 }
 
 impl Module {
-    pub async fn from_file<T>(engine: Engine, id: ModuleID, file: T) -> Result<Self>
+    pub async fn from_file<T>(engine: Engine, file: T) -> Result<Self>
     where
         T: AsRef<Path> + fmt::Debug,
     {
         let table = Table::new();
-        let wasi = WasiCtxBuilder::new().build();
+        let wasi = WasiCtxBuilder::new().stdout(Stdout).build();
         let mut store = Store::new(&engine, CommandCtx { table, wasi });
         let component = Component::from_file(&engine, &file).unwrap();
         let mut linker = Linker::new(&engine);
@@ -83,110 +83,149 @@ impl Module {
                 .await
                 .context("failed to instantiate module")?;
 
-        trace!(?file, "loaded module from file");
+        info!(?file, "loaded module from file");
 
         Ok(Module {
             aggregate: Arc::new(aggregate),
-            module_id: id,
             store: Arc::new(Mutex::new(store)),
         })
     }
 
-    pub async fn from_binary(engine: Engine, id: ModuleID, binary: &[u8]) -> Result<Self> {
-        let table = Table::new();
-        let wasi = WasiCtxBuilder::new().build();
-        let mut store = Store::new(&engine, CommandCtx { table, wasi });
-        let component = Component::from_binary(&engine, binary).unwrap();
-        let mut linker = Linker::new(&engine);
-        command::add_to_linker(&mut linker)?;
-
-        let (aggregate, _instance) =
-            wit_aggregate::Aggregate::instantiate_async(&mut store, &component, &linker)
-                .await
-                .context("failed to instantiate module")?;
-
-        trace!("loaded module from binary");
-
-        Ok(Module {
-            aggregate: Arc::new(aggregate),
-            module_id: id,
-            store: Arc::new(Mutex::new(store)),
-        })
-    }
-
-    pub async fn init(&self, id: String) -> Result<ModuleInstance> {
-        {
+    pub async fn init(&self, id: &str) -> Result<ModuleInstance> {
+        let resource = {
             let mut store = self.store.lock().await;
             self.aggregate
                 .aggregate()
-                .call_init(store.deref_mut(), &id)
-                .await??
+                .agg()
+                .call_constructor(store.deref_mut(), id)
+                .await?
         };
 
         trace!(%id, "initialized module");
 
-        Ok(ModuleInstance {
-            aggregate: Arc::clone(&self.aggregate),
-            module_id: self.module_id.clone(),
-            instance_id: id,
-            store: Arc::clone(&self.store),
-        })
+        Ok(ModuleInstance::new(
+            Arc::clone(&self.store),
+            Arc::clone(&self.aggregate),
+            resource,
+        ))
     }
 }
 
 impl ModuleInstance {
-    pub fn id(&self) -> &ModuleID {
-        &self.module_id
+    pub fn new(
+        store: Arc<Mutex<Store<CommandCtx>>>,
+        aggregate: Arc<Aggregate>,
+        resource: ResourceAny,
+    ) -> Self {
+        ModuleInstance {
+            aggregate,
+            store,
+            resource,
+            sequence: None,
+        }
     }
 
-    pub async fn apply(&self, events: &[Event<'_>]) -> Result<()> {
+    pub fn sequence(&self) -> Option<u64> {
+        self.sequence
+    }
+
+    pub async fn apply(&mut self, events: &[(Context<'_>, Event<'_>)]) -> Result<()> {
         if events.is_empty() {
             return Ok(());
         }
 
-        let metadatas = events
-            .iter()
-            .map(|event| serde_json::to_string(&event.ctx.metadata))
-            .collect::<Result<Vec<_>, _>>()?;
-        let event_ctxs: Vec<_> = events
-            .iter()
-            .zip(metadatas.iter())
-            .map(|(event, metadata)| {
-                (
-                    wit_aggregate::ContextParam::from((&event.ctx, metadata.as_str())),
-                    event,
-                )
-            })
-            .collect();
-        let events: Vec<_> = event_ctxs
+        // let metadatas = events
+        //     .iter()
+        //     .map(|(ctx, event)| serde_json::to_string(&ctx.metadata))
+        //     .collect::<Result<Vec<_>, _>>()?;
+        // let event_ctxs: Vec<_> = events
+        //     .iter()
+        //     .zip(metadatas.iter())
+        //     .map(|((ctx, event), metadata)| {
+        //         (
+        //             // wit_aggregate::ContextParam::from((&ctx, metadata.as_str())),
+        //             event,
+        //         )
+        //     })
+        //     .collect();
+        // let events: Vec<_> = event_ctxs
+        //     .into_iter()
+        //     .map(|(ctx, event)| wit_aggregate::EventParam {
+        //         // ctx,
+        //         event: &event.event,
+        //         payload: &event.payload,
+        //     })
+        //     .collect();
+
+        // Validate event positions
+        let original_sequence = self.sequence;
+        let events: Vec<_> = events
             .into_iter()
-            .map(|(ctx, event)| wit_aggregate::EventParam {
-                ctx,
-                event: &event.event,
-                payload: &event.payload,
+            .map(|(ctx, event)| {
+                match self.sequence {
+                    Some(seq) if seq + 1 == ctx.position => {
+                        // Apply the event as the sequence is correct.
+                        self.sequence = Some(ctx.position); // Update sequence.
+                    }
+                    None if ctx.position == 0 => {
+                        // This is the first event, so apply it and set the sequence to 1.
+                        self.sequence = Some(0);
+                    }
+                    _ => bail!(
+                        "wrong event position {}, expected {}",
+                        ctx.position,
+                        self.sequence.map(|s| s + 1).unwrap_or(0)
+                    ),
+                }
+
+                Ok(wit_aggregate::EventParam {
+                    event: &event.event,
+                    payload: &event.payload,
+                })
             })
-            .collect();
+            .collect::<Result<_>>()?;
+        // let mut transformed_events = Vec::with_capacity(events.len());
+        // for (ctx, event) in events {
+        //     match self.sequence {
+        //         Some(seq) if seq + 1 == ctx.position => {
+        //             // Apply the event as the sequence is correct.
+        //             self.sequence = Some(ctx.position); // Update sequence.
+        //         }
+        //         None if ctx.position == 0 => {
+        //             // This is the first event, so apply it and set the sequence to 1.
+        //             self.sequence = Some(0);
+        //         }
+        //         _ => bail!(
+        //             "wrong event position {}, expected {}",
+        //             ctx.position,
+        //             self.sequence.map(|s| s + 1).unwrap_or(0)
+        //         ),
+        //     }
+        // }
 
         let mut store = self.store.lock().await;
-        self.aggregate
+        let res = self
+            .aggregate
             .aggregate()
-            .call_apply(store.deref_mut(), &self.instance_id, &events)
-            .await??;
+            .agg()
+            .call_apply(store.deref_mut(), self.resource, &events)
+            .await
+            .map(|res| res.map_err(anyhow::Error::from))
+            .map_err(anyhow::Error::from);
+        if let Err(err) | Ok(Err(err)) = res {
+            self.sequence = original_sequence;
+            return Err(err);
+        }
 
         trace!("applied {} event(s)", events.len());
 
         Ok(())
     }
 
-    pub async fn handle(
-        &self,
-        ctx: &Context<'_>,
-        command: &str,
-        payload: &str,
-    ) -> Result<ExecuteResult> {
-        let metadata = serde_json::to_string(&ctx.metadata)?;
+    pub async fn handle(&self, command: &str, payload: &str) -> Result<Vec<Event<'static>>> {
+        // let metadata = serde_json::to_string(&ctx.metadata)?;
         let command = wit_aggregate::Command {
-            ctx: wit_aggregate::ContextParam::from((ctx, metadata.as_str())),
+            // ctx: wit_aggregate::ContextParam::from((ctx, metadata.as_str())),
             command,
             payload,
         };
@@ -195,35 +234,41 @@ impl ModuleInstance {
             let mut store = self.store.lock().await;
             self.aggregate
                 .aggregate()
-                .call_handle(store.deref_mut(), &self.instance_id, command)
+                .agg()
+                .call_handle(store.deref_mut(), self.resource, command)
                 .await?
         };
         match result {
             Ok(events) => events
                 .into_iter()
                 .map(Event::try_from)
-                .collect::<Result<Vec<_>, _>>()
-                .map(ExecuteResult::Events),
-            Err(wit_aggregate::Error::Ignore(reason)) => {
-                match &reason {
-                    Some(reason) => trace!("command ignored with reason: '{reason}'"),
-                    None => trace!("command ignored"),
-                }
-                Ok(ExecuteResult::Ignored(reason))
-            }
+                .collect::<Result<Vec<_>, _>>(),
+            // Err(wit_aggregate::Error::Ignore(reason)) => {
+            //     match &reason {
+            //         Some(reason) => trace!("command ignored with reason: '{reason}'"),
+            //         None => trace!("command ignored"),
+            //     }
+            //     Ok(ExecuteResult::Ignored(reason))
+            // }
             Err(err) => Err(anyhow!(err)),
         }
     }
 
-    pub async fn handle_and_apply(
-        &mut self,
-        ctx: &Context<'_>,
-        command: &str,
-        payload: &str,
-    ) -> Result<ExecuteResult> {
-        let result = self.handle(ctx, command, payload).await?;
-        self.apply(result.events()).await?;
-        Ok(result)
+    // pub async fn handle_and_apply(
+    //     &mut self,
+    //     // ctx: &Context<'_>,
+    //     command: &str,
+    //     payload: &str,
+    // ) -> Result<Vec<Event<'static>>> {
+    //     let events = self.handle(command, payload).await?;
+    //     self.apply(&events).await?;
+    //     Ok(result)
+    // }
+
+    pub async fn resource_drop(&self) -> Result<()> {
+        let mut store = self.store.lock().await;
+        self.resource.resource_drop_async(store.deref_mut()).await?;
+        Ok(())
     }
 }
 
@@ -246,20 +291,14 @@ impl ModuleInstance {
 //     }
 // }
 
-impl ModuleID {
-    pub fn new(name: String, version: Version) -> Self {
-        ModuleID { name, version }
-    }
-}
-
-impl ExecuteResult {
-    pub fn events(&self) -> &[Event] {
-        match self {
-            ExecuteResult::Events(events) => events,
-            ExecuteResult::Ignored(_) => &[],
-        }
-    }
-}
+// impl ExecuteResult {
+//     pub fn events(&self) -> &[Event] {
+//         match self {
+//             ExecuteResult::Events(events) => events,
+//             ExecuteResult::Ignored(_) => &[],
+//         }
+//     }
+// }
 
 // impl<'a> From<EventRef<'a>> for wit_aggregate::EventParam<'a> {
 //     fn from(event: EventRef<'a>) -> Self {

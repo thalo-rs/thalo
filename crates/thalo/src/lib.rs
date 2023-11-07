@@ -5,20 +5,28 @@ mod stream_name;
 
 pub use metadata::*;
 pub use stream_name::*;
+pub use thalo_derive::*;
 
 use std::{fmt, time};
 
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 pub trait Aggregate {
-    type ID: TryFrom<String>;
-    type Command: for<'de> Deserialize<'de>;
-    type Event: Serialize + for<'de> Deserialize<'de>;
+    type ID: From<String>;
+    type Command: DeserializeOwned;
+    type Events: Events;
     type Error: fmt::Display;
 
     fn init(id: Self::ID) -> Self;
-    fn apply(&mut self, ctx: Context, evt: Self::Event);
-    fn handle(&self, ctx: Context, cmd: Self::Command) -> Result<Vec<Self::Event>, Self::Error>;
+    fn apply(&mut self, evt: <Self::Events as Events>::Event);
+    fn handle(
+        &self,
+        cmd: Self::Command,
+    ) -> Result<Vec<<Self::Events as Events>::Event>, Self::Error>;
+}
+
+pub trait Events {
+    type Event: Serialize + DeserializeOwned;
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -30,10 +38,15 @@ pub struct Context<'a> {
     pub time: time::SystemTime,
 }
 
-impl Context<'_> {
-    #[inline(always)]
-    pub fn processed(&self, sequence: u64) -> bool {
-        sequence >= self.position
+impl Default for Context<'_> {
+    fn default() -> Self {
+        Context {
+            id: 0,
+            stream_name: StreamName::default(),
+            position: 0,
+            metadata: Metadata::default(),
+            time: time::SystemTime::now(),
+        }
     }
 }
 

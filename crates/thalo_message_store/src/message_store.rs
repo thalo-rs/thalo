@@ -16,7 +16,7 @@ use tokio::sync::{Mutex, MutexGuard};
 use tracing::info;
 
 use crate::lock_registry::LockRegistry;
-use crate::message::Message;
+use crate::message::{GenericMessage, Message};
 use crate::{Error, Result};
 
 #[derive(Clone)]
@@ -148,7 +148,11 @@ where
     }
 }
 
-impl Stream<'_> {
+impl<'a> Stream<'a> {
+    pub fn stream_name(&self) -> &StreamName<'a> {
+        &self.stream_name
+    }
+
     pub fn iter_all_messages<T>(&self) -> MessageIter<T>
     where
         T: Clone + DeserializeOwned + 'static,
@@ -163,32 +167,49 @@ impl Stream<'_> {
         MessageSubscriber::new(self.tree.watch_prefix(&[]))
     }
 
-    pub async fn write_message(
-        &mut self,
-        msg_type: &str,
-        data: &serde_json::Value,
-        metadata: &Metadata<'_>,
+    pub async fn write_message<'s>(
+        &'s mut self,
+        msg_type: &'a str,
+        data: Cow<'a, serde_json::Value>,
+        metadata: Metadata<'a>,
         expected_version: Option<u64>,
-    ) -> Result<u64> {
-        let lock = self.lock.clone();
-        let _guard = lock.lock().await;
-
-        self.write_message_with_guard(&_guard, msg_type, data, metadata, expected_version)
-    }
-
-    pub async fn write_messages<'a, 'b, I>(
-        &mut self,
-        messages: I,
-        expected_starting_version: Option<u64>,
-    ) -> Result<u64>
+    ) -> Result<GenericMessage<'a>>
     where
-        'b: 'a,
-        I: Iterator<Item = (&'a str, &'a serde_json::Value, &'a Metadata<'b>)> + 'a,
+        's: 'a,
     {
         let lock = self.lock.clone();
         let _guard = lock.lock().await;
 
-        let mut last_position = 0;
+        let stream_version = self.version();
+        let message = Self::write_message_with_guard(
+            &_guard,
+            &self.db,
+            &self.tree,
+            self.stream_name.as_borrowed(),
+            stream_version,
+            msg_type,
+            data,
+            metadata,
+            expected_version,
+        )?;
+        self.version = Some(Some(message.position));
+        Ok(message)
+    }
+
+    pub async fn write_messages<'b, I>(
+        &'b mut self,
+        messages: I,
+        expected_starting_version: Option<u64>,
+    ) -> Result<Vec<GenericMessage<'b>>>
+    where
+        'a: 'b,
+        I: Iterator<Item = (&'b str, Cow<'b, serde_json::Value>, Metadata<'b>)>,
+    {
+        let lock = self.lock.clone();
+        let _guard = lock.lock().await;
+
+        let mut written_messages = Vec::with_capacity(messages.size_hint().0);
+        let mut stream_version = self.version();
 
         for (i, (msg_type, data, metadata)) in messages.enumerate() {
             let expected_version = if i == 0 {
@@ -200,23 +221,36 @@ impl Stream<'_> {
                         .unwrap_or(0),
                 )
             };
-            last_position =
-                self.write_message_with_guard(&_guard, msg_type, data, metadata, expected_version)?;
+            let written_message = Self::write_message_with_guard(
+                &_guard,
+                &self.db,
+                &self.tree,
+                self.stream_name.as_borrowed(),
+                stream_version,
+                msg_type,
+                data,
+                metadata,
+                expected_version,
+            )?;
+            self.version = Some(Some(written_message.position));
+            stream_version = Some(written_message.position);
+            written_messages.push(written_message);
         }
 
-        Ok(last_position)
+        Ok(written_messages)
     }
 
-    fn write_message_with_guard(
-        &mut self,
+    fn write_message_with_guard<'b>(
         _guard: &MutexGuard<'_, ()>,
-        msg_type: &str,
-        data: &serde_json::Value,
-        metadata: &Metadata<'_>,
+        db: &Db,
+        tree: &Tree,
+        stream_name: StreamName<'b>,
+        stream_version: Option<u64>,
+        msg_type: &'b str,
+        data: Cow<'b, serde_json::Value>,
+        metadata: Metadata<'b>,
         expected_version: Option<u64>,
-    ) -> Result<u64> {
-        let stream_version = self.version()?;
-
+    ) -> Result<GenericMessage<'b>> {
         if let Some(expected_version) = expected_version {
             if stream_version
                 .map(|stream_version| expected_version != stream_version)
@@ -224,7 +258,7 @@ impl Stream<'_> {
             {
                 return Err(Error::WrongExpectedVersion {
                     expected_version,
-                    stream_name: self.stream_name.to_string(),
+                    stream_name: stream_name.to_string(),
                     stream_version,
                 });
             }
@@ -235,57 +269,39 @@ impl Stream<'_> {
             .unwrap_or(0);
 
         let message = Message {
-            id: self.db.generate_id()?,
-            stream_name: self.stream_name.as_borrowed(),
+            id: db.generate_id()?,
+            stream_name,
             msg_type: Cow::Borrowed(msg_type),
             position: next_position,
-            data: Cow::Borrowed(data),
-            metadata: metadata.as_borrowed(),
+            data,
+            metadata,
             time: SystemTime::now(),
         };
         let raw_message = serde_cbor::to_vec(&message).map_err(Error::DeserializeData)?;
-        self.tree
-            .insert(self.db.generate_id()?.to_be_bytes(), raw_message)?;
+        tree.insert(db.generate_id()?.to_be_bytes(), raw_message)?;
 
         info!(id = message.id, stream_name = %message.stream_name, msg_type = %message.msg_type, position = message.position, data = ?message.data, "message written");
 
-        self.version = Some(Some(next_position));
-
-        Ok(next_position)
+        Ok(message)
     }
 
     /// Returns the highest position number in the stream.
-    pub fn version(&mut self) -> Result<Option<u64>> {
+    pub fn version(&mut self) -> Option<u64> {
         match self.version {
-            Some(version) => Ok(version),
+            Some(version) => version,
             None => {
-                let version = self.calculate_latest_version()?;
+                let version = self.calculate_latest_version();
                 self.version = Some(version);
-                Ok(version)
+                version
             }
         }
     }
 
-    fn calculate_latest_version(&self) -> Result<Option<u64>> {
-        let mut max_position: Option<u64> = None;
-
-        // Iterate over all messages to find the max position for the target stream name
-        for result in self.iter() {
-            let (_key, value) = result?;
-
-            #[derive(Deserialize)]
-            struct MessagePosition {
-                position: u64,
-            }
-
-            // Deserialize the message
-            let MessagePosition { position } =
-                serde_cbor::from_slice(&value).map_err(Error::DeserializeData)?;
-
-            max_position = Some(max_position.map_or(position, |max| max.max(position)));
+    fn calculate_latest_version(&self) -> Option<u64> {
+        match self.len() {
+            0 => None,
+            i => Some(i as u64 - 1),
         }
-
-        Ok(max_position)
     }
 }
 

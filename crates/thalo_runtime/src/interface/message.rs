@@ -1,7 +1,8 @@
+use std::time::Duration;
+
 use anyhow::Result;
 use bytes::Bytes;
 use quinn::RecvStream;
-use semver::Version;
 use serde::{Deserialize, Serialize};
 use thalo_message_store::message::GenericMessage;
 
@@ -11,11 +12,12 @@ pub enum Request {
         name: String,
         id: String,
         command: String,
-        data: Vec<u8>,
+        payload: String,
+        timeout: Option<Duration>,
     },
     Publish {
         name: String,
-        version: Version,
+        timeout: Option<Duration>,
     },
 }
 

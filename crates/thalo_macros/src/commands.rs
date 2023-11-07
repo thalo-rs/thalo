@@ -1,7 +1,7 @@
 use darling::{FromDeriveInput, FromVariant};
 use heck::ToSnakeCase;
 use proc_macro2::TokenStream;
-use quote::{quote};
+use quote::quote;
 use syn::{
     spanned::Spanned,
     DeriveInput,

@@ -1,10 +1,8 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Duration};
 
 use anyhow::{anyhow, Result};
 use clap::Args;
-use futures::TryFutureExt;
 use quinn::{RecvStream, SendStream};
-use semver::Version;
 use thalo_runtime::interface::message::{pack, pack_raw, Request};
 use tokio::fs;
 
@@ -15,10 +13,10 @@ use super::handle_response;
 pub struct Publish {
     /// Module name
     name: String,
-    /// Version number
-    version: Version,
     /// Path to wasm module
     module: PathBuf,
+    /// Timeout in milliseconds
+    timeout: Option<u64>,
 }
 
 impl Publish {
@@ -28,19 +26,12 @@ impl Publish {
 
         let request = Request::Publish {
             name: self.name,
-            version: self.version,
+            timeout: self.timeout.map(|timeout| Duration::from_millis(timeout)),
         };
         let mut request = pack(&request)?;
         send.write_all_chunks(&mut request)
             .await
             .map_err(|e| anyhow!("failed to send request: {}", e))?;
-
-        // let mut schema_pack = pack_raw(schema_encoded)?;
-        // let (_, module_bytes) = tokio::try_join!(
-        //     send.write_all_chunks(&mut schema_pack)
-        //         .map_err(anyhow::Error::from),
-        //     fs::read(self.module).map_err(anyhow::Error::from)
-        // )?;
 
         let module_bytes = fs::read(self.module).await?;
         let mut module_pack = pack_raw(module_bytes)?;

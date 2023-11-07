@@ -69,7 +69,7 @@ pub use self::category::Category;
 pub use self::id::ID;
 
 /// A stream name containing a category, and optionally an ID.
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct StreamName<'a>(Cow<'a, str>);
 
 impl<'a> StreamName<'a> {

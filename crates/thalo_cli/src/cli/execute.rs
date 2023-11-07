@@ -1,9 +1,8 @@
-use std::str;
+use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Result};
 use clap::Args;
 use quinn::{RecvStream, SendStream};
-use serde_json::Value;
 use thalo_runtime::interface::message::{pack, Request};
 use uuid::Uuid;
 
@@ -22,19 +21,20 @@ pub struct Execute {
     /// Command to execute
     command: String,
     /// Command data in JSON
-    data: Payload,
+    payload: String,
+    /// Timeout in milliseconds
+    timeout: Option<u64>,
 }
-
-#[derive(Clone, Debug)]
-struct Payload(Vec<u8>);
 
 impl Execute {
     pub async fn execute(self, send: &mut SendStream, recv: &mut RecvStream) -> Result<()> {
+        let start = Instant::now();
         let request = Request::Execute {
             name: self.name,
             id: self.id,
             command: self.command,
-            data: self.data.0,
+            payload: self.payload,
+            timeout: self.timeout.map(|timeout| Duration::from_millis(timeout)),
         };
         let mut request = pack(&request)?;
 
@@ -43,16 +43,20 @@ impl Execute {
             .map_err(|e| anyhow!("failed to send request: {}", e))?;
 
         handle_response(recv).await?;
+        println!("{}", start.elapsed().as_millis());
 
         Ok(())
     }
 }
 
-impl str::FromStr for Payload {
-    type Err = anyhow::Error;
+// #[derive(Clone, Debug)]
+// struct Payload(String);
 
-    fn from_str(payload: &str) -> Result<Self, Self::Err> {
-        let payload_json: Value = serde_json::from_str(payload)?;
-        Ok(Payload(serde_json::to_vec(&payload_json)?))
-    }
-}
+// impl str::FromStr for Payload {
+//     type Err = anyhow::Error;
+
+//     fn from_str(payload: &str) -> Result<Self, Self::Err> {
+//         let payload_json: Value = serde_json::from_str(payload)?;
+//         Ok(Payload(serde_json::to_vec(&payload_json)?))
+//     }
+// }

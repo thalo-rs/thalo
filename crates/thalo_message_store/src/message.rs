@@ -134,6 +134,18 @@ where
             time: self.time,
         }
     }
+
+    pub fn into_owned(self) -> Message<'static, T> {
+        Message {
+            id: self.id,
+            stream_name: self.stream_name.into_owned(),
+            msg_type: Cow::Owned(self.msg_type.into_owned()),
+            position: self.position,
+            data: Cow::Owned(self.data.into_owned()),
+            metadata: self.metadata.into_owned(),
+            time: self.time,
+        }
+    }
 }
 
 // impl<'de> GenericMessage<'de> {
