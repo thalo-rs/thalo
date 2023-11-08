@@ -54,55 +54,6 @@ impl<'a> ID<'a> {
         // }
     }
 
-    // pub fn new_owned<T>(id: T) -> Result<Self, EmptyStreamName>
-    // where
-    //     T: Into<String> + AsRef<str>,
-    // {
-    //     if id.as_ref().contains(Self::COMPOUND_ID_SEPARATOR) {
-    //         let ids: Vec<_> = id
-    //             .as_ref()
-    //             .split(Self::COMPOUND_ID_SEPARATOR)
-    //             .map(|id| Cow::Owned(id.to_string()))
-    //             .collect();
-
-    //         Self::new_compound(ids)
-    //     } else {
-    //         if id.as_ref().is_empty() {
-    //             return Err(EmptyStreamName);
-    //         }
-
-    //         Ok(ID(vec![Cow::Owned(id.into())]))
-    //     }
-    // }
-
-    // /// Creates a compound ID from a vec of IDs.
-    // ///
-    // /// Returns an error if the `ids` vec is empty, or any ID within the vec is
-    // /// an empty string.
-    // pub fn new_compound(ids: Vec<Cow<'a, str>>) -> Result<Self, EmptyStreamName> {
-    //     if ids.is_empty() || ids.iter().any(|id| id.is_empty()) {
-    //         return Err(EmptyStreamName);
-    //     }
-
-    //     Ok(ID(ids))
-    // }
-
-    // / Returns a slice of the IDs.
-    // /
-    // / # Example
-    // /
-    // / ```
-    // / # use message_db::stream_name::ID;
-    // / #
-    // / # fn main() -> message_db::Result<()> {
-    // / let id = ID::new("account1+account2")?;
-    // / assert_eq!(id.ids(), &["account1", "account2"]);
-    // / # Ok(())
-    // / # }
-    // pub fn ids(&self) -> &[Cow<'a, str>] {
-    //     &self.0
-    // }
-
     // Returns the cardinal ID.
     //
     // This is the first ID. If there is only one ID present, that is the
@@ -128,11 +79,3 @@ impl<'a> ID<'a> {
 impl_eq! { ID<'a>, &'b str }
 impl_eq! { ID<'a>, String }
 impl_as_ref_str! { ID, ID<'a>, ID<'static> }
-
-// impl str::FromStr for ID<'_> {
-//     type Err = EmptyStreamName;
-
-//     fn from_str(s: &str) -> Result<Self, Self::Err> {
-//         Self::new_owned(s)
-//     }
-// }

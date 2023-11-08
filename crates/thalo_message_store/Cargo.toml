@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-chrono = { workspace = true, features = ["serde"] }
 dashmap = "5.5.3"
 sled = "0.34.7"
 serde = { workspace = true }

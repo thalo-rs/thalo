@@ -46,8 +46,6 @@
 use std::borrow::Cow;
 use std::time::SystemTime;
 
-// use chrono::serde::ts_milliseconds;
-// use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thalo::{Metadata, StreamName};
 
@@ -100,7 +98,7 @@ where
     /// # fn main() -> message_db::Result<()> {
     /// # let message = Message {
     /// #     id: Uuid::new_v4(),
-    /// #     stream_name: "category-id".parse().unwrap(),
+    /// #     stream_name: Category::new("category-id").unwrap(),
     /// #     msg_type: "foo".to_string(),
     /// #     position: 0,
     /// #     global_position: 0,
@@ -147,61 +145,6 @@ where
         }
     }
 }
-
-// impl<'de> GenericMessage<'de> {
-//     /// Deserializes message data into `T`, returning a new `Message<T>`.
-//     pub fn deserialize_data<T>(self) -> Result<Message<'de, T>, serde_cbor::Error>
-//     where
-//         T: Clone + Deserialize<'de>,
-//     {
-//         let data = serde_cbor::from_slice(&self.data)?;
-//         Ok(Message {
-//             id: self.id,
-//             stream_name: self.stream_name,
-//             msg_type: self.msg_type,
-//             position: self.position,
-//             data,
-//             metadata: self.metadata,
-//             time: self.time,
-//         })
-//     }
-// }
-
-// pub(crate) trait DeserializeMessage<T>
-// where
-//     T: for<'de> Deserialize<'de>,
-// {
-//     type Output;
-
-//     fn deserialize_messages(self) -> Result<Self::Output>;
-// }
-
-// impl<'de, T> DeserializeMessage<'de, T> for Option<GenericMessage>
-// where
-//     T: for<'de> Deserialize<'de>,
-// {
-//     type Output = Option<Message<T>>;
-
-//     fn deserialize_messages(self) -> Result<Self::Output> {
-//         self.map(|message| message.deserialize_data())
-//             .transpose()
-//             .map_err(Error::DeserializeData)
-//     }
-// }
-
-// impl<T> DeserializeMessage<T> for Vec<GenericMessage>
-// where
-//     T: for<'de> Deserialize<'de>,
-// {
-//     type Output = Vec<Message<T>>;
-
-//     fn deserialize_messages(self) -> Result<Self::Output> {
-//         self.into_iter()
-//             .map(|message| message.deserialize_data())
-//             .collect::<Result<Vec<_>, _>>()
-//             .map_err(Error::DeserializeData)
-//     }
-// }
 
 mod ts_milliseconds {
     use core::fmt;

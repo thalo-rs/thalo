@@ -9,12 +9,9 @@ thalo_runtime = { workspace = true }
 anyhow = { workspace = true }
 clap = { workspace = true }
 directories-next = { workspace = true }
-esdl = { workspace = true }
-futures = { workspace = true }
 quinn = { workspace = true }
 rmp-serde = { workspace = true }
 rustls = { workspace = true }
-semver = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true, features = ["fs", "macros", "rt-multi-thread"] }
 tracing = { workspace = true }

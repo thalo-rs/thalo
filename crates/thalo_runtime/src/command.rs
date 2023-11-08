@@ -6,10 +6,7 @@ use moka::future::Cache;
 use ractor::{Actor, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent};
 use serde_json::Value;
 use thalo::{Category, Context, Metadata, StreamName, ID};
-use thalo_message_store::{
-    message::{GenericMessage, MessageData},
-    message_store::{MessageStore, Stream},
-};
+use thalo_message_store::{GenericMessage, MessageData, MessageStore, Stream};
 use tokio::fs;
 use tracing::{error, trace, warn};
 use wasmtime::Engine;

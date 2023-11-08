@@ -78,52 +78,6 @@ impl<'a> Category<'a> {
         Ok(Category(Cow::Owned(s)))
     }
 
-    /// Creates a new [`Category`] containing an entity name, and optionally a
-    /// list of category types.
-    ///
-    /// For a category with no types, an empty [`Vec`] should be used.
-    ///
-    /// An error is returned if the entity name is empty.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use message_db::stream_name::Category;
-    /// #
-    /// # fn main() -> message_db::Result<()> {
-    /// let category = Category::new("account", vec!["command".to_string()])?;
-    /// assert_eq!(category.to_string(), "account:command");
-    /// # Ok(())
-    /// # }
-    /// ```
-    // pub fn new(
-    //     entity_name: impl Into<Cow<'a, str>>,
-    //     types: Vec<Cow<'a, str>>,
-    // ) -> Result<Self, EmptyStreamName> {
-    //     let entity_name = entity_name.into();
-    //     if entity_name.is_empty() {
-    //         return Err(EmptyStreamName);
-    //     }
-
-    //     Ok(Category { entity_name, types })
-    // }
-
-    // pub fn new_from_str(s: &'a str) -> Result<Self, EmptyStreamName> {
-    //     match s.split_once(Self::CATEGORY_TYPE_SEPARATOR) {
-    //         Some((entity_name, types)) => Ok(Category {
-    //             entity_name: Cow::Borrowed(entity_name),
-    //             types: types
-    //                 .split(Self::COMPOUNT_TYPE_SEPARATOR)
-    //                 .map(|s| Cow::Borrowed(s))
-    //                 .collect(),
-    //         }),
-    //         None => Ok(Category {
-    //             entity_name: Cow::Borrowed(s),
-    //             types: vec![],
-    //         }),
-    //     }
-    // }
-
     pub fn into_static(self) -> Category<'static> {
         Category(Cow::Owned(self.0.into_owned()))
     }
@@ -153,23 +107,3 @@ impl<'a> Category<'a> {
 impl_eq! { Category<'a>, &'b str }
 impl_eq! { Category<'a>, String }
 impl_as_ref_str! { Category, Category<'a>, Category<'static> }
-
-// impl str::FromStr for Category<'_> {
-//     type Err = EmptyStreamName;
-
-//     fn from_str(s: &str) -> Result<Self, Self::Err> {
-//         match s.split_once(Self::CATEGORY_TYPE_SEPARATOR) {
-//             Some((entity_name, types)) => Ok(Category {
-//                 entity_name: Cow::Owned(entity_name.to_string()),
-//                 types: types
-//                     .split(Self::COMPOUNT_TYPE_SEPARATOR)
-//                     .map(|s| Cow::Owned(s.to_string()))
-//                     .collect(),
-//             }),
-//             None => Ok(Category {
-//                 entity_name: Cow::Owned(s.to_string()),
-//                 types: vec![],
-//             }),
-//         }
-//     }
-// }

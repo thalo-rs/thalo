@@ -14,22 +14,12 @@ macro_rules! export_aggregate {
 
                     world aggregate {
                         export aggregate: interface {
-                            // record context {
-                            //     id: u64,
-                            //     stream-name: string,
-                            //     position: u64,
-                            //     metadata: string,
-                            //     time: u64,
-                            // }
-
                             record event {
-                                // ctx: context,
                                 event: string,
                                 payload: string,
                             }
 
                             record command {
-                                // ctx: context,
                                 command: string,
                                 payload: string,
                             }
@@ -86,12 +76,10 @@ macro_rules! export_aggregate {
             ) -> Result<(), wit::Error> {
                 let mut state = state.borrow_mut();
                 for wit::Event {
-                    // ctx,
                     event,
                     payload,
                 } in events
                 {
-                    // let ctx = ctx.try_into()?;
                     let payload: serde_json::Value = serde_json::from_str(&payload)
                         .map_err(|err| wit::Error::DeserializeEvent(err.to_string()))?;
                     let event_value = serde_json::json!({
@@ -100,9 +88,7 @@ macro_rules! export_aggregate {
                     });
                     let evt = serde_json::from_value(event_value)
                         .map_err(|err| wit::Error::DeserializeEvent(err.to_string()))?;
-                    <Agg as $crate::Aggregate>::apply(&mut state,
-                        //ctx,
-                         evt);
+                    <Agg as $crate::Aggregate>::apply(&mut state, evt);
                 }
 
                 Ok(())
@@ -111,7 +97,6 @@ macro_rules! export_aggregate {
             fn handle_aggregate_command(
                 AggWrapper(state): &AggWrapper,
                 wit::Command {
-                    // ctx,
                     command,
                     payload,
                 }: wit::Command,
@@ -123,12 +108,9 @@ macro_rules! export_aggregate {
                     "command": command,
                     "payload": payload,
                 });
-                // let cmd_ctx = ctx.clone().try_into()?;
                 let cmd = serde_json::from_value(event_value)
                     .map_err(|err| wit::Error::DeserializeCommand(err.to_string()))?;
-                let events = <Agg as $crate::Aggregate>::handle(&state,
-                    //cmd_ctx,
-                    cmd)
+                let events = <Agg as $crate::Aggregate>::handle(&state, cmd)
                     .map_err(|err| wit::Error::Command(err.to_string()))?
                     .into_iter()
                     .map(|event| {
@@ -136,9 +118,9 @@ macro_rules! export_aggregate {
                             .map_err(|err| wit::Error::SerializeEvent(err.to_string()))?;
                         let EventParts { event, payload } = serde_json::from_value(event_value)
                             .map_err(|err| wit::Error::SerializeEvent(err.to_string()))?;
-                        let payload = serde_json::to_string(&payload).unwrap();
+                        let payload = serde_json::to_string(&payload)
+                            .map_err(|err| wit::Error::SerializeEvent(err.to_string()))?;
                         Ok(wit::Event {
-                            // ctx: ctx.clone(),
                             event,
                             payload,
                         })
@@ -153,26 +135,6 @@ macro_rules! export_aggregate {
                 event: String,
                 payload: serde_json::Value,
             }
-
-            // impl TryFrom<wit::Context> for $crate::Context<'_> {
-            //     type Error = wit::Error;
-
-            //     fn try_from(ctx: wit::Context) -> Result<Self, Self::Error> {
-            //         let stream_name = $crate::StreamName::new(ctx.stream_name).map_err(
-            //             |err: $crate::EmptyStreamName| wit::Error::DeserializeContext(err.to_string()),
-            //         )?;
-            //         let metadata = serde_json::from_str(&ctx.metadata)
-            //             .map_err(|err| wit::Error::DeserializeContext(err.to_string()))?;
-            //         let time = std::time::UNIX_EPOCH + std::time::Duration::from_millis(ctx.time);
-            //         Ok($crate::Context {
-            //             id: ctx.id,
-            //             stream_name,
-            //             position: ctx.position,
-            //             metadata,
-            //             time,
-            //         })
-            //     }
-            // }
         }
     };
 }

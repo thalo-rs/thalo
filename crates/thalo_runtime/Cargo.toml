@@ -8,37 +8,29 @@ name = "thalo"
 path = "./src/main.rs"
 
 [dependencies]
-thalo = { workspace = true, features = ["consumer"] }
+thalo = { workspace = true }
 thalo_message_store = { workspace = true }
-thalo_registry = { workspace = true }
 
 anyhow = { workspace = true }
+async-trait = "0.1.74"
 bytes = { workspace = true }
-chrono = { workspace = true }
 clap = { workspace = true }
-derive_more = { workspace = true }
 directories-next = { workspace = true }
-esdl = { workspace = true }
 futures = { workspace = true }
 itertools = "0.11.0"
-# message_db = { workspace = true }
+moka = { version = "0.12.1", features = ["future"] }
 quinn = { workspace = true }
+ractor = "0.9.3"
 rand = "0.8.5"
 rcgen = { version = "0.10.0", features = ["pem", "x509-parser"] }
 rmp-serde = { workspace = true }
 rustls = { workspace = true }
 rustls-pemfile = "1.0.1"
-semver = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
-serde_cbor = "0.11.2"
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-# wasi-common = "14.0"
 wasmtime-wasi = { version = "14.0.4", features = ["tokio"] }
 wasmtime = { version = "14.0", features = ["component-model"] }
-ractor = "0.9.3"
-async-trait = "0.1.74"
-moka = { version = "0.12.1", features = ["future"] }

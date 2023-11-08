@@ -27,9 +27,6 @@ pub struct Metadata<'a> {
     /// the message.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reply_stream_name: Option<StreamName<'a>>,
-    // /// Timestamp that the message was written to the message store.
-    // #[serde(with = "ts_milliseconds")]
-    // pub time: Option<DateTime<Utc>>,
     /// Version identifier of the message schema itself.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub schema_version: Option<Cow<'a, str>>,

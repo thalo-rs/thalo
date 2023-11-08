@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use thalo::*;
+use thalo::{export_aggregate, Aggregate};
 
 export_aggregate!(Counter);
 

@@ -8,12 +8,11 @@ mod publish;
 use std::net::ToSocketAddrs;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Instant;
 use std::{fs, io};
 
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
-use quinn::{RecvStream, VarInt};
+use quinn::RecvStream;
 use thalo_runtime::interface::message::{receive, ExecutedResult, Response};
 use thalo_runtime::interface::quic::ALPN_QUIC_HTTP;
 use tracing::{error, info, trace};
@@ -66,7 +65,8 @@ pub async fn run() -> Result<()> {
     if let Some(ca_path) = &cli.ca {
         roots.add(&rustls::Certificate(fs::read(ca_path)?))?;
     } else {
-        let dirs = directories_next::ProjectDirs::from("", "thalo", "thalo").unwrap();
+        let dirs = directories_next::ProjectDirs::from("", "thalo", "thalo_runtime")
+            .ok_or_else(|| anyhow!("failed to determine home directory"))?;
         match fs::read(dirs.data_local_dir().join("cert.der")) {
             Ok(cert) => {
                 roots.add(&rustls::Certificate(cert))?;

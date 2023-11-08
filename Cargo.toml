@@ -5,9 +5,7 @@ members = [
   "crates/thalo",
   "crates/thalo_cli",
   "crates/thalo_message_store",
-  # "crates/thalo_macros",
   "crates/thalo_derive",
-  "crates/thalo_registry",
   "crates/thalo_runtime",
 
   # Examples
@@ -19,35 +17,22 @@ members = [
 
 [workspace.dependencies]
 thalo = { path = "crates/thalo" }
-thalo_macros = { path = "crates/thalo_macros" }
 thalo_derive = { path = "crates/thalo_derive" }
 thalo_message_store = { path = "crates/thalo_message_store" }
-thalo_registry = { path = "crates/thalo_registry" }
 thalo_runtime = { path = "crates/thalo_runtime" }
 
 anyhow = "1.0"
 async-trait = "0.1"
 bytes = "1.2"
-chrono = "0.4"
 clap = { version = "4.0", features = ["derive", "env"] }
-derive_more = "0.99"
 directories-next = "2.0"
-esdl = "0.6.0"
 futures = "0.3.25"
-message_db = { version = "0.1.0", default-features = false }
 quinn = "0.9"
 rmp-serde = "1.1"
 rustls = "0.20"
-semver = "1.0"
 serde = "1.0"
 serde_json = "1.0"
-sqlx = { version = "0.6", features = [
-  "json",
-  "macros",
-  "postgres",
-  "runtime-tokio-rustls",
-] }
-thiserror = "1.0.37"
+thiserror = "1.0"
 tokio = "1.20"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

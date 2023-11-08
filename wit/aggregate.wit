@@ -2,22 +2,12 @@ package thalo:aggregate;
 
 world aggregate {
     export aggregate: interface {
-        // record context {
-        //     id: u64,
-        //     stream-name: string,
-        //     position: u64,
-        //     metadata: string,
-        //     time: u64,
-        // }
-
         record event {
-            // ctx: context,
             event: string,
             payload: string,
         }
 
         record command {
-            // ctx: context,
             command: string,
             payload: string,
         }

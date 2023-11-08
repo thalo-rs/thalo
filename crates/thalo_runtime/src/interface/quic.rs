@@ -103,7 +103,8 @@ pub async fn load_certs(
 
         Ok((cert_chain, key))
     } else {
-        let dirs = directories_next::ProjectDirs::from("", "thalo", "thalo").unwrap();
+        let dirs = directories_next::ProjectDirs::from("", "thalo", "thalo_runtime")
+            .ok_or_else(|| anyhow!("failed to determine home directory"))?;
         let path = dirs.data_local_dir();
         let cert_path = path.join("cert.der");
         let key_path = path.join("key.der");
@@ -244,7 +245,7 @@ pub async fn handle_execute(
     match result {
         CallResult::Success(events) => Ok(Response::Executed(ExecutedResult::Events(events))),
         CallResult::Timeout => Ok(Response::Executed(ExecutedResult::TimedOut)),
-        CallResult::SenderError => Err(anyhow!("module '{name}' doesn't exist")),
+        CallResult::SenderError => Err(anyhow!("command failed to execute")),
     }
 }
 

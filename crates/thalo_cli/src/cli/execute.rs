@@ -48,15 +48,3 @@ impl Execute {
         Ok(())
     }
 }
-
-// #[derive(Clone, Debug)]
-// struct Payload(String);
-
-// impl str::FromStr for Payload {
-//     type Err = anyhow::Error;
-
-//     fn from_str(payload: &str) -> Result<Self, Self::Err> {
-//         let payload_json: Value = serde_json::from_str(payload)?;
-//         Ok(Payload(serde_json::to_vec(&payload_json)?))
-//     }
-// }
