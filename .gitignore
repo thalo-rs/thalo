@@ -1,4 +1,4 @@
 /target
-/message-store
+/message-store.db
 /modules
 .env
