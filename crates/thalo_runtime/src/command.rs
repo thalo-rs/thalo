@@ -349,7 +349,7 @@ impl Actor for StreamCommandHandler {
                 .collect::<anyhow::Result<_>>()?;
 
             let written_messages = stream
-                .write_messages(messages.into_iter(), instance.sequence())
+                .write_messages(&messages, instance.sequence())
                 .await?;
 
             let reply_written_messages = reply.map(|reply| {

@@ -37,3 +37,4 @@ tokio = "1.20"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = "1.2"
+wit-bindgen = "0.14"

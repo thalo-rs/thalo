@@ -9,4 +9,4 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thalo_derive = { workspace = true }
 thiserror = { workspace = true }
-wit-bindgen = "0.13"
+wit-bindgen = { workspace = true }

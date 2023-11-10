@@ -9,6 +9,7 @@ use std::{ops, str, task};
 
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
+use sled::transaction::{ConflictableTransactionError, TransactionError, TransactionalTree};
 use sled::{Db, Event, IVec, Mode, Tree};
 use thalo::{Metadata, StreamName};
 use tracing::info;
@@ -72,27 +73,27 @@ impl<'a> Stream<'a> {
         MessageSubscriber::new(self.tree.watch_prefix(&[]))
     }
 
-    pub async fn write_message<'s>(
-        &'s mut self,
-        msg_type: &'a str,
-        data: Cow<'a, serde_json::Value>,
-        metadata: Metadata<'a>,
+    pub async fn write_message<'b>(
+        &'b mut self,
+        msg_type: &'b str,
+        data: Cow<'b, serde_json::Value>,
+        metadata: Metadata<'b>,
         expected_version: Option<u64>,
-    ) -> Result<GenericMessage<'a>>
+    ) -> Result<GenericMessage<'b>>
     where
-        's: 'a,
+        'a: 'b,
     {
         let stream_version = self.version();
         let message = Self::write_message_with_guard(
-            &self.db,
-            &self.tree,
+            &DbTreeOrTransaction::DbTree(&self.db, &self.tree),
             self.stream_name.as_borrowed(),
             stream_version,
             msg_type,
             data,
             metadata,
             expected_version,
-        )?;
+        )
+        .map_err(|err| Error::DatabaseTransaction(TransactionError::Abort(err)))?;
         self.version = Some(Some(message.position));
 
         self.db.flush_async().await?;
@@ -100,68 +101,92 @@ impl<'a> Stream<'a> {
         Ok(message)
     }
 
-    pub async fn write_messages<'b, I>(
+    pub async fn write_messages<'b>(
         &'b mut self,
-        messages: I,
+        messages: &[(&'b str, Cow<'b, serde_json::Value>, Metadata<'b>)],
         expected_starting_version: Option<u64>,
     ) -> Result<Vec<GenericMessage<'b>>>
     where
         'a: 'b,
-        I: Iterator<Item = (&'b str, Cow<'b, serde_json::Value>, Metadata<'b>)>,
     {
-        let mut written_messages = Vec::with_capacity(messages.size_hint().0);
-        let mut stream_version = self.version();
-
-        for (i, (msg_type, data, metadata)) in messages.enumerate() {
-            let expected_version = if i == 0 {
-                expected_starting_version.map(|ev| ev + i as u64)
-            } else {
-                Some(
-                    expected_starting_version
-                        .map(|ev| ev + i as u64)
-                        .unwrap_or(0),
+        match messages.len() {
+            0 => Ok(vec![]),
+            1 => {
+                let (msg_type, data, metadata) = &messages[0];
+                self.write_message(
+                    msg_type,
+                    data.clone(),
+                    metadata.clone(),
+                    expected_starting_version,
                 )
-            };
-            let written_message = Self::write_message_with_guard(
-                &self.db,
-                &self.tree,
-                self.stream_name.as_borrowed(),
-                stream_version,
-                msg_type,
-                data,
-                metadata,
-                expected_version,
-            )?;
-            self.version = Some(Some(written_message.position));
-            stream_version = Some(written_message.position);
-            written_messages.push(written_message);
+                .await
+                .map(|msg| vec![msg])
+            }
+            _ => {
+                let stream_version = self.version();
+
+                let (written_messages, new_version) = self.tree.transaction(|tx| {
+                    let mut written_messages = Vec::with_capacity(messages.len());
+                    let mut stream_version = stream_version;
+
+                    let tx = DbTreeOrTransaction::Transaction(&tx);
+                    for (i, (msg_type, data, metadata)) in messages.iter().enumerate() {
+                        let expected_version = if i == 0 {
+                            expected_starting_version.map(|ev| ev + i as u64)
+                        } else {
+                            Some(
+                                expected_starting_version
+                                    .map(|ev| ev + i as u64)
+                                    .unwrap_or(0),
+                            )
+                        };
+                        let written_message = Self::write_message_with_guard(
+                            &tx,
+                            self.stream_name.as_borrowed(),
+                            stream_version,
+                            msg_type,
+                            data.clone(),
+                            metadata.clone(),
+                            expected_version,
+                        )
+                        .map_err(ConflictableTransactionError::Abort)?;
+                        stream_version = Some(written_message.position);
+                        written_messages.push(written_message);
+                    }
+
+                    Ok((written_messages, stream_version))
+                })?;
+
+                self.version = Some(new_version);
+
+                self.db.flush_async().await?;
+
+                Ok(written_messages)
+            }
         }
-
-        self.db.flush_async().await?;
-
-        Ok(written_messages)
     }
 
     fn write_message_with_guard<'b>(
-        db: &Db,
-        tree: &Tree,
+        tx: &DbTreeOrTransaction<'_>,
         stream_name: StreamName<'b>,
         stream_version: Option<u64>,
         msg_type: &'b str,
         data: Cow<'b, serde_json::Value>,
         metadata: Metadata<'b>,
         expected_version: Option<u64>,
-    ) -> Result<GenericMessage<'b>> {
+    ) -> Result<GenericMessage<'b>, ConflictableTransactionError<Box<Error>>> {
         if let Some(expected_version) = expected_version {
             if stream_version
                 .map(|stream_version| expected_version != stream_version)
                 .unwrap_or(true)
             {
-                return Err(Error::WrongExpectedVersion {
-                    expected_version,
-                    stream_name: stream_name.to_string(),
-                    stream_version,
-                });
+                return Err(ConflictableTransactionError::Abort(Box::new(
+                    Error::WrongExpectedVersion {
+                        expected_version,
+                        stream_name: stream_name.to_string(),
+                        stream_version,
+                    },
+                )));
             }
         }
 
@@ -170,7 +195,7 @@ impl<'a> Stream<'a> {
             .unwrap_or(0);
 
         let message = Message {
-            id: db.generate_id()?,
+            id: tx.generate_id()?,
             stream_name,
             msg_type: Cow::Borrowed(msg_type),
             position: next_position,
@@ -178,8 +203,10 @@ impl<'a> Stream<'a> {
             metadata,
             time: SystemTime::now(),
         };
-        let raw_message = serde_cbor::to_vec(&message).map_err(Error::DeserializeData)?;
-        tree.insert(db.generate_id()?.to_be_bytes(), raw_message)?;
+        let raw_message = serde_cbor::to_vec(&message).map_err(|err| {
+            ConflictableTransactionError::Abort(Box::new(Error::DeserializeData(err)))
+        })?;
+        tx.insert(message.id.to_be_bytes().to_vec(), raw_message)?;
 
         info!(id = message.id, stream_name = %message.stream_name, msg_type = %message.msg_type, position = message.position, data = ?message.data, "message written");
 
@@ -296,6 +323,37 @@ where
             }
             Poll::Ready(None) => Poll::Ready(None),
             Poll::Pending => Poll::Pending,
+        }
+    }
+}
+
+enum DbTreeOrTransaction<'a> {
+    DbTree(&'a Db, &'a Tree),
+    Transaction(&'a TransactionalTree),
+}
+
+impl DbTreeOrTransaction<'_> {
+    fn generate_id(&self) -> Result<u64, ConflictableTransactionError<Box<Error>>> {
+        match self {
+            DbTreeOrTransaction::DbTree(db, _) => Ok(db.generate_id()?),
+            DbTreeOrTransaction::Transaction(tx) => Ok(tx.generate_id()?),
+        }
+    }
+
+    fn insert<K, V>(
+        &self,
+        key: K,
+        value: V,
+    ) -> Result<Option<IVec>, ConflictableTransactionError<Box<Error>>>
+    where
+        K: AsRef<[u8]> + Into<IVec>,
+        V: Into<IVec>,
+    {
+        match self {
+            DbTreeOrTransaction::DbTree(_, tree) => tree
+                .insert(key, value)
+                .map_err(|err| ConflictableTransactionError::Abort(Box::new(err.into()))),
+            DbTreeOrTransaction::Transaction(tx) => Ok(tx.insert(key, value)?),
         }
     }
 }

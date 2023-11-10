@@ -52,7 +52,7 @@ impl Module {
         let table = Table::new();
         let wasi = WasiCtxBuilder::new().stdout(Stdout).build();
         let mut store = Store::new(&engine, CommandCtx { table, wasi });
-        let component = Component::from_file(&engine, &file).unwrap();
+        let component = Component::from_file(&engine, &file)?;
         let mut linker = Linker::new(&engine);
         command::add_to_linker(&mut linker)?;
 

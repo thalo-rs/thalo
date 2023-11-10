@@ -1,3 +1,4 @@
+use sled::transaction::ConflictableTransactionError;
 use thalo::EmptyStreamName;
 use thiserror::Error;
 
@@ -10,6 +11,11 @@ pub enum Error {
     /// Database error.
     #[error(transparent)]
     Database(#[from] sled::Error),
+    /// Database transaction error.
+    #[error(transparent)]
+    DatabaseTransaction(
+        #[from] sled::transaction::TransactionError<ConflictableTransactionError<Box<Error>>>,
+    ),
 
     /// Message data failed to deserialize.
     #[error("failed to deserialize data: {0}")]
