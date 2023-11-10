@@ -11,3 +11,4 @@ thalo = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 wit-bindgen = { workspace = true }
 
+[package.metadata.component]
