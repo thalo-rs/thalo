@@ -6,7 +6,7 @@ description = "Cli tool for interacting with thalo through the quic protocol"
 repository = "https://github.com/thalo-rs/thalo"
 authors = ["Ari Seyhun <ariseyhun@live.com.au>"]
 keywords = ["event-sourcing", "wasm", "embedded-database"]
-categories = ["database", "web-programming", "asynchronous-processing"]
+categories = ["database", "web-programming", "asynchronous"]
 license = "Apache-2.0 OR MIT"
 
 [dependencies]
