@@ -2214,7 +2214,7 @@ dependencies = [
 
 [[package]]
 name = "thalo"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "heck",
  "serde",
@@ -2226,7 +2226,7 @@ dependencies = [
 
 [[package]]
 name = "thalo_cli"
-version = "0.1.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -2245,7 +2245,7 @@ dependencies = [
 
 [[package]]
 name = "thalo_derive"
-version = "0.1.0"
+version = "0.7.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2254,7 +2254,7 @@ dependencies = [
 
 [[package]]
 name = "thalo_message_store"
-version = "0.1.0"
+version = "0.7.0"
 dependencies = [
  "dashmap",
  "serde",
@@ -2271,7 +2271,7 @@ dependencies = [
 
 [[package]]
 name = "thalo_runtime"
-version = "0.1.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "async-trait",
