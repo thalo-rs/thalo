@@ -2,6 +2,11 @@
 name = "thalo"
 version = "0.7.0"
 edition = "2021"
+description = "A high-performance event sourcing runtime utilizing WebAssembly an embedded event store."
+repository = "https://github.com/thalo-rs/thalo"
+authors = ["Ari Seyhun <ariseyhun@live.com.au>"]
+keywords = ["event-sourcing", "wasm", "embedded-database"]
+categories = ["database", "web-programming", "asynchronous-processing"]
 
 [dependencies]
 heck = "0.4.1"

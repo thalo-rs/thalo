@@ -2,6 +2,11 @@
 name = "thalo_derive"
 version = "0.7.0"
 edition = "2021"
+description = "Derive macros for thalo"
+repository = "https://github.com/thalo-rs/thalo"
+authors = ["Ari Seyhun <ariseyhun@live.com.au>"]
+keywords = ["event-sourcing", "wasm", "embedded-database"]
+categories = ["database", "web-programming", "asynchronous-processing"]
 
 [lib]
 proc-macro = true

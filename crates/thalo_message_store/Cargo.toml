@@ -2,6 +2,11 @@
 name = "thalo_message_store"
 version = "0.7.0"
 edition = "2021"
+description = "Thalo's message store built with sled"
+repository = "https://github.com/thalo-rs/thalo"
+authors = ["Ari Seyhun <ariseyhun@live.com.au>"]
+keywords = ["event-sourcing", "wasm", "embedded-database"]
+categories = ["database", "web-programming", "asynchronous-processing"]
 
 [dependencies]
 dashmap = "5.5.3"
