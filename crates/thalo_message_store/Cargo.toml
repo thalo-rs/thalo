@@ -7,6 +7,7 @@ repository = "https://github.com/thalo-rs/thalo"
 authors = ["Ari Seyhun <ariseyhun@live.com.au>"]
 keywords = ["event-sourcing", "wasm", "embedded-database"]
 categories = ["database", "web-programming", "asynchronous-processing"]
+license = "Apache-2.0 OR MIT"
 
 [dependencies]
 dashmap = "5.5.3"
