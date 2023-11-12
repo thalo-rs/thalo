@@ -239,5 +239,25 @@ impl Default for Context<'_> {
 #[doc(hidden)]
 pub mod __macro_helpers {
     pub use serde_json;
+    use serde_json::Value;
     pub use wit_bindgen;
+
+    /// Extracts the event name and payload from an event json value.
+    /// `{"EventName": {"foo": 1}}` returns `("EventName", {"foo": 1})`.
+    pub fn extract_event_name_payload(value: Value) -> Result<(String, Value), &'static str> {
+        let Value::Object(map) = value else {
+            return Err("event is not an object");
+        };
+
+        let mut iter = map.into_iter();
+        let Some((event, payload)) = iter.next() else {
+            return Err("event is empty");
+        };
+
+        if iter.next().is_some() {
+            return Err("event contains multiple keys");
+        }
+
+        Ok((event, payload))
+    }
 }

@@ -172,13 +172,11 @@ impl DeriveEvents {
                 }
 
                 #[derive(::serde::Deserialize)]
-                #[serde(tag = "event", content = "payload")]
                 enum VersionedEvent {
                     #( #versioned_event_variants, )*
                 }
 
                 #[derive(::serde::Serialize)]
-                #[serde(tag = "event", content = "payload")]
                 enum VersionedEventRef<'a> {
                     #( #versioned_event_ref_variants, )*
                 }

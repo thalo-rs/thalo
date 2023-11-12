@@ -82,13 +82,10 @@ macro_rules! export_aggregate {
                 {
                     let payload: serde_json::Value = serde_json::from_str(&payload)
                         .map_err(|err| wit::Error::DeserializeEvent(err.to_string()))?;
-                    let event_value = serde_json::json!({
-                        "event": event,
-                        "payload": payload,
-                    });
-                    let evt = serde_json::from_value(event_value)
+                    let event_value = serde_json::json!({ event: payload });
+                    let event = serde_json::from_value(event_value)
                         .map_err(|err| wit::Error::DeserializeEvent(err.to_string()))?;
-                    <Agg as $crate::Aggregate>::apply(&mut state, evt);
+                    <Agg as $crate::Aggregate>::apply(&mut state, event);
                 }
 
                 Ok(())
@@ -104,8 +101,8 @@ macro_rules! export_aggregate {
                 let state = state.borrow();
                 let payload: serde_json::Value = serde_json::from_str(&payload)
                     .map_err(|err| wit::Error::DeserializeCommand(err.to_string()))?;
-                let event_value = serde_json::json!({ command: payload });
-                let cmd = serde_json::from_value(event_value)
+                let cmd_value = serde_json::json!({ command: payload });
+                let cmd = serde_json::from_value(cmd_value)
                     .map_err(|err| wit::Error::DeserializeCommand(err.to_string()))?;
                 let events = <Agg as $crate::Aggregate>::handle(&state, cmd)
                     .map_err(|err| wit::Error::Command(err.to_string()))?
@@ -113,9 +110,9 @@ macro_rules! export_aggregate {
                     .map(|event| {
                         let event_value = serde_json::to_value(event)
                             .map_err(|err| wit::Error::SerializeEvent(err.to_string()))?;
-                        let EventParts { event, payload } = serde_json::from_value(event_value)
+                        let (event, payload_value) = extract_event_name_payload(event_value)
                             .map_err(|err| wit::Error::SerializeEvent(err.to_string()))?;
-                        let payload = serde_json::to_string(&payload)
+                        let payload = serde_json::to_string(&payload_value)
                             .map_err(|err| wit::Error::SerializeEvent(err.to_string()))?;
                         Ok(wit::Event {
                             event,
