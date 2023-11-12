@@ -1,4 +1,4 @@
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use anyhow::{anyhow, Result};
 use clap::Args;
@@ -28,7 +28,6 @@ pub struct Execute {
 
 impl Execute {
     pub async fn execute(self, send: &mut SendStream, recv: &mut RecvStream) -> Result<()> {
-        let start = Instant::now();
         let request = Request::Execute {
             name: self.name,
             id: self.id,
@@ -43,7 +42,6 @@ impl Execute {
             .map_err(|e| anyhow!("failed to send request: {}", e))?;
 
         handle_response(recv).await?;
-        println!("{}", start.elapsed().as_millis());
 
         Ok(())
     }

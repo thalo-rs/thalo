@@ -10,9 +10,10 @@ categories = ["database", "web-programming", "asynchronous"]
 license = "Apache-2.0 OR MIT"
 
 [dependencies]
+thalo_derive = { workspace = true }
+
 heck = "0.4.1"
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
-thalo_derive = { workspace = true }
 thiserror = { workspace = true }
 wit-bindgen = { workspace = true }
