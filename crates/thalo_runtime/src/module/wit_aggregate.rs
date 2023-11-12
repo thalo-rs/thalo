@@ -1,6 +1,6 @@
 mod wit {
     wasmtime::component::bindgen!({
-        path: "../../wit/aggregate.wit",
+        path: "wit/aggregate.wit",
         world: "aggregate",
         ownership: Borrowing { duplicate_if_necessary: true },
         async: true,

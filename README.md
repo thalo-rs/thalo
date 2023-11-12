@@ -35,7 +35,7 @@ It is designed to handle commands using compiled aggregate wasm components and t
 - **LRU Caching:** Fast aggregate rebuilding with optimized memory usage.
 - **Streamlined State Management:** Automated reconstruction of aggregate states from events.
 - **Multi-Language Support:** Compile aggregates to wasm, enabling diverse language use (currently Rust supported).
-- **Easy Deployment:** Simplified setup focusing on business logic.
+- **Event Relaying:** Events can be relayed to external services (redis streams, etc) with an at-least-once guarantee.
 
 ## Prerequisites
 
@@ -84,7 +84,7 @@ Thalo will automatically load all modules within this directory, and use them to
 
 ```rust
 use serde::{Deserialize, Serialize};
-use thalo::{export_aggregate, Aggregate};
+use thalo::{export_aggregate, Aggregate, Events};
 
 export_aggregate!(Counter);
 
@@ -94,8 +94,8 @@ pub struct Counter {
 
 impl Aggregate for Counter {
     type ID = String;
-    type Command = Command;
-    type Events = Events;
+    type Command = CounterCommand;
+    type Events = CounterEvents;
     type Error = &'static str;
 
     fn init(_id: Self::ID) -> Self {
@@ -103,29 +103,33 @@ impl Aggregate for Counter {
     }
 
     fn apply(&mut self, evt: Event) {
+        use Event::*;
+
         match evt {
-            Event::Incremented(IncrementedV1 { amount }) => self.count += amount,
-            Event::Decremented(DecrementedV1 { amount }) => self.count -= amount,
+            Incremented(IncrementedV1 { amount }) => self.count += amount,
+            Decremented(DecrementedV1 { amount }) => self.count -= amount,
         }
     }
 
     fn handle(&self, cmd: Self::Command) -> Result<Vec<Event>, Self::Error> {
+        use CounterCommand::*;
+        use Event::*;
+
         match cmd {
-            Command::Increment { amount } => Ok(vec![Event::Incremented(IncrementedV1 { amount })]),
-            Command::Decrement { amount } => Ok(vec![Event::Decremented(DecrementedV1 { amount })]),
+            Increment { amount } => Ok(vec![Incremented(IncrementedV1 { amount })]),
+            Decrement { amount } => Ok(vec![Decremented(DecrementedV1 { amount })]),
         }
     }
 }
 
 #[derive(Deserialize)]
-#[serde(tag = "command", content = "payload")]
-pub enum Command {
+pub enum CounterCommand {
     Increment { amount: i64 },
     Decrement { amount: i64 },
 }
 
-#[derive(thalo::Events)]
-pub enum Events {
+#[derive(Events)]
+pub enum CounterEvents {
     Incremented(IncrementedV1),
     Decremented(DecrementedV1),
 }

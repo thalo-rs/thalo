@@ -13,7 +13,7 @@ use tokio::task::JoinHandle;
 use tracing::{instrument, warn};
 use wasmtime::Engine;
 
-use crate::command::{CommandHandler, CommandHandlerMsg, ExecuteCommand, StartModule};
+use crate::command::{CommandHandler, CommandHandlerArgs, CommandHandlerMsg, Relay};
 
 #[derive(Clone)]
 pub struct Runtime {
@@ -26,6 +26,7 @@ pub struct Runtime {
 impl Runtime {
     pub async fn new(
         message_store: MessageStore,
+        relay: Relay,
         modules_path: impl Into<PathBuf>,
     ) -> Result<Self> {
         let mut config = wasmtime::Config::new();
@@ -36,7 +37,12 @@ impl Runtime {
         let (command_handler, join_handle) = Actor::spawn(
             Some("command_handler".to_string()),
             CommandHandler,
-            (engine, message_store.clone(), modules_path.clone()),
+            CommandHandlerArgs {
+                engine,
+                message_store: message_store.clone(),
+                relay: relay.clone(),
+                modules_path: modules_path.clone(),
+            },
         )
         .await?;
 
@@ -72,14 +78,13 @@ impl Runtime {
         command: String,
         payload: Value,
     ) -> Result<()> {
-        self.command_handler
-            .cast(CommandHandlerMsg::Execute(ExecuteCommand {
-                name,
-                id,
-                command,
-                payload,
-                reply: None,
-            }))?;
+        self.command_handler.cast(CommandHandlerMsg::Execute {
+            name,
+            id,
+            command,
+            payload,
+            reply: None,
+        })?;
 
         Ok(())
     }
@@ -96,14 +101,12 @@ impl Runtime {
         let res = self
             .command_handler
             .call(
-                |reply| {
-                    CommandHandlerMsg::Execute(ExecuteCommand {
-                        name,
-                        id,
-                        command,
-                        payload,
-                        reply: Some(reply),
-                    })
+                |reply| CommandHandlerMsg::Execute {
+                    name,
+                    id,
+                    command,
+                    payload,
+                    reply: Some(reply),
                 },
                 timeout,
             )
@@ -136,12 +139,11 @@ impl Runtime {
     }
 
     fn start_module(&self, name: Category<'static>, path: PathBuf) -> Result<()> {
-        self.command_handler
-            .cast(CommandHandlerMsg::StartModule(StartModule {
-                name,
-                path,
-                reply: None,
-            }))?;
+        self.command_handler.cast(CommandHandlerMsg::StartModule {
+            name,
+            path,
+            reply: None,
+        })?;
 
         Ok(())
     }
@@ -155,12 +157,10 @@ impl Runtime {
         let res = self
             .command_handler
             .call(
-                |reply| {
-                    CommandHandlerMsg::StartModule(StartModule {
-                        name,
-                        path,
-                        reply: Some(reply),
-                    })
+                |reply| CommandHandlerMsg::StartModule {
+                    name,
+                    path,
+                    reply: Some(reply),
                 },
                 timeout,
             )

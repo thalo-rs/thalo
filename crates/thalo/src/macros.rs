@@ -104,10 +104,7 @@ macro_rules! export_aggregate {
                 let state = state.borrow();
                 let payload: serde_json::Value = serde_json::from_str(&payload)
                     .map_err(|err| wit::Error::DeserializeCommand(err.to_string()))?;
-                let event_value = serde_json::json!({
-                    "command": command,
-                    "payload": payload,
-                });
+                let event_value = serde_json::json!({ command: payload });
                 let cmd = serde_json::from_value(event_value)
                     .map_err(|err| wit::Error::DeserializeCommand(err.to_string()))?;
                 let events = <Agg as $crate::Aggregate>::handle(&state, cmd)

@@ -29,6 +29,7 @@ quinn = { workspace = true }
 ractor = "0.9.3"
 rand = "0.8.5"
 rcgen = { version = "0.10.0", features = ["pem", "x509-parser"] }
+redis = { version = "0.23.3", features = ["tokio-comp"] }
 rmp-serde = { workspace = true }
 rustls = { workspace = true }
 rustls-pemfile = "1.0.1"
