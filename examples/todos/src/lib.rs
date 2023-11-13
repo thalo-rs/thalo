@@ -1,61 +1,86 @@
+#![allow(dead_code)]
+
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
-use thalo::{export_aggregate, Aggregate, Context, Error};
+use thalo::{export_aggregate, Aggregate, Events};
 
 export_aggregate!(Todos);
 
-#[derive(Aggregate, Serialize, Deserialize)]
-#[aggregate(schema = "examples/todos/todos.esdl")]
 pub struct Todos {
     id: String,
     todos: HashMap<String, Todo>,
 }
 
-#[derive(Serialize, Deserialize)]
 struct Todo {
     description: String,
 }
 
-impl TodosAggregate for Todos {
-    fn new(id: String) -> Result<Self, thalo::Error> {
-        Ok(Todos {
+impl Aggregate for Todos {
+    type ID = String;
+    type Command = TodosCommand;
+    type Events = TodosEvents;
+    type Error = &'static str;
+
+    fn init(id: Self::ID) -> Self {
+        Todos {
             id,
             todos: HashMap::new(),
-        })
+        }
     }
 
-    fn apply_added(&mut self, _ctx: Context, event: Added) {
-        self.todos.insert(
-            event.id,
-            Todo {
-                description: event.description,
-            },
-        );
+    fn apply(&mut self, event: <Self::Events as Events>::Event) {
+        use Event::*;
+
+        match event {
+            TodoAdded(TodoAddedV1 { id, description }) => {
+                self.todos.insert(id, Todo { description });
+            }
+            TodoRemoved(TodoRemovedV1 { id }) => {
+                self.todos.remove(&id);
+            }
+        }
     }
 
-    fn apply_removed(&mut self, _ctx: Context, event: Removed) {
-        self.todos.remove(&event.id);
-    }
-
-    fn handle_add(
+    fn handle(
         &self,
-        _ctx: &mut Context,
-        id: String,
-        description: String,
-    ) -> Result<Added, Error> {
-        if self.todos.contains_key(&id) {
-            return Err(Error::fatal("todo already exists"));
+        cmd: Self::Command,
+    ) -> Result<Vec<<Self::Events as Events>::Event>, Self::Error> {
+        use Event::*;
+        use TodosCommand::*;
+
+        match cmd {
+            AddTodo { id, description } => {
+                if self.todos.contains_key(&id) {
+                    return Err("todo already added");
+                }
+
+                Ok(vec![TodoAdded(TodoAddedV1 { id, description })])
+            }
+            RemoveTodo { id } => Ok(vec![TodoRemoved(TodoRemovedV1 { id })]),
         }
-
-        Ok(Added { id, description })
     }
+}
 
-    fn handle_remove(&self, _ctx: &mut Context, id: String) -> Result<Removed, Error> {
-        if self.todos.contains_key(&id) {
-            return Err(Error::fatal("todo does not exists"));
-        }
+#[derive(Deserialize)]
+pub enum TodosCommand {
+    AddTodo { id: String, description: String },
+    RemoveTodo { id: String },
+}
 
-        Ok(Removed { id })
-    }
+#[derive(Events)]
+pub enum TodosEvents {
+    TodoAdded(TodoAddedV1),
+    TodoRemoved(TodoRemovedV1),
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct TodoAddedV1 {
+    id: String,
+    description: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct TodoRemovedV1 {
+    id: String,
 }
