@@ -97,13 +97,15 @@ impl Actor for StreamCommandHandler {
                 let payload = serde_json::to_string(&payload)?;
                 let events = instance.handle(&command, &payload).await?;
                 if !events.is_empty() {
+                    let sequence = instance.sequence();
+
                     // Apply events on instance.
                     // We do this before persisting, to make sure nothing blows up,
                     // and it can actually apply the events emitted.
                     let events_to_apply: Vec<_> = events
                         .iter()
                         .map(|event| {
-                            let position = instance.sequence().map(|v| v + 1).unwrap_or(0);
+                            let position = sequence.map(|v| v + 1).unwrap_or(0);
                             let event = Event {
                                 event: Cow::Borrowed(&event.event),
                                 payload: Cow::Borrowed(&event.payload),
@@ -120,7 +122,7 @@ impl Actor for StreamCommandHandler {
                             let payload = serde_json::from_str(&event.payload)?;
                             let metadata = Metadata {
                                 stream_name: stream.stream_name().clone(),
-                                position: instance.sequence().map(|v| v + 1).unwrap_or(0),
+                                position: sequence.map(|v| v + 1).unwrap_or(0),
                                 reply_stream_name: None,
                                 schema_version: None,
                                 properties: HashMap::new(),
@@ -129,7 +131,7 @@ impl Actor for StreamCommandHandler {
                             Ok((event.event.as_ref(), Cow::Owned(payload), metadata))
                         })
                         .collect::<anyhow::Result<_>>()?;
-                    let written_messages = stream.write_messages(&messages, instance.sequence())?;
+                    let written_messages = stream.write_messages(&messages, sequence)?;
 
                     if let Err(err) = outbox_relay.cast(OutboxRelayMsg::RelayNextBatch) {
                         error!("failed to notify outbox relay: {err}");
