@@ -2,33 +2,15 @@ Examples need to be compiled to wasm components and published to the runtime.
 
 ## Prerequisites
 
-- Rust with the `wasm32-wasi` and `wasm32-unknown-unknown` targets
+- Rust with the `wasm32-wasi` targets
 - [wasm-tools] cli
-- [`wasi_snapshot_preview1` adapter]
+- `wasi_snapshot_preview1` adapter (included in this repo)
 
-[`wasi_snapshot_preview1` adapter]: #building-wasi_snapshot_preview1-adapter
+[wasm-tools]: https://github.com/bytecodealliance/wasm-tools
 
-## Building `wasi_snapshot_preview1` adapter
+## Building & Running an Example
 
-At the time of writing, the adapater can be compiled from the [bytecodealliance/preview2-prototyping] repository.
-
-```bash
-git clone https://github.com/bytecodealliance/preview2-prototyping.git
-cd preview2-prototyping
-```
-
-The `wasi_snapshot_preview1.wasm` module needs to be built to the `wasm32-unknown-unknown` target.
-
-```bash
-cargo build --target wasm32-unknown-unknown --release
-```
-
-This will build a wasm file in `target/wasm32-unknown-unknown/release/wasi_snapshot_preview1.wasm`.
-This can be used as the adapater to convert the wasm module to a component with the wasm-tools cli.
-
-## Building an example
-
-Modules need to be built to wasm32-wasi, and converted to a wasm component.
+Modules need to be built to `wasm32-wasi`, and converted to a wasm component with `wasm-tools`.
 
 Start by building the counter example.
 
@@ -39,25 +21,25 @@ cargo build -p counter --release --target wasm32-wasi
 Then you can use the [wasm-tools] cli to convert this to a wasm component using the `wasi_snapshot_preview1.wasm` adapter.
 
 ```bash
+mkdir ./modules
 wasm-tools component new \
   ./target/wasm32-wasi/release/counter.wasm \
-  --adapt ../../bytecodealliance/preview2-prototyping/target/wasm32-unknown-unknown/release/wasi_snapshot_preview1.wasm \
-  -o ./counter.component.wasm
+  --adapt ./wasi_snapshot_preview1.wasm \
+  -o ./modules/counter.wasm
 ```
 
-You should be left with a `counter.component.wasm` file. You can publish this to the runtime using thalo-cli.
+The generated `counter.wasm` file will be placed in `./modules`, and is read by thalo at startup.
+
+Start thalo with `cargo r -p thalo_runtime` and you should see a log saying:
+
+```
+loaded module from file file="modules/counter.wasm"
+```
+
+This means thalo is ready to handle the `Increment` and `Decrement` commands defined in our counter module.
+
+You can execute commands using the `thalo_cli` package:
 
 ```bash
-cargo run -p thalo_cli -- --url "http://localhost:4433" publish ./examples/counter/counter.esdl ./counter.component.wasm
+cargo run -p thalo_cli -- execute Counter counter-1 Increment '{"amount":1}'
 ```
-
-Once published, you can finally execute a command.
-
-```bash
-cargo run -p thalo_cli -- --url "http://localhost:4433" execute Counter counter-1 increment '{"amount":1}'
-```
-
-[wasm-tools]: https://github.com/bytecodealliance/wasm-tools
-[bytecodealliance/preview2-prototyping]: https://github.com/bytecodealliance/preview2-prototyping
-[wit-component]: https://github.com/bytecodealliance/wit-bindgen/tree/main/crates/wit-component
-[`wasi_snapshot_preview1`]: https://github.com/bytecodealliance/wit-bindgen/tree/main/crates/wasi_snapshot_preview1
