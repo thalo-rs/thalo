@@ -8,7 +8,6 @@ use std::{fmt, str};
 
 use anyhow::{anyhow, bail, Context as AnyhowContext, Result};
 use serde::{Deserialize, Serialize};
-use thalo::Context;
 use tokio::sync::Mutex;
 use tracing::{info, trace};
 use wasmtime::component::{Component, Linker, ResourceAny};
@@ -107,7 +106,7 @@ impl ModuleInstance {
         self.sequence
     }
 
-    pub async fn apply(&mut self, events: &[(Context<'_>, Event<'_>)]) -> Result<()> {
+    pub async fn apply(&mut self, events: &[(u64, Event<'_>)]) -> Result<()> {
         if events.is_empty() {
             return Ok(());
         }
@@ -116,19 +115,19 @@ impl ModuleInstance {
         let original_sequence = self.sequence;
         let events: Vec<_> = events
             .into_iter()
-            .map(|(ctx, event)| {
+            .map(|(position, event)| {
                 match self.sequence {
-                    Some(seq) if seq + 1 == ctx.position => {
+                    Some(seq) if seq + 1 == *position => {
                         // Apply the event as the sequence is correct.
-                        self.sequence = Some(ctx.position); // Update sequence.
+                        self.sequence = Some(*position); // Update sequence.
                     }
-                    None if ctx.position == 0 => {
+                    None if *position == 0 => {
                         // This is the first event, so apply it and set the sequence to 1.
                         self.sequence = Some(0);
                     }
                     _ => bail!(
                         "wrong event position {}, expected {}",
-                        ctx.position,
+                        position,
                         self.sequence.map(|s| s + 1).unwrap_or(0)
                     ),
                 }

@@ -4,7 +4,7 @@ use anyhow::Context as AnyhowContext;
 use async_trait::async_trait;
 use ractor::{Actor, ActorProcessingErr, ActorRef, RpcReplyPort};
 use serde_json::Value;
-use thalo::{Context, Metadata, StreamName};
+use thalo::{Metadata, StreamName};
 use thalo_message_store::{GenericMessage, MessageData, MessageStore, Stream};
 use tracing::{error, trace};
 
@@ -63,18 +63,11 @@ impl Actor for StreamCommandHandler {
         for res in stream.iter_all_messages::<MessageData>() {
             let raw_message = res?;
             let message = raw_message.message()?;
-            let ctx = Context {
-                id: message.id,
-                stream_name: message.stream_name,
-                position: message.position,
-                metadata: message.metadata,
-                time: message.time,
-            };
             let event = Event {
                 event: message.msg_type,
                 payload: Cow::Owned(serde_json::to_string(&message.data)?),
             };
-            instance.apply(&[(ctx, event)]).await?;
+            instance.apply(&[(message.position, event)]).await?;
             trace!(stream_name = ?stream.stream_name(), position = message.position, "applied event");
         }
 
@@ -104,6 +97,23 @@ impl Actor for StreamCommandHandler {
                 let payload = serde_json::to_string(&payload)?;
                 let events = instance.handle(&command, &payload).await?;
                 if !events.is_empty() {
+                    // Apply events on instance.
+                    // We do this before persisting, to make sure nothing blows up,
+                    // and it can actually apply the events emitted.
+                    let events_to_apply: Vec<_> = events
+                        .iter()
+                        .map(|event| {
+                            let position = instance.sequence().map(|v| v + 1).unwrap_or(0);
+                            let event = Event {
+                                event: Cow::Borrowed(&event.event),
+                                payload: Cow::Borrowed(&event.payload),
+                            };
+                            (position, event)
+                        })
+                        .collect();
+                    instance.apply(&events_to_apply).await?;
+
+                    // Persist events.
                     let messages: Vec<_> = events
                         .iter()
                         .map(|event| {
@@ -119,45 +129,18 @@ impl Actor for StreamCommandHandler {
                             Ok((event.event.as_ref(), Cow::Owned(payload), metadata))
                         })
                         .collect::<anyhow::Result<_>>()?;
-
                     let written_messages = stream.write_messages(&messages, instance.sequence())?;
-
-                    let reply_written_messages = reply.map(|reply| {
-                        (
-                            reply,
-                            written_messages
-                                .iter()
-                                .map(|message| message.clone().into_owned())
-                                .collect::<Vec<_>>(),
-                        )
-                    });
-
-                    let events: Vec<_> = written_messages
-                        .into_iter()
-                        .zip(events.iter())
-                        .map(|(message, event)| {
-                            let ctx = Context {
-                                id: message.id,
-                                stream_name: message.stream_name,
-                                position: message.position,
-                                metadata: message.metadata,
-                                time: message.time,
-                            };
-                            let event = Event {
-                                event: message.msg_type,
-                                payload: Cow::Borrowed(&event.payload),
-                            };
-                            (ctx, event)
-                        })
-                        .collect();
-                    instance.apply(&events).await?;
 
                     if let Err(err) = outbox_relay.cast(OutboxRelayMsg::RelayNextBatch) {
                         error!("failed to notify outbox relay: {err}");
                     }
 
-                    if let Some((reply, messages)) = reply_written_messages {
-                        reply.send(messages)?;
+                    if let Some(reply) = reply {
+                        let reply_messages = written_messages
+                            .into_iter()
+                            .map(|message| message.into_owned())
+                            .collect();
+                        reply.send(reply_messages)?;
                     }
                 } else {
                     if let Some(reply) = reply {
