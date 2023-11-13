@@ -9,7 +9,7 @@ members = [
   "crates/thalo_runtime",
 
   # Examples
-  # "examples/bank_account",
+  "examples/bank_account",
   # "examples/count_read_model",
   "examples/counter",
   # "examples/todos",

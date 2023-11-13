@@ -1,84 +1,117 @@
 use serde::{Deserialize, Serialize};
-use thalo::{export_aggregate, Aggregate, Context, Error};
+use thalo::{export_aggregate, Aggregate, Events};
 
 export_aggregate!(BankAccount);
 
-#[derive(Aggregate, Serialize, Deserialize)]
-#[aggregate(schema = "examples/bank_account/bank_account.esdl")]
 pub struct BankAccount {
+    #[allow(unused)]
     id: String,
     opened: bool,
     balance: i64,
 }
 
-impl BankAccountAggregate for BankAccount {
-    fn new(id: String) -> Result<Self, thalo::Error> {
-        Ok(BankAccount {
+impl Aggregate for BankAccount {
+    type ID = String;
+    type Command = BankAccountCommand;
+    type Events = BankAccountEvents;
+    type Error = &'static str;
+
+    fn init(id: Self::ID) -> Self {
+        BankAccount {
             id,
             opened: false,
             balance: 0,
-        })
+        }
     }
 
-    fn apply_opened_account(&mut self, _ctx: Context, event: OpenedAccount) {
-        self.opened = true;
-        self.balance = event.initial_balance;
+    fn apply(&mut self, event: <Self::Events as Events>::Event) {
+        use Event::*;
+
+        match event {
+            OpenedAccount(OpenedAccountV1 { initial_balance }) => {
+                self.opened = true;
+                self.balance = initial_balance as i64;
+            }
+            DepositedFunds(DepositedFundsV1 { amount }) => {
+                self.balance += amount as i64;
+            }
+            WithdrewFunds(WithdrewFundsV1 { amount }) => {
+                self.balance -= amount as i64;
+            }
+        }
     }
 
-    fn apply_deposited_funds(&mut self, _ctx: Context, event: DepositedFunds) {
-        self.balance += event.amount as i64;
-    }
-
-    fn apply_withdrew_funds(&mut self, _ctx: Context, event: WithdrewFunds) {
-        self.balance -= event.amount as i64;
-    }
-
-    fn handle_open_account(
+    fn handle(
         &self,
-        _ctx: &mut Context,
-        initial_balance: i64,
-    ) -> Result<OpenedAccount, Error> {
-        if self.opened {
-            return Err(Error::fatal("account already opened"));
-        }
+        cmd: Self::Command,
+    ) -> Result<Vec<<Self::Events as Events>::Event>, Self::Error> {
+        use BankAccountCommand::*;
+        use Event::*;
 
-        Ok(OpenedAccount { initial_balance })
+        match cmd {
+            OpenAccount { initial_balance } => {
+                if self.opened {
+                    return Err("account already opened");
+                }
+
+                Ok(vec![OpenedAccount(OpenedAccountV1 { initial_balance })])
+            }
+            DepositFunds { amount } => {
+                if !self.opened {
+                    return Err("account not open");
+                }
+
+                if amount == 0 {
+                    return Err("cannot deposit 0");
+                }
+
+                Ok(vec![DepositedFunds(DepositedFundsV1 { amount })])
+            }
+            WithdrawFunds { amount } => {
+                if !self.opened {
+                    return Err("account not open");
+                }
+
+                if amount == 0 {
+                    return Err("cannot withdraw 0");
+                }
+
+                let new_balance = self.balance - amount as i64;
+                if new_balance < 0 {
+                    return Err("insufficient balance");
+                }
+
+                Ok(vec![WithdrewFunds(WithdrewFundsV1 { amount })])
+            }
+        }
     }
+}
 
-    fn handle_deposit_funds(
-        &self,
-        _ctx: &mut Context,
-        amount: i32,
-    ) -> Result<DepositedFunds, Error> {
-        if !self.opened {
-            return Err(Error::fatal("account not open"));
-        }
+#[derive(Deserialize)]
+pub enum BankAccountCommand {
+    OpenAccount { initial_balance: u32 },
+    DepositFunds { amount: u32 },
+    WithdrawFunds { amount: u32 },
+}
 
-        if amount < 0 {
-            return Err(Error::fatal("cannot deposit negative funds"));
-        }
+#[derive(Events)]
+pub enum BankAccountEvents {
+    OpenedAccount(OpenedAccountV1),
+    DepositedFunds(DepositedFundsV1),
+    WithdrewFunds(WithdrewFundsV1),
+}
 
-        Ok(DepositedFunds { amount })
-    }
+#[derive(Serialize, Deserialize)]
+pub struct OpenedAccountV1 {
+    initial_balance: u32,
+}
 
-    fn handle_withdraw_funds(
-        &self,
-        _ctx: &mut Context,
-        amount: i32,
-    ) -> Result<WithdrewFunds, Error> {
-        if !self.opened {
-            return Err(Error::fatal("account not open"));
-        }
+#[derive(Serialize, Deserialize)]
+pub struct DepositedFundsV1 {
+    amount: u32,
+}
 
-        if amount < 0 {
-            return Err(Error::fatal("cannot withdraw negative funds"));
-        }
-
-        let new_balance = self.balance - amount as i64;
-        if new_balance < 0 {
-            return Err(Error::fatal("insufficient balance"));
-        }
-
-        Ok(WithdrewFunds { amount })
-    }
+#[derive(Serialize, Deserialize)]
+pub struct WithdrewFundsV1 {
+    amount: u32,
 }
