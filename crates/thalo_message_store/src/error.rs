@@ -28,6 +28,9 @@ pub enum Error {
     #[error(transparent)]
     EmptyStreamName(#[from] EmptyStreamName),
 
+    #[error("invalid event reference: (ID: {id}, Stream Name: {stream_name})")]
+    InvalidEventReference { id: u64, stream_name: String },
+
     #[error("wrong expected version: {expected_version} (Stream: {stream_name}, Stream Version: {stream_version:?})")]
     WrongExpectedVersion {
         expected_version: u64,

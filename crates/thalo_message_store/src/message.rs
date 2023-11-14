@@ -73,6 +73,10 @@ where
     pub msg_type: Cow<'a, str>,
     /// An incrementing gapless squence in the stream.
     pub position: u64,
+    /// A unique monotonic identifier referncing the global event log id.
+    ///
+    /// While this is monotonic, it may contain gaps.
+    pub global_position: u64,
     /// Message data.
     pub data: Cow<'a, T>,
     /// Message metadata.
@@ -127,6 +131,7 @@ where
             stream_name: self.stream_name,
             msg_type: self.msg_type,
             position: self.position,
+            global_position: self.global_position,
             data: new_data,
             metadata: self.metadata,
             time: self.time,
@@ -139,6 +144,7 @@ where
             stream_name: self.stream_name.into_owned(),
             msg_type: Cow::Owned(self.msg_type.into_owned()),
             position: self.position,
+            global_position: self.global_position,
             data: Cow::Owned(self.data.into_owned()),
             metadata: self.metadata.into_owned(),
             time: self.time,

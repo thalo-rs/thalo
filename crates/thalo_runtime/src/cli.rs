@@ -72,7 +72,7 @@ pub async fn start() -> Result<()> {
         }
         None => Relay::Noop,
     };
-    let runtime = Runtime::new(message_store.clone(), relay, cli.modules_path).await?;
+    let runtime = Runtime::new(message_store, relay, cli.modules_path).await?;
 
     let (certs, key) = load_certs(cli.key, cli.cert).await?;
     interface::quic::run(
