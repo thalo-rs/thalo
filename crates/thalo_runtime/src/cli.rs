@@ -5,9 +5,9 @@ use anyhow::Result;
 use clap::Parser;
 use redis::streams::StreamMaxlen;
 use thalo_message_store::MessageStore;
-use thalo_runtime::command::{RedisRelay, Relay};
 use thalo_runtime::interface::{self, quic::load_certs};
-use thalo_runtime::runtime::Runtime;
+use thalo_runtime::relay::{RedisRelay, Relay};
+use thalo_runtime::Runtime;
 use tracing_subscriber::EnvFilter;
 
 /// Thalo runtime - event sourcing runtime

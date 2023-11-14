@@ -1,9 +1,8 @@
-mod category_command_handler;
-mod command_handler;
+mod aggregate_command_handler;
+mod command_gateway;
+mod entity_command_handler;
 mod outbox_relay;
-mod stream_command_handler;
 
-pub use command_handler::{
-    CommandHandler, CommandHandlerArgs, CommandHandlerMsg, CommandHandlerRef,
+pub use command_gateway::{
+    CommandGateway, CommandGatewayArgs, CommandGatewayMsg, CommandGatewayRef,
 };
-pub use outbox_relay::{RedisRelay, Relay};

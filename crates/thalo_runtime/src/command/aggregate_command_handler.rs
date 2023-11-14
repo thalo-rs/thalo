@@ -9,25 +9,25 @@ use tracing::error;
 use crate::module::Module;
 
 use super::{
-    outbox_relay::OutboxRelayRef,
-    stream_command_handler::{
-        StreamCommandHandler, StreamCommandHandlerArgs, StreamCommandHandlerMsg,
-        StreamCommandHandlerRef,
+    entity_command_handler::{
+        EntityCommandHandler, EntityCommandHandlerArgs, EntityCommandHandlerMsg,
+        EntityCommandHandlerRef,
     },
+    outbox_relay::OutboxRelayRef,
 };
 
-pub type CategoryCommandHandlerRef = ActorRef<CategoryCommandHandlerMsg>;
+pub type AggregateCommandHandlerRef = ActorRef<AggregateCommandHandlerMsg>;
 
-pub struct CategoryCommandHandler;
+pub struct AggregateCommandHandler;
 
-pub struct CategoryCommandHandlerState {
+pub struct AggregateCommandHandlerState {
     outbox_relay: OutboxRelayRef,
     message_store: MessageStore,
     module: Module,
-    streams: Cache<StreamName<'static>, StreamCommandHandlerRef>,
+    entity_command_handlers: Cache<StreamName<'static>, EntityCommandHandlerRef>,
 }
 
-pub enum CategoryCommandHandlerMsg {
+pub enum AggregateCommandHandlerMsg {
     Execute {
         name: Category<'static>,
         id: ID<'static>,
@@ -40,56 +40,56 @@ pub enum CategoryCommandHandlerMsg {
     },
 }
 
-pub struct CategoryCommandHandlerArgs {
+pub struct AggregateCommandHandlerArgs {
     pub outbox_relay: OutboxRelayRef,
     pub message_store: MessageStore,
     pub module: Module,
 }
 
 #[async_trait]
-impl Actor for CategoryCommandHandler {
-    type State = CategoryCommandHandlerState;
-    type Msg = CategoryCommandHandlerMsg;
-    type Arguments = CategoryCommandHandlerArgs;
+impl Actor for AggregateCommandHandler {
+    type State = AggregateCommandHandlerState;
+    type Msg = AggregateCommandHandlerMsg;
+    type Arguments = AggregateCommandHandlerArgs;
 
     async fn pre_start(
         &self,
         _myself: ActorRef<Self::Msg>,
-        CategoryCommandHandlerArgs {
+        AggregateCommandHandlerArgs {
             outbox_relay,
             message_store,
             module,
         }: Self::Arguments,
     ) -> Result<Self::State, ActorProcessingErr> {
-        let eviction_listener = move |_stream_name, actor: StreamCommandHandlerRef, _cause| {
+        let eviction_listener = move |_stream_name, actor: EntityCommandHandlerRef, _cause| {
             actor.stop(Some("cache eviction".to_string()));
         };
-        let streams = Cache::builder()
+        let entity_command_handlers = Cache::builder()
             .max_capacity(100)
             .eviction_listener(eviction_listener)
             .build();
 
-        Ok(CategoryCommandHandlerState {
+        Ok(AggregateCommandHandlerState {
             outbox_relay,
             message_store,
             module,
-            streams,
+            entity_command_handlers,
         })
     }
 
     async fn handle(
         &self,
         myself: ActorRef<Self::Msg>,
-        msg: CategoryCommandHandlerMsg,
-        CategoryCommandHandlerState {
+        msg: AggregateCommandHandlerMsg,
+        AggregateCommandHandlerState {
             outbox_relay,
             message_store,
             module,
-            streams,
-        }: &mut CategoryCommandHandlerState,
+            entity_command_handlers,
+        }: &mut AggregateCommandHandlerState,
     ) -> Result<(), ActorProcessingErr> {
         match msg {
-            CategoryCommandHandlerMsg::Execute {
+            AggregateCommandHandlerMsg::Execute {
                 name,
                 id,
                 command,
@@ -97,13 +97,13 @@ impl Actor for CategoryCommandHandler {
                 reply,
             } => {
                 let stream_name = StreamName::from_parts(name, Some(&id))?;
-                let entry_res = streams
+                let entry_res = entity_command_handlers
                     .entry(stream_name.clone())
                     .or_try_insert_with(async {
                         Actor::spawn_linked(
                             None,
-                            StreamCommandHandler,
-                            StreamCommandHandlerArgs {
+                            EntityCommandHandler,
+                            EntityCommandHandlerArgs {
                                 outbox_relay: outbox_relay.clone(),
                                 message_store: message_store.clone(),
                                 module: module.clone(),
@@ -117,7 +117,7 @@ impl Actor for CategoryCommandHandler {
                     .await;
                 match entry_res {
                     Ok(entry) => {
-                        entry.value().cast(StreamCommandHandlerMsg::Execute {
+                        entry.value().cast(EntityCommandHandlerMsg::Execute {
                             command,
                             payload,
                             reply,
@@ -128,12 +128,12 @@ impl Actor for CategoryCommandHandler {
                     }
                 }
             }
-            CategoryCommandHandlerMsg::UpdateOutboxActorRef {
+            AggregateCommandHandlerMsg::UpdateOutboxActorRef {
                 outbox_relay: new_outbox_relay,
             } => {
                 *outbox_relay = new_outbox_relay.clone();
-                for (_, stream_actor) in streams.iter() {
-                    stream_actor.cast(StreamCommandHandlerMsg::UpdateOutboxActorRef {
+                for (_, entity_command_handler) in entity_command_handlers.iter() {
+                    entity_command_handler.cast(EntityCommandHandlerMsg::UpdateOutboxActorRef {
                         outbox_relay: new_outbox_relay.clone(),
                     })?;
                 }
@@ -151,16 +151,20 @@ impl Actor for CategoryCommandHandler {
     ) -> Result<(), ActorProcessingErr> {
         match message {
             SupervisionEvent::ActorPanicked(cell, err) => {
-                error!("stream command handler panicked: {err}");
-                let stream_name = state.streams.iter().find_map(|(stream_name, actor)| {
-                    if cell.get_id() == actor.get_cell().get_id() {
-                        Some(stream_name)
-                    } else {
-                        None
-                    }
-                });
+                error!("entity command handler panicked: {err}");
+                let stream_name =
+                    state
+                        .entity_command_handlers
+                        .iter()
+                        .find_map(|(stream_name, actor)| {
+                            if cell.get_id() == actor.get_cell().get_id() {
+                                Some(stream_name)
+                            } else {
+                                None
+                            }
+                        });
                 if let Some(stream_name) = stream_name {
-                    state.streams.remove(&stream_name).await;
+                    state.entity_command_handlers.remove(&stream_name).await;
                 }
             }
             _ => {}

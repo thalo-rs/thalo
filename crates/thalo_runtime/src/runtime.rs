@@ -13,13 +13,14 @@ use tokio::task::JoinHandle;
 use tracing::{instrument, warn};
 use wasmtime::Engine;
 
-use crate::command::{CommandHandler, CommandHandlerArgs, CommandHandlerMsg, Relay};
+use crate::command::{CommandGateway, CommandGatewayArgs, CommandGatewayMsg};
+use crate::relay::Relay;
 
 #[derive(Clone)]
 pub struct Runtime {
     message_store: MessageStore,
     modules_path: PathBuf,
-    command_handler: ActorRef<CommandHandlerMsg>,
+    command_handler: ActorRef<CommandGatewayMsg>,
     join_handle: Arc<Mutex<Option<JoinHandle<()>>>>,
 }
 
@@ -36,8 +37,8 @@ impl Runtime {
         let modules_path = modules_path.into();
         let (command_handler, join_handle) = Actor::spawn(
             Some("command_handler".to_string()),
-            CommandHandler,
-            CommandHandlerArgs {
+            CommandGateway,
+            CommandGatewayArgs {
                 engine,
                 message_store: message_store.clone(),
                 relay: relay.clone(),
@@ -78,7 +79,7 @@ impl Runtime {
         command: String,
         payload: Value,
     ) -> Result<()> {
-        self.command_handler.cast(CommandHandlerMsg::Execute {
+        self.command_handler.cast(CommandGatewayMsg::Execute {
             name,
             id,
             command,
@@ -101,7 +102,7 @@ impl Runtime {
         let res = self
             .command_handler
             .call(
-                |reply| CommandHandlerMsg::Execute {
+                |reply| CommandGatewayMsg::Execute {
                     name,
                     id,
                     command,
@@ -139,7 +140,7 @@ impl Runtime {
     }
 
     fn start_module(&self, name: Category<'static>, path: PathBuf) -> Result<()> {
-        self.command_handler.cast(CommandHandlerMsg::StartModule {
+        self.command_handler.cast(CommandGatewayMsg::StartModule {
             name,
             path,
             reply: None,
@@ -157,7 +158,7 @@ impl Runtime {
         let res = self
             .command_handler
             .call(
-                |reply| CommandHandlerMsg::StartModule {
+                |reply| CommandGatewayMsg::StartModule {
                     name,
                     path,
                     reply: Some(reply),

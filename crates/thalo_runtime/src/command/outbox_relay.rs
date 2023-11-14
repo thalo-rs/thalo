@@ -6,14 +6,15 @@
 //! This implementation dispatches events in batches, with each batch containing a maximum of 100 events. Events are
 //! relayed to a pre-configured external system for further handling.
 
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use async_trait::async_trait;
 use ractor::{Actor, ActorProcessingErr, ActorRef};
-use redis::{aio::MultiplexedConnection, streams::StreamMaxlen, ToRedisArgs};
 use thalo::Category;
-use thalo_message_store::{GenericMessage, MessageData, Outbox};
+use thalo_message_store::{MessageData, Outbox};
 use tracing::trace;
+
+use crate::relay::Relay;
 
 const BATCH_SIZE: usize = 100;
 const FLUSH_INTERVAL: Duration = Duration::from_millis(500);
@@ -166,82 +167,6 @@ impl Actor for OutboxRelayFlusher {
             OutboxRelayFlusherMsg::MarkDirty => {
                 *is_dirty = true;
             }
-        }
-
-        Ok(())
-    }
-}
-
-#[derive(Clone)]
-pub enum Relay {
-    Noop,
-    Redis(RedisRelay),
-}
-
-impl Relay {
-    fn stream_name(&self, category: Category<'_>) -> String {
-        match self {
-            Relay::Noop => category.into_string(),
-            Relay::Redis(redis_relay) => redis_relay.stream_name(category),
-        }
-    }
-
-    async fn relay<'a>(
-        &mut self,
-        stream_name: &str,
-        batch: Vec<GenericMessage<'a>>,
-    ) -> anyhow::Result<()> {
-        match self {
-            Relay::Noop => Ok(()),
-            Relay::Redis(redis_relay) => redis_relay.relay(stream_name, batch).await,
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct RedisRelay {
-    conn: MultiplexedConnection,
-    stream_max_len: StreamMaxlen,
-    stream_name_template: Arc<str>,
-}
-
-impl RedisRelay {
-    pub fn new(
-        conn: MultiplexedConnection,
-        stream_max_len: StreamMaxlen,
-        stream_name_template: impl Into<Arc<str>>,
-    ) -> Self {
-        RedisRelay {
-            conn,
-            stream_max_len,
-            stream_name_template: stream_name_template.into(),
-        }
-    }
-
-    fn stream_name(&self, category: Category<'_>) -> String {
-        self.stream_name_template.replace("{category}", &category)
-    }
-
-    async fn relay<'a>(
-        &mut self,
-        stream_name: &str,
-        batch: Vec<GenericMessage<'a>>,
-    ) -> anyhow::Result<()> {
-        if !batch.is_empty() {
-            let mut pipe = redis::pipe();
-            for msg in batch {
-                let msg_data = serde_json::to_string(&msg)?;
-                pipe.xadd_maxlen(
-                    stream_name.to_redis_args(),
-                    self.stream_max_len,
-                    "*",
-                    &[
-                        ("event_type", (&*msg.msg_type).to_redis_args()),
-                        ("event", msg_data.to_redis_args()),
-                    ],
-                );
-            }
-            pipe.query_async(&mut self.conn).await?;
         }
 
         Ok(())

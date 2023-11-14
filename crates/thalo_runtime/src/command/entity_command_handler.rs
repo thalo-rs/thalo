@@ -12,17 +12,17 @@ use crate::module::{Event, Module, ModuleInstance};
 
 use super::outbox_relay::{OutboxRelayMsg, OutboxRelayRef};
 
-pub type StreamCommandHandlerRef = ActorRef<StreamCommandHandlerMsg>;
+pub type EntityCommandHandlerRef = ActorRef<EntityCommandHandlerMsg>;
 
-pub struct StreamCommandHandler;
+pub struct EntityCommandHandler;
 
-pub struct StreamCommandHandlerState {
+pub struct EntityCommandHandlerState {
     outbox_relay: OutboxRelayRef,
     stream: Stream<'static>,
     instance: ModuleInstance,
 }
 
-pub enum StreamCommandHandlerMsg {
+pub enum EntityCommandHandlerMsg {
     Execute {
         command: String,
         payload: Value,
@@ -33,7 +33,7 @@ pub enum StreamCommandHandlerMsg {
     },
 }
 
-pub struct StreamCommandHandlerArgs {
+pub struct EntityCommandHandlerArgs {
     pub outbox_relay: OutboxRelayRef,
     pub message_store: MessageStore,
     pub module: Module,
@@ -41,15 +41,15 @@ pub struct StreamCommandHandlerArgs {
 }
 
 #[async_trait]
-impl Actor for StreamCommandHandler {
-    type State = StreamCommandHandlerState;
-    type Msg = StreamCommandHandlerMsg;
-    type Arguments = StreamCommandHandlerArgs;
+impl Actor for EntityCommandHandler {
+    type State = EntityCommandHandlerState;
+    type Msg = EntityCommandHandlerMsg;
+    type Arguments = EntityCommandHandlerArgs;
 
     async fn pre_start(
         &self,
         _myself: ActorRef<Self::Msg>,
-        StreamCommandHandlerArgs {
+        EntityCommandHandlerArgs {
             outbox_relay,
             message_store,
             module,
@@ -71,7 +71,7 @@ impl Actor for StreamCommandHandler {
             trace!(stream_name = ?stream.stream_name(), position = message.position, "applied event");
         }
 
-        Ok(StreamCommandHandlerState {
+        Ok(EntityCommandHandlerState {
             stream,
             instance,
             outbox_relay,
@@ -82,14 +82,14 @@ impl Actor for StreamCommandHandler {
         &self,
         _myself: ActorRef<Self::Msg>,
         msg: Self::Msg,
-        StreamCommandHandlerState {
+        EntityCommandHandlerState {
             outbox_relay,
             stream,
             instance,
-        }: &mut StreamCommandHandlerState,
+        }: &mut EntityCommandHandlerState,
     ) -> Result<(), ActorProcessingErr> {
         match msg {
-            StreamCommandHandlerMsg::Execute {
+            EntityCommandHandlerMsg::Execute {
                 command,
                 payload,
                 reply,
@@ -150,7 +150,7 @@ impl Actor for StreamCommandHandler {
                     }
                 };
             }
-            StreamCommandHandlerMsg::UpdateOutboxActorRef {
+            EntityCommandHandlerMsg::UpdateOutboxActorRef {
                 outbox_relay: new_outbox_relay,
             } => *outbox_relay = new_outbox_relay,
         }
@@ -161,9 +161,9 @@ impl Actor for StreamCommandHandler {
     async fn post_stop(
         &self,
         _myself: ActorRef<Self::Msg>,
-        state: &mut StreamCommandHandlerState,
+        state: &mut EntityCommandHandlerState,
     ) -> Result<(), ActorProcessingErr> {
-        trace!("dropped stream actor");
+        trace!("dropped entity command handler actor");
         Ok(state.instance.resource_drop().await?)
     }
 }

@@ -1,4 +1,7 @@
-pub mod command;
+mod command;
 pub mod interface;
 pub mod module;
-pub mod runtime;
+pub mod relay;
+mod runtime;
+
+pub use runtime::Runtime;

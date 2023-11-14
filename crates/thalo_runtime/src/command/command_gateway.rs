@@ -9,35 +9,35 @@ use tokio::fs;
 use tracing::{error, warn};
 use wasmtime::Engine;
 
-use crate::{command::outbox_relay::OutboxRelayArgs, module::Module};
+use crate::{command::outbox_relay::OutboxRelayArgs, module::Module, relay::Relay};
 
 use super::{
-    category_command_handler::{
-        CategoryCommandHandler, CategoryCommandHandlerArgs, CategoryCommandHandlerMsg,
-        CategoryCommandHandlerRef,
+    aggregate_command_handler::{
+        AggregateCommandHandler, AggregateCommandHandlerArgs, AggregateCommandHandlerMsg,
+        AggregateCommandHandlerRef,
     },
-    outbox_relay::{OutboxRelay, OutboxRelayRef, Relay},
+    outbox_relay::{OutboxRelay, OutboxRelayRef},
 };
 
-pub type CommandHandlerRef = ActorRef<CommandHandlerMsg>;
+pub type CommandGatewayRef = ActorRef<CommandGatewayMsg>;
 
-pub struct CommandHandler;
+pub struct CommandGateway;
 
-pub struct CommandHandlerState {
+pub struct CommandGatewayState {
     engine: Engine,
     message_store: MessageStore,
     relay: Relay,
-    modules: HashMap<Category<'static>, CategoryModuleActors>,
+    modules: HashMap<Category<'static>, AggregateModuleActors>,
 }
 
 #[derive(Clone)]
-struct CategoryModuleActors {
+struct AggregateModuleActors {
     module: Module,
-    category_command_handler: CategoryCommandHandlerRef,
+    aggregate_command_handler: AggregateCommandHandlerRef,
     outbox_relay: OutboxRelayRef,
 }
 
-pub enum CommandHandlerMsg {
+pub enum CommandGatewayMsg {
     Execute {
         name: Category<'static>,
         id: ID<'static>,
@@ -52,7 +52,7 @@ pub enum CommandHandlerMsg {
     },
 }
 
-pub struct CommandHandlerArgs {
+pub struct CommandGatewayArgs {
     pub engine: Engine,
     pub message_store: MessageStore,
     pub relay: Relay,
@@ -60,15 +60,15 @@ pub struct CommandHandlerArgs {
 }
 
 #[async_trait]
-impl Actor for CommandHandler {
-    type State = CommandHandlerState;
-    type Msg = CommandHandlerMsg;
-    type Arguments = CommandHandlerArgs;
+impl Actor for CommandGateway {
+    type State = CommandGatewayState;
+    type Msg = CommandGatewayMsg;
+    type Arguments = CommandGatewayArgs;
 
     async fn pre_start(
         &self,
         myself: ActorRef<Self::Msg>,
-        CommandHandlerArgs {
+        CommandGatewayArgs {
             engine,
             message_store,
             relay,
@@ -91,14 +91,14 @@ impl Actor for CommandHandler {
             }
 
             let module_name = Category::new(Category::normalize(module_name))?;
-            myself.cast(CommandHandlerMsg::StartModule {
+            myself.cast(CommandGatewayMsg::StartModule {
                 name: module_name,
                 path: dir_entry.path(),
                 reply: None,
             })?;
         }
 
-        Ok(CommandHandlerState {
+        Ok(CommandGatewayState {
             engine,
             message_store,
             relay,
@@ -109,8 +109,8 @@ impl Actor for CommandHandler {
     async fn handle(
         &self,
         myself: ActorRef<Self::Msg>,
-        msg: CommandHandlerMsg,
-        CommandHandlerState {
+        msg: CommandGatewayMsg,
+        CommandGatewayState {
             engine,
             message_store,
             relay,
@@ -118,7 +118,7 @@ impl Actor for CommandHandler {
         }: &mut Self::State,
     ) -> Result<(), ActorProcessingErr> {
         match msg {
-            CommandHandlerMsg::Execute {
+            CommandGatewayMsg::Execute {
                 name,
                 id,
                 command,
@@ -126,7 +126,7 @@ impl Actor for CommandHandler {
                 reply,
             } => {
                 let Some(module_actors) = modules.get(&name).cloned() else {
-                    warn!("category does not exist");
+                    warn!("aggregate does not exist");
                     if let Some(reply) = reply {
                         reply.send(vec![])?;
                     }
@@ -134,8 +134,8 @@ impl Actor for CommandHandler {
                     return Ok(());
                 };
 
-                module_actors.category_command_handler.cast(
-                    CategoryCommandHandlerMsg::Execute {
+                module_actors.aggregate_command_handler.cast(
+                    AggregateCommandHandlerMsg::Execute {
                         name,
                         id,
                         command,
@@ -146,8 +146,8 @@ impl Actor for CommandHandler {
 
                 Ok(())
             }
-            CommandHandlerMsg::StartModule { name, path, reply } => {
-                let category_module_actors = spawn_category_module_actors(
+            CommandGatewayMsg::StartModule { name, path, reply } => {
+                let aggregate_module_actors = spawn_aggregate_module_actors(
                     myself,
                     engine.clone(),
                     message_store.clone(),
@@ -156,7 +156,7 @@ impl Actor for CommandHandler {
                     path,
                 )
                 .await?;
-                modules.insert(name, category_module_actors);
+                modules.insert(name, aggregate_module_actors);
 
                 if let Some(reply) = reply {
                     reply.send(())?;
@@ -171,7 +171,7 @@ impl Actor for CommandHandler {
         &self,
         myself: ActorRef<Self::Msg>,
         message: SupervisionEvent,
-        CommandHandlerState {
+        CommandGatewayState {
             modules,
             message_store,
             relay,
@@ -184,9 +184,9 @@ impl Actor for CommandHandler {
 
                 for (
                     category,
-                    CategoryModuleActors {
+                    AggregateModuleActors {
                         module,
-                        category_command_handler,
+                        aggregate_command_handler,
                         outbox_relay,
                     },
                 ) in modules.iter_mut()
@@ -208,9 +208,9 @@ impl Actor for CommandHandler {
 
                         *outbox_relay = new_outbox_relay.clone();
 
-                        // Send new id to category command handler
-                        category_command_handler.cast(
-                            CategoryCommandHandlerMsg::UpdateOutboxActorRef {
+                        // Send new id to aggregate command handler
+                        aggregate_command_handler.cast(
+                            AggregateCommandHandlerMsg::UpdateOutboxActorRef {
                                 outbox_relay: new_outbox_relay.clone(),
                             },
                         )?;
@@ -220,12 +220,12 @@ impl Actor for CommandHandler {
                         outbox_relay.clone()
                     };
 
-                    if dead_actor.get_id() == category_command_handler.get_cell().get_id() {
+                    if dead_actor.get_id() == aggregate_command_handler.get_cell().get_id() {
                         // Restart category command handler
-                        let (new_category_command_handler, _) = Actor::spawn_linked(
+                        let (new_aggregate_command_handler, _) = Actor::spawn_linked(
                             Some(category.clone().into_string()),
-                            CategoryCommandHandler,
-                            CategoryCommandHandlerArgs {
+                            AggregateCommandHandler,
+                            AggregateCommandHandlerArgs {
                                 outbox_relay,
                                 message_store: message_store.clone(),
                                 module: module.clone(),
@@ -234,7 +234,7 @@ impl Actor for CommandHandler {
                         )
                         .await?;
 
-                        *category_command_handler = new_category_command_handler;
+                        *aggregate_command_handler = new_aggregate_command_handler;
                     }
                 }
             }
@@ -244,14 +244,14 @@ impl Actor for CommandHandler {
     }
 }
 
-async fn spawn_category_module_actors(
-    myself: CommandHandlerRef,
+async fn spawn_aggregate_module_actors(
+    myself: CommandGatewayRef,
     engine: Engine,
     message_store: MessageStore,
     relay: Relay,
     name: Category<'static>,
     path: PathBuf,
-) -> Result<CategoryModuleActors, ActorProcessingErr> {
+) -> Result<AggregateModuleActors, ActorProcessingErr> {
     let module = Module::from_file(engine, path).await?;
     let outbox = message_store.outbox(name.clone())?;
     let (outbox_relay, _) = Actor::spawn_linked(
@@ -265,10 +265,10 @@ async fn spawn_category_module_actors(
         myself.get_cell(),
     )
     .await?;
-    let (category_command_handler, _) = Actor::spawn_linked(
+    let (aggregate_command_handler, _) = Actor::spawn_linked(
         Some(name.clone().into_string()),
-        CategoryCommandHandler,
-        CategoryCommandHandlerArgs {
+        AggregateCommandHandler,
+        AggregateCommandHandlerArgs {
             outbox_relay: outbox_relay.clone(),
             message_store,
             module: module.clone(),
@@ -277,9 +277,9 @@ async fn spawn_category_module_actors(
     )
     .await?;
 
-    Ok(CategoryModuleActors {
+    Ok(AggregateModuleActors {
         module,
-        category_command_handler,
+        aggregate_command_handler,
         outbox_relay,
     })
 }
