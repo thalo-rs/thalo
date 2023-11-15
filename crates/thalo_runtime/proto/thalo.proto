@@ -1,0 +1,51 @@
+syntax = "proto3";
+package thalo;
+
+import "google/protobuf/struct.proto";
+
+service CommandCenter {
+  rpc Execute(ExecuteCommand) returns (ExecuteResponse);
+  rpc Publish(PublishModule) returns (PublishResponse);
+}
+
+message ExecuteCommand {
+  string name = 1;
+  string id = 2;
+  string command = 3;
+  string payload = 4;
+}
+
+message ExecuteResponse {
+  bool success = 1;
+  string message = 2;
+  repeated Message events = 3;
+}
+
+message PublishModule {
+  string name = 1;
+  bytes module = 2;
+}
+
+message PublishResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+service EventSubscription {
+  rpc SubscribeToEvents(SubscriptionRequest) returns (stream Message);
+}
+
+message SubscriptionRequest {
+  string consumer_name = 1;
+  repeated string events = 2;
+}
+
+message Message {
+  uint64 id = 1;
+  uint64 position = 2;
+  uint64 global_position = 3;
+  string stream_name = 4;
+  string msg_type = 5;
+  string data = 6;
+  uint64 time = 7;
+}

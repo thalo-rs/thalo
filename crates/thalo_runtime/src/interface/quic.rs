@@ -243,7 +243,9 @@ pub async fn handle_execute(
         .await?;
 
     match result {
-        CallResult::Success(events) => Ok(Response::Executed(ExecutedResult::Events(events))),
+        CallResult::Success(events) => {
+            Ok(Response::Executed(ExecutedResult::Events(events.unwrap())))
+        }
         CallResult::Timeout => Ok(Response::Executed(ExecutedResult::TimedOut)),
         CallResult::SenderError => Err(anyhow!("command failed to execute")),
     }

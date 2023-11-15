@@ -10,6 +10,7 @@ categories = ["database", "web-programming", "asynchronous"]
 license = "Apache-2.0 OR MIT"
 
 [dependencies]
+thalo = { workspace = true }
 thalo_runtime = { workspace = true }
 
 anyhow = { workspace = true }

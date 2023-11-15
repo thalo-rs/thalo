@@ -98,7 +98,7 @@ impl Runtime {
         command: String,
         payload: Value,
         timeout: Option<Duration>,
-    ) -> Result<CallResult<Vec<GenericMessage<'static>>>> {
+    ) -> Result<CallResult<anyhow::Result<Vec<GenericMessage<'static>>>>> {
         let res = self
             .command_handler
             .call(

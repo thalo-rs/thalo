@@ -205,10 +205,10 @@ impl<'a> Stream<'a> {
         let global_position = tx_global_event_log.generate_id()?;
         let message = Message {
             id: message_id,
-            stream_name,
-            msg_type: Cow::Borrowed(msg_type),
             position: next_position,
             global_position,
+            stream_name,
+            msg_type: Cow::Borrowed(msg_type),
             data,
             time: SystemTime::now(),
         };
