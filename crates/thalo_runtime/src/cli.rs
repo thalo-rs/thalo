@@ -7,7 +7,8 @@ use redis::streams::StreamMaxlen;
 use thalo_message_store::MessageStore;
 use thalo_runtime::interface::{self, quic::load_certs};
 use thalo_runtime::relay::{RedisRelay, Relay};
-use thalo_runtime::Runtime;
+use thalo_runtime::{rpc, Runtime};
+use tonic::transport::Server;
 use tracing_subscriber::EnvFilter;
 
 /// Thalo runtime - event sourcing runtime
@@ -31,7 +32,7 @@ struct Cli {
     redis_stream_name_template: String,
     /// Address to listen on
     #[clap(long, default_value = "[::1]:4433")]
-    listen: SocketAddr,
+    addr: SocketAddr,
     /// File to log TLS keys to for debugging
     #[clap(long)]
     keylog: bool,
@@ -74,14 +75,23 @@ pub async fn start() -> Result<()> {
     };
     let runtime = Runtime::new(message_store, relay, cli.modules_path).await?;
 
-    let (certs, key) = load_certs(cli.key, cli.cert).await?;
-    interface::quic::run(
-        certs,
-        key,
-        cli.keylog,
-        cli.stateless_retry,
-        cli.listen,
-        runtime,
-    )
-    .await
+    let command_center_server = rpc::server::CommandCenterServer::new(runtime);
+
+    Server::builder()
+        .add_service(command_center_server)
+        .serve(cli.addr)
+        .await?;
+
+    Ok(())
+
+    // let (certs, key) = load_certs(cli.key, cli.cert).await?;
+    // interface::quic::run(
+    //     certs,
+    //     key,
+    //     cli.keylog,
+    //     cli.stateless_retry,
+    //     cli.listen,
+    //     runtime,
+    // )
+    // .await
 }

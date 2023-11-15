@@ -13,8 +13,11 @@ use std::{fs, io};
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
 use quinn::RecvStream;
+use serde_json::json;
+use thalo::{Category, ID};
 use thalo_runtime::interface::message::{receive, ExecutedResult, Response};
 use thalo_runtime::interface::quic::ALPN_QUIC_HTTP;
+use thalo_runtime::rpc::client::*;
 use tracing::{error, info, trace};
 use url::Url;
 
@@ -52,6 +55,20 @@ pub async fn run() -> Result<()> {
     let url = cli
         .url
         .unwrap_or_else(|| "http://localhost:4433".parse().unwrap());
+
+    let mut client = CommandCenterClient::connect(String::from(url.clone())).await?;
+    let res = CommandCenterClientExt::execute(
+        &mut client,
+        Category::new("counter")?,
+        ID::new("123")?,
+        "Increment".to_string(),
+        json!({
+            "amount": 10
+        }),
+    )
+    .await?;
+    dbg!(res);
+    return Ok(());
 
     let remote = (
         url.host_str().context("missing host in url")?,

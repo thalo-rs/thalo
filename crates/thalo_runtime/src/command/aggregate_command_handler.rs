@@ -33,7 +33,7 @@ pub enum AggregateCommandHandlerMsg {
         id: ID<'static>,
         command: String,
         payload: Value,
-        reply: Option<RpcReplyPort<Vec<GenericMessage<'static>>>>,
+        reply: Option<RpcReplyPort<anyhow::Result<Vec<GenericMessage<'static>>>>>,
     },
     UpdateOutboxActorRef {
         outbox_relay: OutboxRelayRef,

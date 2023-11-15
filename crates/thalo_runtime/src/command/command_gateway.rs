@@ -1,5 +1,6 @@
 use std::{collections::HashMap, path::PathBuf};
 
+use anyhow::anyhow;
 use async_trait::async_trait;
 use ractor::{Actor, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent};
 use serde_json::Value;
@@ -43,7 +44,7 @@ pub enum CommandGatewayMsg {
         id: ID<'static>,
         command: String,
         payload: Value,
-        reply: Option<RpcReplyPort<Vec<GenericMessage<'static>>>>,
+        reply: Option<RpcReplyPort<anyhow::Result<Vec<GenericMessage<'static>>>>>,
     },
     StartModule {
         name: Category<'static>,
@@ -126,9 +127,8 @@ impl Actor for CommandGateway {
                 reply,
             } => {
                 let Some(module_actors) = modules.get(&name).cloned() else {
-                    warn!("aggregate does not exist");
                     if let Some(reply) = reply {
-                        reply.send(vec![])?;
+                        reply.send(Err(anyhow!("aggregate does not exist")))?;
                     }
 
                     return Ok(());

@@ -26,7 +26,7 @@ pub enum EntityCommandHandlerMsg {
     Execute {
         command: String,
         payload: Value,
-        reply: Option<RpcReplyPort<Vec<GenericMessage<'static>>>>,
+        reply: Option<RpcReplyPort<anyhow::Result<Vec<GenericMessage<'static>>>>>,
     },
     UpdateOutboxActorRef {
         outbox_relay: OutboxRelayRef,
@@ -134,11 +134,11 @@ impl Actor for EntityCommandHandler {
                             .into_iter()
                             .map(|message| message.into_owned())
                             .collect();
-                        reply.send(reply_messages)?;
+                        reply.send(Ok(reply_messages))?;
                     }
                 } else {
                     if let Some(reply) = reply {
-                        reply.send(vec![])?;
+                        reply.send(Ok(vec![]))?;
                     }
                 };
             }
