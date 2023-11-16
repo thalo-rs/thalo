@@ -47,7 +47,7 @@ use std::borrow::Cow;
 use std::time::SystemTime;
 
 use serde::{Deserialize, Serialize};
-use thalo::{Metadata, StreamName};
+use thalo::StreamName;
 
 /// Generic message JSON data.
 pub type MessageData = serde_json::Value;
@@ -79,8 +79,6 @@ where
     pub global_position: u64,
     /// Message data.
     pub data: Cow<'a, T>,
-    /// Message metadata.
-    pub metadata: Metadata<'a>,
     /// Time message was saved to the message store.
     #[serde(with = "ts_milliseconds")]
     pub time: SystemTime,
@@ -133,7 +131,6 @@ where
             position: self.position,
             global_position: self.global_position,
             data: new_data,
-            metadata: self.metadata,
             time: self.time,
         }
     }
@@ -146,7 +143,6 @@ where
             position: self.position,
             global_position: self.global_position,
             data: Cow::Owned(self.data.into_owned()),
-            metadata: self.metadata.into_owned(),
             time: self.time,
         }
     }

@@ -12,7 +12,7 @@ use serde::Deserialize;
 use sled::transaction::{ConflictableTransactionError, Transactional, TransactionalTree};
 pub use sled::Subscriber;
 use sled::{Batch, Db, Event, IVec, Mode, Tree};
-use thalo::{Category, Metadata, StreamName};
+use thalo::{Category, StreamName};
 use tracing::info;
 
 use crate::message::{GenericMessage, Message};
@@ -115,7 +115,7 @@ impl<'a> Stream<'a> {
 
     pub fn write_messages<'b>(
         &'b mut self,
-        messages: &[(&'b str, Cow<'b, serde_json::Value>, Metadata<'b>)],
+        messages: &[(&'b str, Cow<'b, serde_json::Value>)],
         expected_starting_version: Option<u64>,
     ) -> Result<Vec<GenericMessage<'b>>>
     where
@@ -132,7 +132,7 @@ impl<'a> Stream<'a> {
                 let mut written_messages = Vec::with_capacity(messages.len());
                 let mut stream_version = stream_version;
 
-                for (i, (msg_type, data, metadata)) in messages.iter().enumerate() {
+                for (i, (msg_type, data)) in messages.iter().enumerate() {
                     let expected_version = if i == 0 {
                         expected_starting_version.map(|ev| ev + i as u64)
                     } else {
@@ -150,7 +150,6 @@ impl<'a> Stream<'a> {
                         stream_version,
                         msg_type,
                         data.clone(),
-                        metadata.clone(),
                         expected_version,
                     )
                     .map_err(ConflictableTransactionError::Abort)?;
@@ -178,7 +177,6 @@ impl<'a> Stream<'a> {
         stream_version: Option<u64>,
         msg_type: &'b str,
         data: Cow<'b, serde_json::Value>,
-        metadata: Metadata<'b>,
         expected_version: Option<u64>,
     ) -> Result<GenericMessage<'b>, ConflictableTransactionError<Box<Error>>> {
         if let Some(expected_version) = expected_version {
@@ -212,7 +210,6 @@ impl<'a> Stream<'a> {
             position: next_position,
             global_position,
             data,
-            metadata,
             time: SystemTime::now(),
         };
         let raw_message = serde_cbor::to_vec(&message).map_err(|err| {

@@ -1,10 +1,10 @@
-use std::{borrow::Cow, collections::HashMap};
+use std::borrow::Cow;
 
 use anyhow::Context as AnyhowContext;
 use async_trait::async_trait;
 use ractor::{Actor, ActorProcessingErr, ActorRef, RpcReplyPort};
 use serde_json::Value;
-use thalo::{Metadata, StreamName};
+use thalo::StreamName;
 use thalo_message_store::{GenericMessage, MessageData, MessageStore, Stream};
 use tracing::{error, trace};
 
@@ -120,15 +120,7 @@ impl Actor for EntityCommandHandler {
                         .iter()
                         .map(|event| {
                             let payload = serde_json::from_str(&event.payload)?;
-                            let metadata = Metadata {
-                                stream_name: stream.stream_name().clone(),
-                                position: sequence.map(|v| v + 1).unwrap_or(0),
-                                reply_stream_name: None,
-                                schema_version: None,
-                                properties: HashMap::new(),
-                            };
-
-                            Ok((event.event.as_ref(), Cow::Owned(payload), metadata))
+                            Ok((event.event.as_ref(), Cow::Owned(payload)))
                         })
                         .collect::<anyhow::Result<_>>()?;
                     let written_messages = stream.write_messages(&messages, sequence)?;
