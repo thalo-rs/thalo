@@ -21,15 +21,23 @@ pub enum Error {
     #[error("failed to deserialize data: {0}")]
     DeserializeData(serde_cbor::Error),
 
-    /// Message metadata failed to deserialize.
-    #[error("failed to deserialize metadata: {0}")]
-    DeserializeMetadata(serde_json::Error),
+    #[error("failed to deserialize projection: {0}")]
+    DeserializeProjection(bincode::Error),
+
+    #[error("failed to serialize data: {0}")]
+    SerializeData(serde_cbor::Error),
+
+    #[error("failed to serialize projection: {0}")]
+    SerializeProjection(bincode::Error),
 
     #[error(transparent)]
     EmptyStreamName(#[from] EmptyStreamName),
 
     #[error("invalid event reference: (ID: {id}, Stream Name: {stream_name})")]
     InvalidEventReference { id: u64, stream_name: String },
+
+    #[error("invalid u64 ID")]
+    InvalidU64Id,
 
     #[error("wrong expected version: {expected_version} (Stream: {stream_name}, Stream Version: {stream_version:?})")]
     WrongExpectedVersion {

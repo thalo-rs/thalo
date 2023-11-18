@@ -4,7 +4,7 @@ use anyhow::Result;
 use bytes::Bytes;
 use quinn::RecvStream;
 use serde::{Deserialize, Serialize};
-use thalo_message_store::GenericMessage;
+use thalo_message_store::message::GenericMessage;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Request {

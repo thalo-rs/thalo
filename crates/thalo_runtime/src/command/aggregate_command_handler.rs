@@ -3,10 +3,10 @@ use moka::future::Cache;
 use ractor::{Actor, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent};
 use serde_json::Value;
 use thalo::{Category, StreamName, ID};
-use thalo_message_store::{GenericMessage, MessageStore};
+use thalo_message_store::{message::GenericMessage, MessageStore};
 use tracing::error;
 
-use crate::module::Module;
+use crate::{broadcaster::BroadcasterRef, module::Module};
 
 use super::{
     entity_command_handler::{
@@ -23,6 +23,7 @@ pub struct AggregateCommandHandler;
 pub struct AggregateCommandHandlerState {
     outbox_relay: OutboxRelayRef,
     message_store: MessageStore,
+    broadcaster: BroadcasterRef,
     module: Module,
     entity_command_handlers: Cache<StreamName<'static>, EntityCommandHandlerRef>,
 }
@@ -43,6 +44,7 @@ pub enum AggregateCommandHandlerMsg {
 pub struct AggregateCommandHandlerArgs {
     pub outbox_relay: OutboxRelayRef,
     pub message_store: MessageStore,
+    pub broadcaster: BroadcasterRef,
     pub module: Module,
 }
 
@@ -58,6 +60,7 @@ impl Actor for AggregateCommandHandler {
         AggregateCommandHandlerArgs {
             outbox_relay,
             message_store,
+            broadcaster,
             module,
         }: Self::Arguments,
     ) -> Result<Self::State, ActorProcessingErr> {
@@ -72,6 +75,7 @@ impl Actor for AggregateCommandHandler {
         Ok(AggregateCommandHandlerState {
             outbox_relay,
             message_store,
+            broadcaster,
             module,
             entity_command_handlers,
         })
@@ -84,6 +88,7 @@ impl Actor for AggregateCommandHandler {
         AggregateCommandHandlerState {
             outbox_relay,
             message_store,
+            broadcaster,
             module,
             entity_command_handlers,
         }: &mut AggregateCommandHandlerState,
@@ -106,6 +111,7 @@ impl Actor for AggregateCommandHandler {
                             EntityCommandHandlerArgs {
                                 outbox_relay: outbox_relay.clone(),
                                 message_store: message_store.clone(),
+                                broadcaster: broadcaster.clone(),
                                 module: module.clone(),
                                 stream_name,
                             },

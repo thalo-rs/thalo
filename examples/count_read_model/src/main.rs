@@ -6,7 +6,8 @@ use message_db::message::Message;
 use mongodb::bson::{doc, Document};
 use mongodb::options::{ClientOptions, UpdateOptions};
 use mongodb::{Client, Collection};
-use thalo::consumer::{EventCollection, EventHandler, EventListener, MessageStoreEventListener};
+// use thalo::consumer::{EventCollection, EventHandler, EventListener, MessageStoreEventListener};
+use thalo::rpc::client::ProjectionClient;
 use tracing_subscriber::EnvFilter;
 
 #[derive(Debug, EventCollection)]
@@ -53,6 +54,8 @@ async fn main() -> Result<()> {
                 .from_env_lossy(),
         )
         .init();
+
+    let mut client = ProjectionClient::connect(String::from(url.clone())).await?;
 
     // Parse a connection string into an options struct.
     let mut client_options = ClientOptions::parse("mongodb://root:example@localhost:27017").await?;

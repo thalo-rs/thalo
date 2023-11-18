@@ -2,15 +2,6 @@
 //! passed to a process (command), or a record of something that has happened
 //! (event) - typically in response to the processing of a command.
 //!
-//! # Messages are just data objects
-//!
-//! Messages are just plain data structures. They have attributes and that's it.
-//! They don't (and should not) have methods that do anything but declare
-//! attributes, and set and get attribute values. Messages do not validate
-//! themselves, transform or serialize themselves, send themselves, or save
-//! themselves. All of these capabilities are external capabilities to a
-//! message, and therefore are not behaviors of a message.
-//!
 //! # Events and commands are kinds of messages
 //!
 //! The only real difference between a command message and an event message is
@@ -18,19 +9,6 @@
 //! tense (eg: *DoSomething*) and event messages are named in the past tense
 //! (eg: *SomethingDone*). Other kinds of messages in the Eventide toolkit
 //! include entity snapshot messages and consumer position messages.
-//!
-//! # Messages are serialized as JSON when stored
-//!
-//! Messages are serialized to JSON when they are written to the message store,
-//! and deserialized when they are read from the message store.
-//!
-//! # Messages are typically flat key/value structures
-//!
-//! Messages are not typically hierarchical tree structures with a root object
-//! and references to other objects or list of objects. They are not rich
-//! entity/relational models. They're key/value objects with attributes that
-//! hold primitive values. Messages themselves are primitive, and every effort
-//! should be made to keep them primitive.
 //!
 //! # Message names do not include namespaces
 //!
@@ -64,12 +42,10 @@ where
     ///
     /// While this is monotonic, it may contain gaps.
     pub id: u64,
+    /// An incrementing gapless squence the entire event log.
+    pub global_id: u64,
     /// An incrementing gapless squence in the stream.
     pub position: u64,
-    /// A unique monotonic identifier referncing the global event log id.
-    ///
-    /// While this is monotonic, it may contain gaps.
-    pub global_position: u64,
     /// Stream name.
     pub stream_name: StreamName<'a>,
     /// Message type.
@@ -126,8 +102,8 @@ where
         let new_data = f(self.data);
         Message {
             id: self.id,
+            global_id: self.global_id,
             position: self.position,
-            global_position: self.global_position,
             stream_name: self.stream_name,
             msg_type: self.msg_type,
             data: new_data,
@@ -138,8 +114,8 @@ where
     pub fn into_owned(self) -> Message<'static, T> {
         Message {
             id: self.id,
+            global_id: self.global_id,
             position: self.position,
-            global_position: self.global_position,
             stream_name: self.stream_name.into_owned(),
             msg_type: Cow::Owned(self.msg_type.into_owned()),
             data: Cow::Owned(self.data.into_owned()),

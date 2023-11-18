@@ -75,10 +75,12 @@ pub async fn start() -> Result<()> {
     };
     let runtime = Runtime::new(message_store, relay, cli.modules_path).await?;
 
-    let command_center_server = rpc::server::CommandCenterServer::new(runtime);
+    let command_center_server = rpc::server::CommandCenterServer::new(runtime.clone());
+    let projection_server = rpc::server::ProjectionServer::new(runtime);
 
     Server::builder()
         .add_service(command_center_server)
+        .add_service(projection_server)
         .serve(cli.addr)
         .await?;
 
