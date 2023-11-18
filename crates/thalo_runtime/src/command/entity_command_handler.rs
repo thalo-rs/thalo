@@ -5,10 +5,17 @@ use async_trait::async_trait;
 use ractor::{Actor, ActorProcessingErr, ActorRef, RpcReplyPort};
 use serde_json::Value;
 use thalo::StreamName;
-use thalo_message_store::{GenericMessage, MessageData, MessageStore, Stream};
+use thalo_message_store::{
+    message::{GenericMessage, MessageData},
+    stream::Stream,
+    MessageStore,
+};
 use tracing::{error, trace};
 
-use crate::module::{Event, Module, ModuleInstance};
+use crate::{
+    broadcaster::{BroadcasterMsg, BroadcasterRef},
+    module::{Event, Module, ModuleInstance},
+};
 
 use super::outbox_relay::{OutboxRelayMsg, OutboxRelayRef};
 
@@ -18,6 +25,7 @@ pub struct EntityCommandHandler;
 
 pub struct EntityCommandHandlerState {
     outbox_relay: OutboxRelayRef,
+    broadcaster: BroadcasterRef,
     stream: Stream<'static>,
     instance: ModuleInstance,
 }
@@ -36,6 +44,7 @@ pub enum EntityCommandHandlerMsg {
 pub struct EntityCommandHandlerArgs {
     pub outbox_relay: OutboxRelayRef,
     pub message_store: MessageStore,
+    pub broadcaster: BroadcasterRef,
     pub module: Module,
     pub stream_name: StreamName<'static>,
 }
@@ -52,6 +61,7 @@ impl Actor for EntityCommandHandler {
         EntityCommandHandlerArgs {
             outbox_relay,
             message_store,
+            broadcaster,
             module,
             stream_name,
         }: Self::Arguments,
@@ -72,9 +82,10 @@ impl Actor for EntityCommandHandler {
         }
 
         Ok(EntityCommandHandlerState {
+            outbox_relay,
+            broadcaster,
             stream,
             instance,
-            outbox_relay,
         })
     }
 
@@ -84,6 +95,7 @@ impl Actor for EntityCommandHandler {
         msg: Self::Msg,
         EntityCommandHandlerState {
             outbox_relay,
+            broadcaster,
             stream,
             instance,
         }: &mut EntityCommandHandlerState,
@@ -124,6 +136,10 @@ impl Actor for EntityCommandHandler {
                         })
                         .collect::<anyhow::Result<_>>()?;
                     let written_messages = stream.write_messages(&messages, sequence)?;
+
+                    for message in &written_messages {
+                        broadcaster.cast(BroadcasterMsg::NewEvent(message.clone().into_owned()))?;
+                    }
 
                     if let Err(err) = outbox_relay.cast(OutboxRelayMsg::RelayNextBatch) {
                         error!("failed to notify outbox relay: {err}");

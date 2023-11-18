@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use redis::{aio::MultiplexedConnection, streams::StreamMaxlen, ToRedisArgs};
 use thalo::Category;
-use thalo_message_store::GenericMessage;
+use thalo_message_store::message::GenericMessage;
 
 #[derive(Clone)]
 pub enum Relay {

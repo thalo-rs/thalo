@@ -5,12 +5,15 @@ use async_trait::async_trait;
 use ractor::{Actor, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent};
 use serde_json::Value;
 use thalo::{Category, ID};
-use thalo_message_store::{GenericMessage, MessageStore};
+use thalo_message_store::{message::GenericMessage, MessageStore};
 use tokio::fs;
 use tracing::{error, warn};
 use wasmtime::Engine;
 
-use crate::{command::outbox_relay::OutboxRelayArgs, module::Module, relay::Relay};
+use crate::{
+    broadcaster::BroadcasterRef, command::outbox_relay::OutboxRelayArgs, module::Module,
+    relay::Relay,
+};
 
 use super::{
     aggregate_command_handler::{
@@ -28,6 +31,7 @@ pub struct CommandGatewayState {
     engine: Engine,
     message_store: MessageStore,
     relay: Relay,
+    broadcaster: BroadcasterRef,
     modules: HashMap<Category<'static>, AggregateModuleActors>,
 }
 
@@ -57,6 +61,7 @@ pub struct CommandGatewayArgs {
     pub engine: Engine,
     pub message_store: MessageStore,
     pub relay: Relay,
+    pub broadcaster: BroadcasterRef,
     pub modules_path: PathBuf,
 }
 
@@ -73,6 +78,7 @@ impl Actor for CommandGateway {
             engine,
             message_store,
             relay,
+            broadcaster,
             modules_path,
         }: Self::Arguments,
     ) -> Result<Self::State, ActorProcessingErr> {
@@ -103,6 +109,7 @@ impl Actor for CommandGateway {
             engine,
             message_store,
             relay,
+            broadcaster,
             modules: HashMap::new(),
         })
     }
@@ -115,6 +122,7 @@ impl Actor for CommandGateway {
             engine,
             message_store,
             relay,
+            broadcaster,
             modules,
         }: &mut Self::State,
     ) -> Result<(), ActorProcessingErr> {
@@ -152,6 +160,7 @@ impl Actor for CommandGateway {
                     engine.clone(),
                     message_store.clone(),
                     relay.clone(),
+                    broadcaster.clone(),
                     name.clone(),
                     path,
                 )
@@ -175,6 +184,7 @@ impl Actor for CommandGateway {
             modules,
             message_store,
             relay,
+            broadcaster,
             ..
         }: &mut Self::State,
     ) -> Result<(), ActorProcessingErr> {
@@ -228,6 +238,7 @@ impl Actor for CommandGateway {
                             AggregateCommandHandlerArgs {
                                 outbox_relay,
                                 message_store: message_store.clone(),
+                                broadcaster: broadcaster.clone(),
                                 module: module.clone(),
                             },
                             myself.get_cell(),
@@ -249,6 +260,7 @@ async fn spawn_aggregate_module_actors(
     engine: Engine,
     message_store: MessageStore,
     relay: Relay,
+    broadcaster: BroadcasterRef,
     name: Category<'static>,
     path: PathBuf,
 ) -> Result<AggregateModuleActors, ActorProcessingErr> {
@@ -271,6 +283,7 @@ async fn spawn_aggregate_module_actors(
         AggregateCommandHandlerArgs {
             outbox_relay: outbox_relay.clone(),
             message_store,
+            broadcaster,
             module: module.clone(),
         },
         myself.get_cell(),

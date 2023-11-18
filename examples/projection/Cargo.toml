@@ -1,0 +1,21 @@
+[package]
+name = "projection"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+thalo = { workspace = true }
+thalo_runtime = { workspace = true }
+
+anyhow = { workspace = true }
+clap = { workspace = true }
+directories-next = { workspace = true }
+quinn = { workspace = true }
+rmp-serde = { workspace = true }
+rustls = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["fs", "macros", "rt-multi-thread"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+url = "2.3"
+uuid = { workspace = true }

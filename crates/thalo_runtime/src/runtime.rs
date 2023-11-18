@@ -1,27 +1,33 @@
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use ractor::rpc::CallResult;
-use ractor::{Actor, ActorRef};
+use ractor::Actor;
 use serde_json::Value;
 use thalo::{Category, ID};
-use thalo_message_store::{GenericMessage, MessageStore};
+use thalo_message_store::message::GenericMessage;
+use thalo_message_store::MessageStore;
 use tokio::fs;
-use tokio::task::JoinHandle;
+use tokio::sync::{broadcast, mpsc};
 use tracing::{instrument, warn};
 use wasmtime::Engine;
 
-use crate::command::{CommandGateway, CommandGatewayArgs, CommandGatewayMsg};
+use crate::broadcaster::{Broadcaster, BroadcasterArgs, BroadcasterRef};
+use crate::command::{CommandGateway, CommandGatewayArgs, CommandGatewayMsg, CommandGatewayRef};
+use crate::projection::{
+    ProjectionGateway, ProjectionGatewayArgs, ProjectionGatewayMsg, ProjectionGatewayRef,
+};
 use crate::relay::Relay;
 
 #[derive(Clone)]
 pub struct Runtime {
     message_store: MessageStore,
     modules_path: PathBuf,
-    command_handler: ActorRef<CommandGatewayMsg>,
-    join_handle: Arc<Mutex<Option<JoinHandle<()>>>>,
+    broadcaster: BroadcasterRef,
+    event_tx: broadcast::Sender<GenericMessage<'static>>,
+    command_gateway: CommandGatewayRef,
+    projection_gateway: ProjectionGatewayRef,
 }
 
 impl Runtime {
@@ -32,16 +38,38 @@ impl Runtime {
     ) -> Result<Self> {
         let mut config = wasmtime::Config::new();
         config.async_support(true).wasm_component_model(true);
-        let engine = Engine::new(&config).unwrap();
+        let engine = Engine::new(&config)?;
+
+        let (event_tx, subscriber) = broadcast::channel(1024);
+        let (broadcaster, _) = Actor::spawn(
+            Some("broadcaster".to_string()),
+            Broadcaster,
+            BroadcasterArgs {
+                tx: event_tx.clone(),
+                last_position: message_store.global_event_log()?.last_position()?,
+            },
+        )
+        .await?;
+
+        let (projection_gateway, _) = Actor::spawn(
+            Some("projection_gateway".to_string()),
+            ProjectionGateway,
+            ProjectionGatewayArgs {
+                message_store: message_store.clone(),
+                subscriber,
+            },
+        )
+        .await?;
 
         let modules_path = modules_path.into();
-        let (command_handler, join_handle) = Actor::spawn(
-            Some("command_handler".to_string()),
+        let (command_gateway, _) = Actor::spawn(
+            Some("command_gateway".to_string()),
             CommandGateway,
             CommandGatewayArgs {
                 engine,
                 message_store: message_store.clone(),
                 relay: relay.clone(),
+                broadcaster: broadcaster.clone(),
                 modules_path: modules_path.clone(),
             },
         )
@@ -50,21 +78,11 @@ impl Runtime {
         Ok(Runtime {
             message_store,
             modules_path,
-            command_handler,
-            join_handle: Arc::new(Mutex::new(Some(join_handle))),
+            broadcaster,
+            event_tx,
+            command_gateway,
+            projection_gateway,
         })
-    }
-
-    pub async fn wait(&self) -> Result<()> {
-        let mut lock = self.join_handle.lock().unwrap();
-        if let Some(join_handle) = lock.take() {
-            join_handle.await?; // Handle the error as you see fit.
-            Ok(())
-        } else {
-            Err(anyhow!(
-                ".wait().await has already been called on the runtime"
-            ))
-        }
     }
 
     pub fn message_store(&self) -> &MessageStore {
@@ -79,7 +97,7 @@ impl Runtime {
         command: String,
         payload: Value,
     ) -> Result<()> {
-        self.command_handler.cast(CommandGatewayMsg::Execute {
+        self.command_gateway.cast(CommandGatewayMsg::Execute {
             name,
             id,
             command,
@@ -100,7 +118,7 @@ impl Runtime {
         timeout: Option<Duration>,
     ) -> Result<CallResult<anyhow::Result<Vec<GenericMessage<'static>>>>> {
         let res = self
-            .command_handler
+            .command_gateway
             .call(
                 |reply| CommandGatewayMsg::Execute {
                     name,
@@ -139,8 +157,34 @@ impl Runtime {
         self.start_module_wait(name, path, timeout).await
     }
 
+    pub fn start_projection(
+        &self,
+        tx: mpsc::Sender<GenericMessage<'static>>,
+        name: String,
+        events: Vec<String>,
+    ) -> Result<()> {
+        self.projection_gateway
+            .cast(ProjectionGatewayMsg::StartProjection { tx, name, events })?;
+
+        Ok(())
+    }
+
+    pub fn subscribe_events(&self) -> broadcast::Receiver<GenericMessage<'static>> {
+        self.event_tx.subscribe()
+    }
+
+    pub fn acknowledge_event(&self, name: impl Into<String>, global_id: u64) -> Result<()> {
+        self.projection_gateway
+            .cast(ProjectionGatewayMsg::AcknowledgeEvent {
+                name: name.into(),
+                global_id,
+            })?;
+
+        Ok(())
+    }
+
     fn start_module(&self, name: Category<'static>, path: PathBuf) -> Result<()> {
-        self.command_handler.cast(CommandGatewayMsg::StartModule {
+        self.command_gateway.cast(CommandGatewayMsg::StartModule {
             name,
             path,
             reply: None,
@@ -156,7 +200,7 @@ impl Runtime {
         timeout: Option<Duration>,
     ) -> Result<CallResult<()>> {
         let res = self
-            .command_handler
+            .command_gateway
             .call(
                 |reply| CommandGatewayMsg::StartModule {
                     name,

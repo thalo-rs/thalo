@@ -12,6 +12,7 @@ members = [
   "examples/bank_account",
   # "examples/count_read_model",
   "examples/counter",
+  "examples/projection",
   "examples/todos",
 ]
 
