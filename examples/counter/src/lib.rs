@@ -51,10 +51,10 @@ pub enum CounterEvents {
 
 #[derive(Serialize, Deserialize)]
 pub struct IncrementedV1 {
-    amount: i64,
+    pub amount: i64,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct DecrementedV1 {
-    amount: i64,
+    pub amount: i64,
 }

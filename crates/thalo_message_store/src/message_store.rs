@@ -19,7 +19,7 @@ pub struct MessageStore {
 impl MessageStore {
     pub fn new(db: Db) -> Result<Self> {
         let global_event_log = GlobalEventLog::new(db)?;
-        let last_id = global_event_log.last_position()?.unwrap_or_default();
+        let last_id = global_event_log.last_position()?;
         let id_generator = IdGenerator::new(last_id);
 
         Ok(MessageStore {

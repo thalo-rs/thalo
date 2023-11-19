@@ -6,7 +6,7 @@ use tokio::{
     sync::{broadcast, mpsc, oneshot},
     time::interval,
 };
-use tracing::error;
+use tracing::{error, warn};
 
 use super::projection_subscription::ProjectionSubscriptionHandle;
 
@@ -170,7 +170,7 @@ impl ProjectionGateway {
             let sender = self.sender.clone();
             tokio::spawn(async move {
                 if let Err(err) = projection_subscription.acknowledge_event(global_id).await {
-                    error!("{err}");
+                    warn!("failed to acknowledge event with projection subscription: {err}");
                     let _ = sender.try_send(ProjectionGatewayMsg::StopProjection { name });
                 }
             });
@@ -190,8 +190,16 @@ impl ProjectionGateway {
         events: Vec<String>,
     ) -> Result<()> {
         let projection = self.message_store.projection(name.clone())?;
-        let projection_subscription =
-            ProjectionSubscriptionHandle::new(tx, projection.last_relevant_event_id());
+        let projection_subscription = ProjectionSubscriptionHandle::new(
+            name.clone(),
+            ProjectionGatewayHandle {
+                sender: self.sender.clone(),
+            },
+            events.clone(),
+            tx,
+            projection.last_relevant_event_id(),
+            self.message_store.global_event_log()?,
+        );
 
         let subscription = Subscription {
             projection_subscription,
@@ -205,7 +213,11 @@ impl ProjectionGateway {
     }
 
     fn new_event(&mut self, event: GenericMessage<'static>) -> Result<()> {
-        for (_name, subscription) in &mut self.projections {
+        for (name, subscription) in &mut self.projections {
+            if !subscription.process_new_events {
+                continue;
+            }
+
             let is_relevant = subscription
                 .events
                 .iter()
@@ -217,10 +229,13 @@ impl ProjectionGateway {
 
             if is_relevant {
                 let projection_subscription = subscription.projection_subscription.clone();
+                let sender = self.sender.clone();
                 let event = event.clone();
+                let name = name.clone();
                 tokio::spawn(async move {
-                    if let Err(err) = projection_subscription.clone().new_event(event).await {
-                        error!("{err}");
+                    if let Err(err) = projection_subscription.new_event(event).await {
+                        warn!("failed to send new event to projection subscription: {err}");
+                        let _ = sender.try_send(ProjectionGatewayMsg::StopProjection { name });
                     }
                 });
             }

@@ -55,6 +55,7 @@ pub async fn run() -> Result<()> {
         .unwrap_or_else(|| "http://localhost:4433".parse().unwrap());
 
     let mut client = CommandCenterClient::connect(String::from(url.clone())).await?;
+    // loop {
     let res = CommandCenterClientExt::execute(
         &mut client,
         Category::new("counter")?,
@@ -65,7 +66,19 @@ pub async fn run() -> Result<()> {
         }),
     )
     .await?;
-    dbg!(res);
+    println!("{}", res[0].global_id);
+    // let res = CommandCenterClientExt::execute(
+    //     &mut client,
+    //     Category::new("counter")?,
+    //     ID::new("123")?,
+    //     "Decrement".to_string(),
+    //     json!({
+    //         "amount": 5
+    //     }),
+    // )
+    // .await?;
+    // println!("{}", res[0].global_id);
+    // }
     return Ok(());
 
     let remote = (

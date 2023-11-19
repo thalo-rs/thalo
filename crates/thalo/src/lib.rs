@@ -92,7 +92,7 @@ pub use thalo_derive::*;
 
 use std::fmt;
 
-use serde::{de::DeserializeOwned,  Serialize};
+use serde::{de::DeserializeOwned, Serialize};
 
 /// Represents an aggregate root in an event-sourced system.
 ///
