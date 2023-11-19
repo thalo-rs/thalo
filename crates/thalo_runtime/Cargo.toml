@@ -29,8 +29,6 @@ moka = { version = "0.12.1", features = ["future"] }
 prost = "0.12"
 prost-types = "0.12"
 quinn = { workspace = true }
-ractor = "0.9.3"
-ractor_actors = "0.2.0"
 rand = "0.8.5"
 rcgen = { version = "0.10.0", features = ["pem", "x509-parser"] }
 redis = { version = "0.23.3", features = ["tokio-comp"] }

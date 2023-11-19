@@ -15,8 +15,6 @@ use clap::{Parser, Subcommand};
 use quinn::RecvStream;
 use serde_json::json;
 use thalo::{Category, ID};
-use thalo_runtime::interface::message::{receive, ExecutedResult, Response};
-use thalo_runtime::interface::quic::ALPN_QUIC_HTTP;
 use thalo_runtime::rpc::client::*;
 use tracing::{error, info, trace};
 use url::Url;
@@ -101,69 +99,69 @@ pub async fn run() -> Result<()> {
         .with_root_certificates(roots)
         .with_no_client_auth();
 
-    client_crypto.alpn_protocols = ALPN_QUIC_HTTP.iter().map(|&x| x.into()).collect();
-    if cli.keylog {
-        client_crypto.key_log = Arc::new(rustls::KeyLogFile::new());
-    }
+    // client_crypto.alpn_protocols = ALPN_QUIC_HTTP.iter().map(|&x| x.into()).collect();
+    // if cli.keylog {
+    //     client_crypto.key_log = Arc::new(rustls::KeyLogFile::new());
+    // }
 
-    let mut endpoint = quinn::Endpoint::client("[::]:0".parse().unwrap())?;
-    endpoint.set_default_client_config(quinn::ClientConfig::new(Arc::new(client_crypto)));
+    // let mut endpoint = quinn::Endpoint::client("[::]:0".parse().unwrap())?;
+    // endpoint.set_default_client_config(quinn::ClientConfig::new(Arc::new(client_crypto)));
 
-    let host = cli
-        .host
-        .as_ref()
-        .map_or_else(|| url.host_str(), |x| Some(x))
-        .ok_or_else(|| anyhow!("no hostname specified"))?;
+    // let host = cli
+    //     .host
+    //     .as_ref()
+    //     .map_or_else(|| url.host_str(), |x| Some(x))
+    //     .ok_or_else(|| anyhow!("no hostname specified"))?;
 
-    trace!("connecting to {} at {}", host, remote);
-    let conn = endpoint
-        .connect(remote, host)?
-        .await
-        .map_err(|e| anyhow!("failed to connect: {}", e))?;
-    info!("connected");
+    // trace!("connecting to {} at {}", host, remote);
+    // let conn = endpoint
+    //     .connect(remote, host)?
+    //     .await
+    //     .map_err(|e| anyhow!("failed to connect: {}", e))?;
+    // info!("connected");
 
-    let (mut send, mut recv) = conn
-        .open_bi()
-        .await
-        .map_err(|e| anyhow!("failed to open stream: {}", e))?;
+    // let (mut send, mut recv) = conn
+    //     .open_bi()
+    //     .await
+    //     .map_err(|e| anyhow!("failed to open stream: {}", e))?;
 
-    match cli.command.clone() {
-        Commands::Execute(execute) => {
-            execute.clone().execute(&mut send, &mut recv).await?;
-        }
-        Commands::Publish(publish) => publish.publish(&mut send, &mut recv).await?,
-    }
+    // match cli.command.clone() {
+    //     Commands::Execute(execute) => {
+    //         execute.clone().execute(&mut send, &mut recv).await?;
+    //     }
+    //     Commands::Publish(publish) => publish.publish(&mut send, &mut recv).await?,
+    // }
 
-    let _ = send.finish().await;
+    // let _ = send.finish().await;
 
-    conn.close(0u32.into(), b"done");
+    // conn.close(0u32.into(), b"done");
 
-    // Give the server a fair chance to receive the close packet
-    endpoint.wait_idle().await;
-
-    Ok(())
-}
-
-async fn handle_response(recv: &mut RecvStream) -> Result<()> {
-    let resp_result: Result<Response, String> = receive(recv).await?;
-
-    let resp = resp_result.map_err(|err| anyhow!("{err}"))?;
-    match resp {
-        Response::Executed(executed_result) => match executed_result {
-            ExecutedResult::Events(events) => {
-                println!("executed with {} events:", events.len());
-                for event in &events {
-                    println!("    {}  {}", event.msg_type, event.data);
-                }
-            }
-            ExecutedResult::TimedOut => {
-                println!("timed out");
-            }
-        },
-        Response::Published => {
-            println!("published");
-        }
-    }
+    // // Give the server a fair chance to receive the close packet
+    // endpoint.wait_idle().await;
 
     Ok(())
 }
+
+// async fn handle_response(recv: &mut RecvStream) -> Result<()> {
+//     let resp_result: Result<Response, String> = receive(recv).await?;
+
+//     let resp = resp_result.map_err(|err| anyhow!("{err}"))?;
+//     match resp {
+//         Response::Executed(executed_result) => match executed_result {
+//             ExecutedResult::Events(events) => {
+//                 println!("executed with {} events:", events.len());
+//                 for event in &events {
+//                     println!("    {}  {}", event.msg_type, event.data);
+//                 }
+//             }
+//             ExecutedResult::TimedOut => {
+//                 println!("timed out");
+//             }
+//         },
+//         Response::Published => {
+//             println!("published");
+//         }
+//     }
+
+//     Ok(())
+// }

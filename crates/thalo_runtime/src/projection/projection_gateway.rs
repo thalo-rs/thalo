@@ -1,196 +1,254 @@
 use std::{collections::HashMap, time::Duration};
 
-use async_trait::async_trait;
-use ractor::{Actor, ActorProcessingErr, ActorRef};
-use ractor_actors::streams::{spawn_loop, IterationResult, Operation};
+use anyhow::{Context, Result};
 use thalo_message_store::{message::GenericMessage, projection::Projection, MessageStore};
-use tokio::sync::{broadcast, mpsc};
+use tokio::{
+    sync::{broadcast, mpsc, oneshot},
+    time::interval,
+};
 use tracing::error;
 
-use crate::flusher::{Flusher, FlusherMsg, FlusherRef};
-
-use super::projection_subscription::{
-    ProjectionSubscription, ProjectionSubscriptionArgs, ProjectionSubscriptionMsg,
-    ProjectionSubscriptionRef,
-};
+use super::projection_subscription::ProjectionSubscriptionHandle;
 
 const FLUSH_INTERVAL: Duration = Duration::from_millis(500);
 
-pub type ProjectionGatewayRef = ActorRef<ProjectionGatewayMsg>;
-
-pub struct ProjectionGateway;
-
-pub struct ProjectionGatewayState {
-    projections: HashMap<String, Subscription>,
-    message_store: MessageStore,
-    flusher: FlusherRef,
+#[derive(Clone)]
+pub struct ProjectionGatewayHandle {
+    sender: mpsc::Sender<ProjectionGatewayMsg>,
 }
 
-struct Subscription {
-    projection_subscription: ProjectionSubscriptionRef,
-    projection: Projection,
-    events: Vec<String>,
+impl ProjectionGatewayHandle {
+    pub fn new(
+        message_store: MessageStore,
+        subscriber: broadcast::Receiver<GenericMessage<'static>>,
+    ) -> Self {
+        let (sender, receiver) = mpsc::channel(8);
+        tokio::spawn(run_projection_gateway(
+            (sender.clone(), receiver),
+            message_store,
+            subscriber,
+        ));
+
+        ProjectionGatewayHandle { sender }
+    }
+
+    pub async fn acknowledge_event(&self, name: String, global_id: u64) -> Result<()> {
+        let (reply, recv) = oneshot::channel();
+        let msg = ProjectionGatewayMsg::AcknowledgeEvent {
+            name,
+            global_id,
+            reply,
+        };
+        let _ = self.sender.send(msg).await;
+        recv.await
+            .context("no response from projection subscription")?
+    }
+
+    pub async fn start_projection(
+        &self,
+        tx: mpsc::Sender<GenericMessage<'static>>,
+        name: String,
+        events: Vec<String>,
+    ) -> Result<()> {
+        let (reply, recv) = oneshot::channel();
+        let msg = ProjectionGatewayMsg::StartProjection {
+            tx,
+            name,
+            events,
+            reply,
+        };
+        let _ = self.sender.send(msg).await;
+        recv.await.context("no response from projection gateway")?
+    }
+
+    pub(crate) async fn set_subscription_to_process_new_events(&self, name: String) -> Result<()> {
+        let (reply, recv) = oneshot::channel();
+        let msg = ProjectionGatewayMsg::SetProjectionToProcessNewEvents { name, reply };
+        let _ = self.sender.send(msg).await;
+        recv.await.context("no response from projection gateway")
+    }
 }
 
-pub enum ProjectionGatewayMsg {
+enum ProjectionGatewayMsg {
+    AcknowledgeEvent {
+        name: String,
+        global_id: u64,
+        reply: oneshot::Sender<Result<()>>,
+    },
     StartProjection {
         tx: mpsc::Sender<GenericMessage<'static>>,
         name: String,
         events: Vec<String>,
+        reply: oneshot::Sender<Result<()>>,
     },
-    AcknowledgeEvent {
+    StopProjection {
         name: String,
-        global_id: u64,
     },
-    Event(GenericMessage<'static>),
+    SetProjectionToProcessNewEvents {
+        name: String,
+        reply: oneshot::Sender<()>,
+    },
 }
 
-pub struct ProjectionGatewayArgs {
-    pub message_store: MessageStore,
-    pub subscriber: broadcast::Receiver<GenericMessage<'static>>,
-}
+async fn run_projection_gateway(
+    (sender, mut receiver): (
+        mpsc::Sender<ProjectionGatewayMsg>,
+        mpsc::Receiver<ProjectionGatewayMsg>,
+    ),
+    message_store: MessageStore,
+    mut subscriber: broadcast::Receiver<GenericMessage<'static>>,
+) {
+    let mut projection_gateway = ProjectionGateway {
+        sender,
+        projections: HashMap::new(),
+        message_store,
+        is_dirty: false,
+    };
 
-#[async_trait]
-impl Actor for ProjectionGateway {
-    type State = ProjectionGatewayState;
-    type Msg = ProjectionGatewayMsg;
-    type Arguments = ProjectionGatewayArgs;
+    let mut timer = interval(FLUSH_INTERVAL);
 
-    async fn pre_start(
-        &self,
-        myself: ActorRef<Self::Msg>,
-        ProjectionGatewayArgs {
-            message_store,
-            subscriber,
-        }: Self::Arguments,
-    ) -> Result<Self::State, ActorProcessingErr> {
-        let (flusher, _) = Flusher::spawn_linked(
-            Some("projections_flusher".to_string()),
-            myself.get_cell(),
-            FLUSH_INTERVAL,
-            {
-                let message_store = message_store.clone();
-                move || {
-                    let message_store = message_store.clone();
-                    async move {
-                        message_store.flush_projections().await?;
-                        Ok(())
+    loop {
+        tokio::select! {
+            msg = receiver.recv() => match msg {
+                Some(msg) => match msg {
+                    ProjectionGatewayMsg::AcknowledgeEvent { name, global_id, reply } => {
+                        let res = projection_gateway.acknowledge_event(name, global_id);
+                        let _ = reply.send(res);
+                    }
+                    ProjectionGatewayMsg::StartProjection { tx, name, events, reply } => {
+                        let res = projection_gateway.start_projection(tx, name, events);
+                        let _ = reply.send(res);
+                    }
+                    ProjectionGatewayMsg::StopProjection { name } => {
+                        projection_gateway.stop_projection(name);
+                    }
+                    ProjectionGatewayMsg::SetProjectionToProcessNewEvents { name, reply } => {
+                        let res = projection_gateway.set_projection_to_process_new_events(name);
+                        let _ = reply.send(res);
                     }
                 }
+                None => break,
             },
-        )
-        .await?;
-
-        let myself_cell = myself.get_cell();
-        spawn_loop(
-            ProjectionGatewaySubscription,
-            ProjectionGatewaySubscriptionState {
-                subscriber,
-                projection_gateway: myself,
-            },
-            Some(myself_cell),
-        )
-        .await?;
-
-        Ok(ProjectionGatewayState {
-            projections: HashMap::new(),
-            message_store,
-            flusher,
-        })
-    }
-
-    async fn handle(
-        &self,
-        myself: ActorRef<Self::Msg>,
-        msg: ProjectionGatewayMsg,
-        ProjectionGatewayState {
-            ref mut projections,
-            message_store,
-            flusher,
-        }: &mut Self::State,
-    ) -> Result<(), ActorProcessingErr> {
-        match msg {
-            ProjectionGatewayMsg::StartProjection { name, events, tx } => {
-                let projection = message_store.projection(name.clone())?;
-                let (projection_subscription, _) = Actor::spawn_linked(
-                    Some(format!("{name}_projection")),
-                    ProjectionSubscription,
-                    ProjectionSubscriptionArgs {
-                        tx,
-                        last_acknowledged_id: projection.last_relevant_event_id(),
-                    },
-                    myself.get_cell(),
-                )
-                .await?;
-                let subscription = Subscription {
-                    projection_subscription,
-                    projection: message_store.projection(name.clone())?,
-                    events,
-                };
-                if let Some(old_subscription) = projections.insert(name, subscription) {
-                    old_subscription.projection_subscription.stop(None);
-                }
-            }
-            ProjectionGatewayMsg::AcknowledgeEvent { name, global_id } => {
-                if let Some(subscription) = projections.get_mut(&name) {
-                    subscription.projection.acknowledge_event(global_id, true)?;
-                    flusher.cast(FlusherMsg::MarkDirty)?;
-
-                    if let Err(err) = subscription
-                        .projection_subscription
-                        .cast(ProjectionSubscriptionMsg::AcknowledgeEvent { global_id })
-                    {
-                        subscription.projection_subscription.kill();
-                        projections.remove(&name);
+            event = subscriber.recv() => match event {
+                Ok(event) => {
+                    if let Err(err) = projection_gateway.new_event(event) {
                         error!("{err}");
                     }
-                } else {
-                    let mut projection = message_store.projection(&name)?;
-                    projection.acknowledge_event(global_id, true)?;
-                    flusher.cast(FlusherMsg::MarkDirty)?;
+                }
+                Err(broadcast::error::RecvError::Closed) => {
+                    error!("event broadcaster closed");
+                    break;
+                }
+                Err(broadcast::error::RecvError::Lagged(_)) => {
+                    error!("projection gateway lagged");
+                    break;
+                }
+            },
+            _ = timer.tick() => {
+                if let Err(err) = projection_gateway.flush().await {
+                    error!("{err}");
                 }
             }
-            ProjectionGatewayMsg::Event(event) => {
-                for (_name, subscription) in projections {
-                    let is_relevant = subscription
-                        .events
-                        .iter()
-                        .any(|event_name| event_name == &event.msg_type);
-                    subscription
-                        .projection
-                        .acknowledge_event(event.global_id, false)?;
-                    flusher.cast(FlusherMsg::MarkDirty)?;
+        }
+    }
+}
 
-                    if is_relevant {
-                        subscription
-                            .projection_subscription
-                            .cast(ProjectionSubscriptionMsg::NewEvent(event.clone()))?;
-                    }
+struct ProjectionGateway {
+    sender: mpsc::Sender<ProjectionGatewayMsg>,
+    projections: HashMap<String, Subscription>,
+    message_store: MessageStore,
+    is_dirty: bool,
+}
+
+impl ProjectionGateway {
+    fn acknowledge_event(&mut self, name: String, global_id: u64) -> Result<()> {
+        if let Some(subscription) = self.projections.get_mut(&name) {
+            subscription.projection.acknowledge_event(global_id, true)?;
+            self.is_dirty = true;
+
+            let projection_subscription = subscription.projection_subscription.clone();
+            let sender = self.sender.clone();
+            tokio::spawn(async move {
+                if let Err(err) = projection_subscription.acknowledge_event(global_id).await {
+                    error!("{err}");
+                    let _ = sender.try_send(ProjectionGatewayMsg::StopProjection { name });
                 }
+            });
+        } else {
+            let mut projection = self.message_store.projection(&name)?;
+            projection.acknowledge_event(global_id, true)?;
+            self.is_dirty = true;
+        }
+
+        Ok(())
+    }
+
+    fn start_projection(
+        &mut self,
+        tx: mpsc::Sender<GenericMessage<'static>>,
+        name: String,
+        events: Vec<String>,
+    ) -> Result<()> {
+        let projection = self.message_store.projection(name.clone())?;
+        let projection_subscription =
+            ProjectionSubscriptionHandle::new(tx, projection.last_relevant_event_id());
+
+        let subscription = Subscription {
+            projection_subscription,
+            projection,
+            events,
+            process_new_events: false,
+        };
+        self.projections.insert(name, subscription);
+
+        Ok(())
+    }
+
+    fn new_event(&mut self, event: GenericMessage<'static>) -> Result<()> {
+        for (_name, subscription) in &mut self.projections {
+            let is_relevant = subscription
+                .events
+                .iter()
+                .any(|event_name| event_name == &event.msg_type);
+            subscription
+                .projection
+                .acknowledge_event(event.global_id, false)?;
+            self.is_dirty = true;
+
+            if is_relevant {
+                let projection_subscription = subscription.projection_subscription.clone();
+                let event = event.clone();
+                tokio::spawn(async move {
+                    if let Err(err) = projection_subscription.clone().new_event(event).await {
+                        error!("{err}");
+                    }
+                });
             }
         }
 
         Ok(())
     }
-}
 
-struct ProjectionGatewaySubscription;
+    async fn flush(&self) -> Result<()> {
+        self.message_store.flush_projections().await?;
 
-struct ProjectionGatewaySubscriptionState {
-    subscriber: broadcast::Receiver<GenericMessage<'static>>,
-    projection_gateway: ProjectionGatewayRef,
-}
-
-#[async_trait]
-impl Operation for ProjectionGatewaySubscription {
-    type State = ProjectionGatewaySubscriptionState;
-
-    async fn work(&self, state: &mut Self::State) -> Result<IterationResult, ActorProcessingErr> {
-        let event = state.subscriber.recv().await?;
-        state
-            .projection_gateway
-            .cast(ProjectionGatewayMsg::Event(event))?;
-
-        Ok(IterationResult::Continue)
+        Ok(())
     }
+
+    fn stop_projection(&mut self, name: String) {
+        self.projections.remove(&name);
+    }
+
+    fn set_projection_to_process_new_events(&mut self, name: String) {
+        if let Some(subscription) = self.projections.get_mut(&name) {
+            subscription.process_new_events = true;
+        }
+    }
+}
+
+struct Subscription {
+    projection_subscription: ProjectionSubscriptionHandle,
+    projection: Projection,
+    events: Vec<String>,
+    process_new_events: bool,
 }
