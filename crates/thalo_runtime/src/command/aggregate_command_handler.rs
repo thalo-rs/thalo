@@ -1,181 +1,131 @@
-use async_trait::async_trait;
+use anyhow::{anyhow, Context, Result};
 use moka::future::Cache;
-use ractor::{Actor, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent};
 use serde_json::Value;
 use thalo::{Category, StreamName, ID};
 use thalo_message_store::{message::GenericMessage, MessageStore};
-use tracing::error;
+use tokio::sync::{mpsc, oneshot};
+use tracing::warn;
 
-use crate::{broadcaster::BroadcasterRef, module::Module};
+use crate::{broadcaster::BroadcasterHandle, module::Module};
 
-use super::{
-    entity_command_handler::{
-        EntityCommandHandler, EntityCommandHandlerArgs, EntityCommandHandlerMsg,
-        EntityCommandHandlerRef,
-    },
-    outbox_relay::OutboxRelayRef,
-};
+use super::{entity_command_handler::EntityCommandHandlerHandle, outbox_relay::OutboxRelayHandle};
 
-pub type AggregateCommandHandlerRef = ActorRef<AggregateCommandHandlerMsg>;
-
-pub struct AggregateCommandHandler;
-
-pub struct AggregateCommandHandlerState {
-    outbox_relay: OutboxRelayRef,
-    message_store: MessageStore,
-    broadcaster: BroadcasterRef,
-    module: Module,
-    entity_command_handlers: Cache<StreamName<'static>, EntityCommandHandlerRef>,
+#[derive(Clone)]
+pub struct AggregateCommandHandlerHandle {
+    sender: mpsc::Sender<ExecuteAggregateCommand>,
 }
 
-pub enum AggregateCommandHandlerMsg {
-    Execute {
+impl AggregateCommandHandlerHandle {
+    pub fn new(
+        name: Category<'static>,
+        outbox_relay: OutboxRelayHandle,
+        message_store: MessageStore,
+        broadcaster: BroadcasterHandle,
+        module: Module,
+    ) -> Self {
+        let (sender, receiver) = mpsc::channel(16);
+        tokio::spawn(run_aggregate_command_handler(
+            receiver,
+            name,
+            outbox_relay,
+            message_store,
+            broadcaster,
+            module,
+        ));
+
+        AggregateCommandHandlerHandle { sender }
+    }
+
+    pub async fn execute(
+        &self,
         name: Category<'static>,
         id: ID<'static>,
         command: String,
         payload: Value,
-        reply: Option<RpcReplyPort<anyhow::Result<Vec<GenericMessage<'static>>>>>,
-    },
-    UpdateOutboxActorRef {
-        outbox_relay: OutboxRelayRef,
-    },
-}
-
-pub struct AggregateCommandHandlerArgs {
-    pub outbox_relay: OutboxRelayRef,
-    pub message_store: MessageStore,
-    pub broadcaster: BroadcasterRef,
-    pub module: Module,
-}
-
-#[async_trait]
-impl Actor for AggregateCommandHandler {
-    type State = AggregateCommandHandlerState;
-    type Msg = AggregateCommandHandlerMsg;
-    type Arguments = AggregateCommandHandlerArgs;
-
-    async fn pre_start(
-        &self,
-        _myself: ActorRef<Self::Msg>,
-        AggregateCommandHandlerArgs {
-            outbox_relay,
-            message_store,
-            broadcaster,
-            module,
-        }: Self::Arguments,
-    ) -> Result<Self::State, ActorProcessingErr> {
-        let eviction_listener = move |_stream_name, actor: EntityCommandHandlerRef, _cause| {
-            actor.stop(Some("cache eviction".to_string()));
+    ) -> Result<Vec<GenericMessage<'static>>> {
+        let (reply, recv) = oneshot::channel();
+        let msg = ExecuteAggregateCommand {
+            name,
+            id,
+            command,
+            payload,
+            reply,
         };
-        let entity_command_handlers = Cache::builder()
-            .max_capacity(100)
-            .eviction_listener(eviction_listener)
-            .build();
 
-        Ok(AggregateCommandHandlerState {
-            outbox_relay,
-            message_store,
-            broadcaster,
-            module,
-            entity_command_handlers,
-        })
+        let _ = self.sender.send(msg).await;
+        recv.await.context("no response from command handler")?
+    }
+}
+
+struct ExecuteAggregateCommand {
+    name: Category<'static>,
+    id: ID<'static>,
+    command: String,
+    payload: Value,
+    reply: oneshot::Sender<Result<Vec<GenericMessage<'static>>>>,
+}
+
+async fn run_aggregate_command_handler(
+    mut receiver: mpsc::Receiver<ExecuteAggregateCommand>,
+    name: Category<'static>,
+    outbox_relay: OutboxRelayHandle,
+    message_store: MessageStore,
+    broadcaster: BroadcasterHandle,
+    module: Module,
+) {
+    let entity_command_handlers = Cache::builder().max_capacity(100).build();
+
+    let mut handler = AggregateCommandHandler {
+        outbox_relay,
+        message_store,
+        broadcaster,
+        module,
+        entity_command_handlers,
+    };
+
+    while let Some(msg) = receiver.recv().await {
+        let res = handler
+            .execute(msg.name, msg.id, msg.command, msg.payload)
+            .await;
+        let _ = msg.reply.send(res);
     }
 
-    async fn handle(
-        &self,
-        myself: ActorRef<Self::Msg>,
-        msg: AggregateCommandHandlerMsg,
-        AggregateCommandHandlerState {
-            outbox_relay,
-            message_store,
-            broadcaster,
-            module,
-            entity_command_handlers,
-        }: &mut AggregateCommandHandlerState,
-    ) -> Result<(), ActorProcessingErr> {
-        match msg {
-            AggregateCommandHandlerMsg::Execute {
-                name,
-                id,
-                command,
-                payload,
-                reply,
-            } => {
-                let stream_name = StreamName::from_parts(name, Some(&id))?;
-                let entry_res = entity_command_handlers
-                    .entry(stream_name.clone())
-                    .or_try_insert_with(async {
-                        Actor::spawn_linked(
-                            None,
-                            EntityCommandHandler,
-                            EntityCommandHandlerArgs {
-                                outbox_relay: outbox_relay.clone(),
-                                message_store: message_store.clone(),
-                                broadcaster: broadcaster.clone(),
-                                module: module.clone(),
-                                stream_name,
-                            },
-                            myself.get_cell(),
-                        )
-                        .await
-                        .map(|(actor, _)| actor)
-                    })
-                    .await;
-                match entry_res {
-                    Ok(entry) => {
-                        entry.value().cast(EntityCommandHandlerMsg::Execute {
-                            command,
-                            payload,
-                            reply,
-                        })?;
-                    }
-                    Err(err) => {
-                        error!("{err}");
-                    }
-                }
-            }
-            AggregateCommandHandlerMsg::UpdateOutboxActorRef {
-                outbox_relay: new_outbox_relay,
-            } => {
-                *outbox_relay = new_outbox_relay.clone();
-                for (_, entity_command_handler) in entity_command_handlers.iter() {
-                    entity_command_handler.cast(EntityCommandHandlerMsg::UpdateOutboxActorRef {
-                        outbox_relay: new_outbox_relay.clone(),
-                    })?;
-                }
-            }
-        }
+    warn!(%name, "aggregate command handler stopping");
+}
 
-        Ok(())
-    }
+struct AggregateCommandHandler {
+    outbox_relay: OutboxRelayHandle,
+    message_store: MessageStore,
+    broadcaster: BroadcasterHandle,
+    module: Module,
+    entity_command_handlers: Cache<StreamName<'static>, EntityCommandHandlerHandle>,
+}
 
-    async fn handle_supervisor_evt(
-        &self,
-        _myself: ActorRef<Self::Msg>,
-        message: SupervisionEvent,
-        state: &mut Self::State,
-    ) -> Result<(), ActorProcessingErr> {
-        match message {
-            SupervisionEvent::ActorPanicked(cell, err) => {
-                error!("entity command handler panicked: {err}");
-                let stream_name =
-                    state
-                        .entity_command_handlers
-                        .iter()
-                        .find_map(|(stream_name, actor)| {
-                            if cell.get_id() == actor.get_cell().get_id() {
-                                Some(stream_name)
-                            } else {
-                                None
-                            }
-                        });
-                if let Some(stream_name) = stream_name {
-                    state.entity_command_handlers.remove(&stream_name).await;
-                }
-            }
-            _ => {}
-        }
+impl AggregateCommandHandler {
+    async fn execute(
+        &mut self,
+        name: Category<'static>,
+        id: ID<'static>,
+        command: String,
+        payload: Value,
+    ) -> Result<Vec<GenericMessage<'static>>> {
+        let Ok(stream_name) = StreamName::from_parts(name, Some(&id)) else {
+            return Err(anyhow!("invalid name or id"));
+        };
+        let entry = self
+            .entity_command_handlers
+            .entry(stream_name.clone())
+            .or_insert_with(async {
+                EntityCommandHandlerHandle::new(
+                    self.outbox_relay.clone(),
+                    self.message_store.clone(),
+                    self.broadcaster.clone(),
+                    self.module.clone(),
+                    stream_name,
+                )
+            })
+            .await;
 
-        Ok(())
+        entry.value().execute(command, payload).await
     }
 }

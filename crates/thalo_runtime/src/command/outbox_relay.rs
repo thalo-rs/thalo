@@ -6,123 +6,132 @@
 //! This implementation dispatches events in batches, with each batch containing a maximum of 100 events. Events are
 //! relayed to a pre-configured external system for further handling.
 
-use std::time::Duration;
+use std::{pin::Pin, time::Duration};
 
-use async_trait::async_trait;
-use ractor::{Actor, ActorProcessingErr, ActorRef};
+use anyhow::{Context, Result};
+use futures::Future;
 use thalo::Category;
 use thalo_message_store::{message::MessageData, outbox::Outbox};
+use tokio::{sync::mpsc, time::interval};
+use tracing::{error, warn};
 
-use crate::{
-    flusher::{Flusher, FlusherMsg, FlusherRef},
-    relay::Relay,
-};
+use crate::relay::Relay;
 
 const BATCH_SIZE: usize = 100;
 const FLUSH_INTERVAL: Duration = Duration::from_millis(500);
 
-pub type OutboxRelayRef = ActorRef<OutboxRelayMsg>;
+#[derive(Clone)]
+pub struct OutboxRelayHandle {
+    sender: mpsc::Sender<()>,
+}
 
-pub struct OutboxRelay;
+impl OutboxRelayHandle {
+    pub fn new(name: Category<'static>, outbox: Outbox, relay: Relay) -> Self {
+        let (sender, receiver) = mpsc::channel(8);
+        tokio::spawn(run_outbox_relay(receiver, name, outbox, relay));
 
-pub struct OutboxRelayState {
+        OutboxRelayHandle { sender }
+    }
+
+    pub async fn relay_next_batch(&self) -> Result<()> {
+        self.sender
+            .send(())
+            .await
+            .context("outbox relay is not running")
+    }
+}
+
+async fn run_outbox_relay(
+    mut receiver: mpsc::Receiver<()>,
+    name: Category<'static>,
+    outbox: Outbox,
+    relay: Relay,
+) {
+    let stream_name = relay.stream_name(name.as_borrowed());
+
+    let mut outbox_relay = OutboxRelay {
+        outbox,
+        relay,
+        stream_name,
+        is_dirty: false,
+    };
+
+    if let Err(err) = outbox_relay.relay_next_batch().await {
+        error!("{err}");
+    }
+
+    let mut timer = interval(FLUSH_INTERVAL);
+
+    loop {
+        tokio::select! {
+            msg = receiver.recv() => match msg {
+                Some(()) => {
+                    if let Err(err) = outbox_relay.relay_next_batch().await {
+                        error!("{err}");
+                    }
+                }
+                None => break,
+            },
+            _ = timer.tick() => {
+                if let Err(err) = outbox_relay.flush().await {
+                    error!("{err}");
+                }
+            }
+        }
+    }
+
+    warn!(%name, "outbox relay stopping")
+}
+
+struct OutboxRelay {
     outbox: Outbox,
     relay: Relay,
     stream_name: String,
-    flusher: FlusherRef,
+    is_dirty: bool,
 }
 
-pub enum OutboxRelayMsg {
-    RelayNextBatch,
-}
+impl OutboxRelay {
+    fn relay_next_batch<'a>(&'a mut self) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
+        Box::pin(async move {
+            let batch = self
+                .outbox
+                .iter_all_messages::<MessageData>()
+                .take(BATCH_SIZE);
 
-pub struct OutboxRelayArgs {
-    pub category: Category<'static>,
-    pub outbox: Outbox,
-    pub relay: Relay,
-}
+            let size_hint = batch.size_hint().0;
+            let mut keys = Vec::with_capacity(size_hint);
+            let mut messages = Vec::with_capacity(size_hint);
+            for res in batch {
+                let raw_message = res?;
+                let message = raw_message.message()?.into_owned();
+                let key = raw_message.key;
 
-#[async_trait]
-impl Actor for OutboxRelay {
-    type State = OutboxRelayState;
-    type Msg = OutboxRelayMsg;
-    type Arguments = OutboxRelayArgs;
+                keys.push(key);
+                messages.push(message);
+            }
 
-    async fn pre_start(
-        &self,
-        myself: ActorRef<Self::Msg>,
-        OutboxRelayArgs {
-            category,
-            outbox,
-            relay,
-        }: Self::Arguments,
-    ) -> Result<Self::State, ActorProcessingErr> {
-        let stream_name = relay.stream_name(category.as_borrowed());
+            debug_assert_eq!(keys.len(), messages.len());
+            let size = keys.len();
 
-        let (flusher, _) = Flusher::spawn_linked(
-            Some(format!("{category}_outbox_flusher")),
-            myself.get_cell(),
-            FLUSH_INTERVAL,
-            {
-                let outbox = outbox.clone();
-                move || {
-                    let outbox = outbox.clone();
-                    async move {
-                        outbox.flush_async().await?;
-                        Ok(())
-                    }
-                }
-            },
-        )
-        .await?;
+            self.relay.relay(&self.stream_name, messages).await?;
+            self.outbox.delete_batch(keys)?;
 
-        myself.cast(OutboxRelayMsg::RelayNextBatch)?;
+            self.is_dirty = true;
 
-        Ok(OutboxRelayState {
-            outbox,
-            relay,
-            stream_name,
-            flusher,
+            // If the current batch is equal to BATCH_SIZE,
+            // then it's likely there's more messages which need to be relayed.
+            if size == BATCH_SIZE {
+                self.relay_next_batch().await?;
+            }
+
+            Ok(())
         })
     }
 
-    async fn handle(
-        &self,
-        myself: ActorRef<Self::Msg>,
-        _msg: Self::Msg,
-        OutboxRelayState {
-            outbox,
-            relay,
-            stream_name,
-            flusher,
-        }: &mut OutboxRelayState,
-    ) -> Result<(), ActorProcessingErr> {
-        let batch = outbox.iter_all_messages::<MessageData>().take(BATCH_SIZE);
-
-        let size_hint = batch.size_hint().0;
-        let mut keys = Vec::with_capacity(size_hint);
-        let mut messages = Vec::with_capacity(size_hint);
-        for res in batch {
-            let raw_message = res?;
-            let message = raw_message.message()?.into_owned();
-            let key = raw_message.key;
-
-            keys.push(key);
-            messages.push(message);
-        }
-
-        debug_assert_eq!(keys.len(), messages.len());
-        let size = keys.len();
-
-        relay.relay(stream_name, messages).await?;
-        outbox.delete_batch(keys)?;
-
-        flusher.cast(FlusherMsg::MarkDirty)?;
-
-        // If the current batch is equal to BATCH_SIZE,
-        // then it's likely there's more messages which need to be relayed.
-        if size == BATCH_SIZE {
-            myself.cast(OutboxRelayMsg::RelayNextBatch)?;
+    async fn flush(&mut self) -> Result<()> {
+        if self.is_dirty {
+            self.is_dirty = false;
+            self.outbox.flush_async().await?;
         }
 
         Ok(())
