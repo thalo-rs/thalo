@@ -138,6 +138,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-recursion"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5fd55a5ba1179988837d24ab4c7cc8ed6efdeff578ede0416b4225a5fca35bd0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.38",
+]
+
+[[package]]
 name = "async-stream"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1795,19 +1806,13 @@ name = "projection"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "clap",
- "directories-next",
- "quinn",
- "rmp-serde",
- "rustls",
+ "counter",
+ "serde",
  "serde_json",
+ "sled",
  "thalo",
  "thalo_runtime",
  "tokio",
- "tracing",
- "tracing-subscriber",
- "url",
- "uuid",
 ]
 
 [[package]]
@@ -2649,6 +2654,7 @@ name = "thalo_runtime"
 version = "0.7.0"
 dependencies = [
  "anyhow",
+ "async-recursion",
  "async-stream",
  "async-trait",
  "bytes",

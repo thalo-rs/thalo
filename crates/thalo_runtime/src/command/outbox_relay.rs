@@ -9,6 +9,7 @@
 use std::{pin::Pin, time::Duration};
 
 use anyhow::{Context, Result};
+use async_recursion::async_recursion;
 use futures::Future;
 use thalo::Category;
 use thalo_message_store::{message::MessageData, outbox::Outbox};
@@ -91,41 +92,40 @@ struct OutboxRelay {
 }
 
 impl OutboxRelay {
-    fn relay_next_batch<'a>(&'a mut self) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
-        Box::pin(async move {
-            let batch = self
-                .outbox
-                .iter_all_messages::<MessageData>()
-                .take(BATCH_SIZE);
+    #[async_recursion]
+    async fn relay_next_batch(&mut self) -> Result<()> {
+        let batch = self
+            .outbox
+            .iter_all_messages::<MessageData>()
+            .take(BATCH_SIZE);
 
-            let size_hint = batch.size_hint().0;
-            let mut keys = Vec::with_capacity(size_hint);
-            let mut messages = Vec::with_capacity(size_hint);
-            for res in batch {
-                let raw_message = res?;
-                let message = raw_message.message()?.into_owned();
-                let key = raw_message.key;
+        let size_hint = batch.size_hint().0;
+        let mut keys = Vec::with_capacity(size_hint);
+        let mut messages = Vec::with_capacity(size_hint);
+        for res in batch {
+            let raw_message = res?;
+            let message = raw_message.message()?.into_owned();
+            let key = raw_message.key;
 
-                keys.push(key);
-                messages.push(message);
-            }
+            keys.push(key);
+            messages.push(message);
+        }
 
-            debug_assert_eq!(keys.len(), messages.len());
-            let size = keys.len();
+        debug_assert_eq!(keys.len(), messages.len());
+        let size = keys.len();
 
-            self.relay.relay(&self.stream_name, messages).await?;
-            self.outbox.delete_batch(keys)?;
+        self.relay.relay(&self.stream_name, messages).await?;
+        self.outbox.delete_batch(keys)?;
 
-            self.is_dirty = true;
+        self.is_dirty = true;
 
-            // If the current batch is equal to BATCH_SIZE,
-            // then it's likely there's more messages which need to be relayed.
-            if size == BATCH_SIZE {
-                self.relay_next_batch().await?;
-            }
+        // If the current batch is equal to BATCH_SIZE,
+        // then it's likely there's more messages which need to be relayed.
+        if size == BATCH_SIZE {
+            self.relay_next_batch().await?;
+        }
 
-            Ok(())
-        })
+        Ok(())
     }
 
     async fn flush(&mut self) -> Result<()> {

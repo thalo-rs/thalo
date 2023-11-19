@@ -6,16 +6,10 @@ edition = "2021"
 [dependencies]
 thalo = { workspace = true }
 thalo_runtime = { workspace = true }
+counter = { path = "../counter" }
 
 anyhow = { workspace = true }
-clap = { workspace = true }
-directories-next = { workspace = true }
-quinn = { workspace = true }
-rmp-serde = { workspace = true }
-rustls = { workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }
+sled = "0.34"
 tokio = { workspace = true, features = ["fs", "macros", "rt-multi-thread"] }
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
-url = "2.3"
-uuid = { workspace = true }

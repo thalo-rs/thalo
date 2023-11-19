@@ -18,7 +18,8 @@ thalo = { workspace = true }
 thalo_message_store = { workspace = true }
 
 anyhow = { workspace = true }
-async-trait = "0.1.74"
+async-trait = { workspace = true }
+async-recursion = { workspace = true }
 async-stream = "0.3.5"
 bytes = { workspace = true }
 clap = { workspace = true }

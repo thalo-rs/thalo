@@ -1,6 +1,16 @@
-use anyhow::{Context, Result};
-use thalo_message_store::message::GenericMessage;
-use tokio::sync::{mpsc, oneshot};
+use std::{iter::Skip, time::Duration};
+
+use anyhow::{bail, Context, Result};
+use async_recursion::async_recursion;
+use thalo_message_store::{
+    global_event_log::{GlobalEventLog, GlobalEventLogIter},
+    message::GenericMessage,
+};
+use tokio::{
+    sync::{mpsc, oneshot},
+    time::interval,
+};
+use tracing::{error, info, trace};
 
 use super::ProjectionGatewayHandle;
 
@@ -13,16 +23,20 @@ impl ProjectionSubscriptionHandle {
     pub fn new(
         name: String,
         projection_gateway: ProjectionGatewayHandle,
+        interested_events: Vec<String>,
         tx: mpsc::Sender<GenericMessage<'static>>,
         last_acknowledged_id: Option<u64>,
+        global_event_log: GlobalEventLog,
     ) -> Self {
         let (sender, receiver) = mpsc::channel(8);
         tokio::spawn(run_projection_subscription(
             receiver,
             name,
             projection_gateway,
+            interested_events,
             tx,
             last_acknowledged_id,
+            global_event_log,
         ));
 
         ProjectionSubscriptionHandle { sender }
@@ -60,92 +74,193 @@ async fn run_projection_subscription(
     mut receiver: mpsc::Receiver<ProjectionSubscriptionMsg>,
     name: String,
     projection_gateway: ProjectionGatewayHandle,
+    interested_events: Vec<String>,
     tx: mpsc::Sender<GenericMessage<'static>>,
     last_acknowledged_id: Option<u64>,
+    global_event_log: GlobalEventLog,
 ) -> Result<()> {
+    let iter = global_event_log.iter_all_messages().skip(
+        last_acknowledged_id
+            .map(|global_id| (global_id as usize) + 1)
+            .unwrap_or(0),
+    );
+
     let mut projection_subscription = ProjectionSubscription {
         tx,
-        pending_events: Vec::new(),
+        name,
+        projection_gateway,
+        interested_events,
         last_acknowledged_id,
         last_processed_id: None,
+        pending_events: Vec::new(),
+        state: ProjectionSubscriptionState::ProcessingMissedEvents,
+        iter,
     };
 
-    // Process initial missed events
-    let initial_missed_events =
-        message_store.fetch_missed_events(&subscription_name, last_acknowledged_id)?;
-    for event in initial_missed_events {
-        tx.send(event).await?;
-    }
+    projection_subscription.process_pending_event().await?;
 
-    // Start listening to new events and buffer them
-    let mut live_event_buffer = Vec::new();
-    projection_gateway
-        .set_subscription_to_process_new_events(name)
-        .await?;
+    let mut timer = interval(Duration::from_secs(1));
 
-    // Check for any new missed events and process them
-    let new_missed_events = message_store.fetch_missed_events(
-        &subscription_name,
-        Some(tx.last_event_id().await?), // Assuming last_event_id() gives the ID of the last processed event
-    )?;
-    for event in new_missed_events {
-        while listening && let Ok(Some(new_event)) = receiver.try_recv() {
-            live_event_buffer.push(new_event);
-        }
-        tx.send(event).await?;
-    }
-    listening = false;
-
-    // Process buffered new events
-    for event in live_event_buffer {
-        tx.send(event).await?;
-    }
-
-    while let Some(msg) = receiver.recv().await {
-        match msg {
-            ProjectionSubscriptionMsg::NewEvent { event, reply } => {
-                let res = projection_subscription.new_event(event).await;
-                let _ = reply.send(res);
-            }
-            ProjectionSubscriptionMsg::AcknowledgeEvent { global_id, reply } => {
-                let res = projection_subscription.acknowledge_event(global_id).await;
-                let _ = reply.send(res);
+    loop {
+        tokio::select! {
+            msg = receiver.recv() => match msg {
+                Some(msg) => match msg {
+                    ProjectionSubscriptionMsg::NewEvent { event, reply } => {
+                        let res = projection_subscription.new_event(event).await;
+                        let _ = reply.send(res);
+                    }
+                    ProjectionSubscriptionMsg::AcknowledgeEvent { global_id, reply } => {
+                        let res = projection_subscription.acknowledge_event(global_id).await;
+                        let _ = reply.send(res);
+                    }
+                }
+                None => break,
+            },
+            _ = timer.tick() => {
+                if projection_subscription.tx.is_closed() {
+                    break;
+                }
             }
         }
     }
+
+    trace!(name = %projection_subscription.name, "projection subscription stopping");
 
     Ok(())
 }
 
 struct ProjectionSubscription {
     tx: mpsc::Sender<GenericMessage<'static>>,
-    pending_events: Vec<GenericMessage<'static>>,
+    name: String,
+    projection_gateway: ProjectionGatewayHandle,
+    interested_events: Vec<String>,
     last_acknowledged_id: Option<u64>,
     last_processed_id: Option<u64>,
+    pending_events: Vec<GenericMessage<'static>>,
+    state: ProjectionSubscriptionState,
+    iter: Skip<GlobalEventLogIter>,
 }
 
 impl ProjectionSubscription {
     async fn new_event(&mut self, event: GenericMessage<'static>) -> Result<()> {
-        self.pending_events.push(event);
-        self.process_pending_event().await
+        match self.state {
+            ProjectionSubscriptionState::ProcessingMissedEvents => {
+                bail!("received new event while still processing missed events - this should not happen, as we have not subscribed to listen to new events")
+            }
+            ProjectionSubscriptionState::BufferingLiveEvents => {
+                self.pending_events.push(event);
+            }
+            ProjectionSubscriptionState::ProcessingLiveEvents => {
+                self.pending_events.push(event);
+                self.process_pending_event().await?;
+            }
+        }
+
+        Ok(())
     }
 
     async fn acknowledge_event(&mut self, global_id: u64) -> Result<()> {
         self.last_acknowledged_id = Some(global_id);
-        self.process_pending_event().await
-    }
-
-    async fn process_pending_event(&mut self) -> Result<()> {
-        if !self.pending_events.is_empty()
-            && (self.last_processed_id.is_none()
-                || self.last_processed_id == self.last_acknowledged_id)
-        {
-            let next_event = self.pending_events.remove(0);
-            let next_event_global_id = next_event.global_id;
-            self.tx.send(next_event).await?;
-            self.last_processed_id = Some(next_event_global_id);
+        if self.last_processed_id == self.last_acknowledged_id {
+            self.process_pending_event().await?;
         }
 
         Ok(())
+    }
+
+    #[async_recursion]
+    async fn process_pending_event(&mut self) -> Result<()> {
+        match self.state {
+            ProjectionSubscriptionState::ProcessingMissedEvents
+            | ProjectionSubscriptionState::BufferingLiveEvents => {
+                // Only if the last processed id has been acknowledged then:
+                //   1. Process iter until we reach the next event of interest
+                //   2. Send this event to the `tx`
+                //   3. Update last_processed_id
+
+                while let Some(res) = self.iter.next() {
+                    let event = match res.and_then(|raw_message| {
+                        raw_message.message().map(|message| message.into_owned())
+                    }) {
+                        Ok(event) => event,
+                        Err(err) => {
+                            error!("{err}");
+                            continue;
+                        }
+                    };
+
+                    if self.is_event_of_interest(&event.msg_type) {
+                        // Check if this is the first event being processed or if the last processed event has been acknowledged
+                        if self.last_processed_id.is_none()
+                            || self.last_processed_id == self.last_acknowledged_id
+                        {
+                            let event_global_id = event.global_id;
+                            self.tx.send(event).await?;
+                            self.last_processed_id = Some(event_global_id);
+                            return Ok(());
+                        }
+                    }
+                }
+
+                // Iterator finished and is empty, transition to next state
+                self.state.next();
+                if matches!(self.state, ProjectionSubscriptionState::BufferingLiveEvents) {
+                    // Tell the projection gateway that we're interested in receiving live events
+                    self.projection_gateway
+                        .set_subscription_to_process_new_events(self.name.clone())
+                        .await?;
+                }
+                self.process_pending_event().await?;
+            }
+            ProjectionSubscriptionState::ProcessingLiveEvents => {
+                // Only if the last processed id has been acknowledged then:
+                //   1. Process next pending event
+                //   2. Update last processed id
+
+                if !self.pending_events.is_empty()
+                    && (self.last_processed_id.is_none()
+                        || self.last_processed_id == self.last_acknowledged_id)
+                {
+                    let next_event = self.pending_events.remove(0);
+                    let next_event_global_id = next_event.global_id;
+                    self.tx.send(next_event).await?;
+                    self.last_processed_id = Some(next_event_global_id);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn is_event_of_interest(&self, event_type: &str) -> bool {
+        self.interested_events
+            .iter()
+            .any(|interested_event| interested_event == event_type)
+    }
+}
+
+#[derive(Clone, Copy)]
+enum ProjectionSubscriptionState {
+    /// Initially processing missed events from the event store.
+    ProcessingMissedEvents,
+    /// Buffering new live events while still processing any remaining missed events.
+    BufferingLiveEvents,
+    /// Processing new live events as they arrive, but only after the previous event is acknowledged.
+    ProcessingLiveEvents,
+}
+
+impl ProjectionSubscriptionState {
+    fn next(&mut self) {
+        match self {
+            ProjectionSubscriptionState::ProcessingMissedEvents => {
+                info!("transitioning to buffering live events");
+                *self = ProjectionSubscriptionState::BufferingLiveEvents
+            }
+            ProjectionSubscriptionState::BufferingLiveEvents => {
+                info!("transitioning to processing live events");
+                *self = ProjectionSubscriptionState::ProcessingLiveEvents
+            }
+            ProjectionSubscriptionState::ProcessingLiveEvents => {}
+        }
     }
 }
