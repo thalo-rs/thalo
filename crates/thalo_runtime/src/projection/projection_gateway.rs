@@ -218,10 +218,11 @@ impl ProjectionGateway {
                 continue;
             }
 
-            let is_relevant = subscription
-                .events
-                .iter()
-                .any(|event_name| event_name == &event.msg_type);
+            let is_relevant = subscription.events.is_empty()
+                || subscription
+                    .events
+                    .iter()
+                    .any(|event_name| event_name == &event.msg_type);
             subscription
                 .projection
                 .acknowledge_event(event.global_id, false)?;
