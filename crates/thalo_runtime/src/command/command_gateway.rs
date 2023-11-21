@@ -28,6 +28,7 @@ impl CommandGatewayHandle {
         message_store: MessageStore,
         relay: Relay,
         broadcaster: BroadcasterHandle,
+        cache_size: u64,
         modules_path: PathBuf,
     ) -> Self {
         let (sender, receiver) = mpsc::channel(16);
@@ -37,6 +38,7 @@ impl CommandGatewayHandle {
             message_store,
             relay,
             broadcaster,
+            cache_size,
             modules_path,
         ));
 
@@ -93,6 +95,7 @@ async fn run_command_gateway(
     message_store: MessageStore,
     relay: Relay,
     broadcaster: BroadcasterHandle,
+    cache_size: u64,
     modules_path: PathBuf,
 ) {
     let mut cmd_gateway = CommandGateway {
@@ -100,6 +103,7 @@ async fn run_command_gateway(
         message_store,
         relay,
         broadcaster,
+        cache_size,
         modules: HashMap::new(),
     };
 
@@ -135,6 +139,7 @@ struct CommandGateway {
     message_store: MessageStore,
     relay: Relay,
     broadcaster: BroadcasterHandle,
+    cache_size: u64,
     modules: HashMap<Category<'static>, AggregateCommandHandlerHandle>,
 }
 
@@ -165,6 +170,7 @@ impl CommandGateway {
             outbox_relay.clone(),
             self.message_store.clone(),
             self.broadcaster.clone(),
+            self.cache_size,
             module.clone(),
         );
 

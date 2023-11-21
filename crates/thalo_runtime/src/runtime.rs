@@ -29,6 +29,7 @@ impl Runtime {
         message_store: MessageStore,
         relay: Relay,
         modules_path: impl Into<PathBuf>,
+        cache_size: u64,
     ) -> Result<Self> {
         let mut config = wasmtime::Config::new();
         config.async_support(true).wasm_component_model(true);
@@ -48,6 +49,7 @@ impl Runtime {
             message_store.clone(),
             relay.clone(),
             broadcaster.clone(),
+            cache_size,
             modules_path.clone(),
         );
 

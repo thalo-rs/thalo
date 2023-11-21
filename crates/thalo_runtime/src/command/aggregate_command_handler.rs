@@ -21,6 +21,7 @@ impl AggregateCommandHandlerHandle {
         outbox_relay: OutboxRelayHandle,
         message_store: MessageStore,
         broadcaster: BroadcasterHandle,
+        cache_size: u64,
         module: Module,
     ) -> Self {
         let (sender, receiver) = mpsc::channel(16);
@@ -30,6 +31,7 @@ impl AggregateCommandHandlerHandle {
             outbox_relay,
             message_store,
             broadcaster,
+            cache_size,
             module,
         ));
 
@@ -71,9 +73,10 @@ async fn run_aggregate_command_handler(
     outbox_relay: OutboxRelayHandle,
     message_store: MessageStore,
     broadcaster: BroadcasterHandle,
+    cache_size: u64,
     module: Module,
 ) {
-    let entity_command_handlers = Cache::builder().max_capacity(100).build();
+    let entity_command_handlers = Cache::new(cache_size);
 
     let mut handler = AggregateCommandHandler {
         outbox_relay,

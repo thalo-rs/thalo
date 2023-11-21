@@ -20,6 +20,9 @@ struct Cli {
     /// Path to aggregate wasm modules directory
     #[clap(short = 'm', long, default_value = "modules")]
     modules_path: PathBuf,
+    /// Cache size of aggregates (LRU)
+    #[clap(long, default_value = "10000")]
+    cache_size: u64,
     /// Redis relay
     #[clap(long)]
     redis: Option<String>,
@@ -60,7 +63,7 @@ pub async fn start() -> Result<()> {
         }
         None => Relay::Noop,
     };
-    let runtime = Runtime::new(message_store, relay, cli.modules_path).await?;
+    let runtime = Runtime::new(message_store, relay, cli.modules_path, cli.cache_size).await?;
 
     let command_center_server = rpc::server::CommandCenterServer::new(runtime.clone());
     let projection_server = rpc::server::ProjectionServer::new(runtime);
