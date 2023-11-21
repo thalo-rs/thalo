@@ -3,10 +3,8 @@ name = "todos"
 version = "0.1.0"
 edition = "2021"
 
-[lib]
-crate-type = ["cdylib"]
-
 [dependencies]
 thalo = { workspace = true }
+thiserror = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
-wit-bindgen = { workspace = true }
+wit-bindgen = "0.14"

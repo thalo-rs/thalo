@@ -3,7 +3,7 @@ use std::{
     time::{Duration, UNIX_EPOCH},
 };
 
-use thalo::StreamName;
+use thalo::stream_name::StreamName;
 use thalo_message_store::message::GenericMessage;
 use thiserror::Error;
 

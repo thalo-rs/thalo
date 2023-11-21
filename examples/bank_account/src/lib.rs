@@ -1,117 +1,141 @@
 use serde::{Deserialize, Serialize};
-use thalo::{export_aggregate, Aggregate, Events};
+use thalo::{events, export_aggregate, Aggregate, Apply, Command, Event, Handle};
+use thiserror::Error;
 
 export_aggregate!(BankAccount);
 
 pub struct BankAccount {
-    #[allow(unused)]
-    id: String,
     opened: bool,
     balance: i64,
 }
 
 impl Aggregate for BankAccount {
-    type ID = String;
     type Command = BankAccountCommand;
-    type Events = BankAccountEvents;
-    type Error = &'static str;
+    type Event = BankAccountEvent;
 
-    fn init(id: Self::ID) -> Self {
+    fn init(_id: String) -> Self {
         BankAccount {
-            id,
             opened: false,
             balance: 0,
         }
     }
+}
 
-    fn apply(&mut self, event: <Self::Events as Events>::Event) {
-        use Event::*;
+#[derive(Command, Deserialize)]
+pub enum BankAccountCommand {
+    OpenAccount(OpenAccount),
+    DepositFunds(DepositFunds),
+    WithdrawFunds(WithdrawFunds),
+}
 
-        match event {
-            OpenedAccount(OpenedAccountV1 { initial_balance }) => {
-                self.opened = true;
-                self.balance = initial_balance as i64;
-            }
-            DepositedFunds(DepositedFundsV1 { amount }) => {
-                self.balance += amount as i64;
-            }
-            WithdrewFunds(WithdrewFundsV1 { amount }) => {
-                self.balance -= amount as i64;
-            }
+#[derive(Debug, Error)]
+pub enum BankAccountError {
+    #[error("account already opened")]
+    AccountAlreadyOpened,
+    #[error("account not open")]
+    AccountNotOpen,
+    #[error("cannot withdraw/deposit an amount of 0")]
+    AmountIsZero,
+    #[error("insufficient balance")]
+    InsufficientBalance,
+}
+
+#[derive(Deserialize)]
+pub struct OpenAccount {}
+
+impl Handle<OpenAccount> for BankAccount {
+    type Error = BankAccountError;
+
+    fn handle(&self, _cmd: OpenAccount) -> Result<Vec<BankAccountEvent>, Self::Error> {
+        if self.opened {
+            return Err(BankAccountError::AccountAlreadyOpened);
         }
-    }
 
-    fn handle(
-        &self,
-        cmd: Self::Command,
-    ) -> Result<Vec<<Self::Events as Events>::Event>, Self::Error> {
-        use BankAccountCommand::*;
-        use Event::*;
-
-        match cmd {
-            OpenAccount { initial_balance } => {
-                if self.opened {
-                    return Err("account already opened");
-                }
-
-                Ok(vec![OpenedAccount(OpenedAccountV1 { initial_balance })])
-            }
-            DepositFunds { amount } => {
-                if !self.opened {
-                    return Err("account not open");
-                }
-
-                if amount == 0 {
-                    return Err("cannot deposit 0");
-                }
-
-                Ok(vec![DepositedFunds(DepositedFundsV1 { amount })])
-            }
-            WithdrawFunds { amount } => {
-                if !self.opened {
-                    return Err("account not open");
-                }
-
-                if amount == 0 {
-                    return Err("cannot withdraw 0");
-                }
-
-                let new_balance = self.balance - amount as i64;
-                if new_balance < 0 {
-                    return Err("insufficient balance");
-                }
-
-                Ok(vec![WithdrewFunds(WithdrewFundsV1 { amount })])
-            }
-        }
+        events![AccountOpened {}]
     }
 }
 
 #[derive(Deserialize)]
-pub enum BankAccountCommand {
-    OpenAccount { initial_balance: u32 },
-    DepositFunds { amount: u32 },
-    WithdrawFunds { amount: u32 },
-}
-
-#[derive(Events)]
-pub enum BankAccountEvents {
-    OpenedAccount(OpenedAccountV1),
-    DepositedFunds(DepositedFundsV1),
-    WithdrewFunds(WithdrewFundsV1),
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct OpenedAccountV1 {
-    initial_balance: u32,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct DepositedFundsV1 {
+pub struct DepositFunds {
     amount: u32,
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct WithdrewFundsV1 {
+impl Handle<DepositFunds> for BankAccount {
+    type Error = BankAccountError;
+
+    fn handle(&self, cmd: DepositFunds) -> Result<Vec<BankAccountEvent>, Self::Error> {
+        if !self.opened {
+            return Err(BankAccountError::AccountNotOpen);
+        }
+
+        if cmd.amount == 0 {
+            return Err(BankAccountError::AmountIsZero);
+        }
+
+        events![FundsDeposited { amount: cmd.amount }]
+    }
+}
+
+#[derive(Deserialize)]
+pub struct WithdrawFunds {
     amount: u32,
+}
+
+impl Handle<WithdrawFunds> for BankAccount {
+    type Error = BankAccountError;
+
+    fn handle(&self, cmd: WithdrawFunds) -> Result<Vec<BankAccountEvent>, Self::Error> {
+        if !self.opened {
+            return Err(BankAccountError::AccountNotOpen);
+        }
+
+        if cmd.amount == 0 {
+            return Err(BankAccountError::AmountIsZero);
+        }
+
+        let new_balance = self.balance - cmd.amount as i64;
+        if new_balance < 0 {
+            return Err(BankAccountError::InsufficientBalance);
+        }
+
+        events![FundsWithdrawn { amount: cmd.amount }]
+    }
+}
+
+#[derive(Event, Serialize, Deserialize)]
+pub enum BankAccountEvent {
+    OpenedAccount(AccountOpened),
+    DepositedFunds(FundsDeposited),
+    WithdrewFunds(FundsWithdrawn),
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct AccountOpened {}
+
+impl Apply<AccountOpened> for BankAccount {
+    fn apply(&mut self, _event: AccountOpened) {
+        self.opened = true;
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct FundsDeposited {
+    pub amount: u32,
+}
+
+impl Apply<FundsDeposited> for BankAccount {
+    fn apply(&mut self, event: FundsDeposited) {
+        self.balance += event.amount as i64;
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct FundsWithdrawn {
+    pub amount: u32,
+}
+
+impl Apply<FundsWithdrawn> for BankAccount {
+    fn apply(&mut self, event: FundsWithdrawn) {
+        self.balance -= event.amount as i64;
+    }
 }

@@ -1,3 +1,13 @@
+/// Exports an aggregate for use with the thalo runtime.
+///
+/// # Example
+///
+/// ```
+/// export_aggregate!(Counter);
+///
+/// pub struct Counter {}
+/// impl Aggregate for Counter { /* ... */ }
+/// ```
 #[macro_export]
 macro_rules! export_aggregate {
     ($t: ident) => {
@@ -48,7 +58,7 @@ macro_rules! export_aggregate {
 
             use exports::aggregate as wit;
 
-            pub struct AggWrapper(RefCell<Agg>);
+            pub struct AggWrapper(RefCell<$crate::State<Agg>>);
 
             impl wit::GuestAgg for AggWrapper {
                 fn new(id: String) -> Self {
@@ -65,9 +75,7 @@ macro_rules! export_aggregate {
             }
 
             fn init_aggregate(id: String) -> AggWrapper {
-                AggWrapper(RefCell::new(<Agg as $crate::Aggregate>::init(
-                    <Agg as $crate::Aggregate>::ID::from(id),
-                )))
+                AggWrapper(RefCell::new($crate::State(<Agg as $crate::Aggregate>::init(id))))
             }
 
             fn apply_aggregate_events(
@@ -83,9 +91,9 @@ macro_rules! export_aggregate {
                     let payload: serde_json::Value = serde_json::from_str(&payload)
                         .map_err(|err| wit::Error::DeserializeEvent(err.to_string()))?;
                     let event_value = serde_json::json!({ event: payload });
-                    let event = serde_json::from_value(event_value)
+                    let event: <$crate::State<Agg> as $crate::Aggregate>::Event = serde_json::from_value(event_value)
                         .map_err(|err| wit::Error::DeserializeEvent(err.to_string()))?;
-                    <Agg as $crate::Aggregate>::apply(&mut state, event);
+                    <$crate::State<Agg> as $crate::Apply<<$crate::State<Agg> as $crate::Aggregate>::Event>>::apply(&mut state, event);
                 }
 
                 Ok(())
@@ -102,9 +110,9 @@ macro_rules! export_aggregate {
                 let payload: serde_json::Value = serde_json::from_str(&payload)
                     .map_err(|err| wit::Error::DeserializeCommand(err.to_string()))?;
                 let cmd_value = serde_json::json!({ command: payload });
-                let cmd = serde_json::from_value(cmd_value)
+                let cmd: <$crate::State<Agg> as $crate::Aggregate>::Command = serde_json::from_value(cmd_value)
                     .map_err(|err| wit::Error::DeserializeCommand(err.to_string()))?;
-                let events = <Agg as $crate::Aggregate>::handle(&state, cmd)
+                let events = <$crate::State<Agg> as $crate::Handle<<$crate::State<Agg> as $crate::Aggregate>::Command>>::handle(&state, cmd)
                     .map_err(|err| wit::Error::Command(err.to_string()))?
                     .into_iter()
                     .map(|event| {
@@ -130,6 +138,24 @@ macro_rules! export_aggregate {
                 payload: serde_json::Value,
             }
         }
+    };
+}
+
+/// Shorthand for creating a `Ok(vec![...])` in [`Handle`](crate::Handle) implmentations.
+///
+/// Each expression in the macro is automcically converted to the aggregates `Event` type
+/// using [std::convert::From].
+#[macro_export]
+macro_rules! events {
+    () => {
+        ::std::result::Result::Ok(::std::vec![])
+    };
+    ($($x:expr),+ $(,)?) => {
+        ::std::result::Result::Ok(
+            ::std::vec![
+                $( <<Self as $crate::Aggregate>::Event as ::std::convert::From<_>>::from($x) ),+
+            ]
+        )
     };
 }
 

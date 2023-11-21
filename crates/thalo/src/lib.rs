@@ -1,216 +1,171 @@
-//! Thalo is an event sourcing runtime that leverages the power of WebAssembly (wasm) through [wasmtime], combined with [sled] as an embedded event store.
+//! [Thalo] is an event sourcing runtime that leverages the power of WebAssembly (wasm) through [wasmtime], combined with [sled] as an embedded event store.
 //! It is designed to handle commands using compiled aggregate wasm components and to persist the resulting events, efficiently managing the rebuilding of aggregate states from previous events.
 //!
+//! [thalo]: https://github.com/thalo-rs/thalo
 //! [wasmtime]: https://wasmtime.dev/
 //! [sled]: https://sled.rs/
 //!
-//! # Example
+//! # Counter Aggregate Example
 //!
-//! #### Counter Aggregate Example
-//!
-//! This example shows a basic counter aggregate, allowing the count to be incremented and decremented.
-//!
-//! **Commands**
-//!
-//! - `Increment`
-//! - `Decrement`
-//!
-//! **Events**
-//!
-//! - `Incremented`
-//! - `Decremented`
+//! This example shows a basic counter aggregate, allowing the count to be incremented by an amount.
 //!
 //! ```
+//! # use std::convert::Infallible;
+//! #
 //! use serde::{Deserialize, Serialize};
-//! use thalo::{export_aggregate, Aggregate, Events};
+//! use thalo::{events, export_aggregate, Aggregate, Apply, Command, Event, Handle};
 //!
 //! export_aggregate!(Counter);
 //!
 //! pub struct Counter {
-//!     count: i64,
+//!     count: u64,
 //! }
 //!
 //! impl Aggregate for Counter {
-//!     type ID = String;
 //!     type Command = CounterCommand;
-//!     type Events = CounterEvents;
-//!     type Error = &'static str;
+//!     type Event = CounterEvent;
 //!
-//!     fn init(_id: Self::ID) -> Self {
+//!     fn init(_id: String) -> Self {
 //!         Counter { count: 0 }
 //!     }
-//!
-//!     fn apply(&mut self, evt: Event) {
-//!         use Event::*;
-//!
-//!         match evt {
-//!             Incremented(IncrementedV1 { amount }) => self.count += amount,
-//!             Decremented(DecrementedV1 { amount }) => self.count -= amount,
-//!         }
-//!     }
-//!
-//!     fn handle(&self, cmd: Self::Command) -> Result<Vec<Event>, Self::Error> {
-//!         use CounterCommand::*;
-//!         use Event::*;
-//!
-//!         match cmd {
-//!             Increment { amount } => Ok(vec![Incremented(IncrementedV1 { amount })]),
-//!             Decrement { amount } => Ok(vec![Decremented(DecrementedV1 { amount })]),
-//!         }
-//!     }
 //! }
 //!
-//! #[derive(Deserialize)]
+//! #[derive(Command, Deserialize)]
 //! pub enum CounterCommand {
-//!     Increment { amount: i64 },
-//!     Decrement { amount: i64 },
+//!     Increment { amount: u64 },
 //! }
 //!
-//! #[derive(Events)]
-//! pub enum CounterEvents {
-//!     Incremented(IncrementedV1),
-//!     Decremented(DecrementedV1),
+//! impl Handle<CounterCommand> for Counter {
+//!     type Error = Infallible;
+//!
+//!     fn handle(&self, cmd: CounterCommand) -> Result<Vec<CounterEvent>, Self::Error> {
+//!         match cmd {
+//!             CounterCommand::Increment { amount } => events![Incremented { amount }],
+//!         }
+//!     }
+//! }
+//!
+//! #[derive(Event, Serialize, Deserialize)]
+//! pub enum CounterEvent {
+//!     Incremented(Incremented),
 //! }
 //!
 //! #[derive(Serialize, Deserialize)]
-//! pub struct IncrementedV1 {
-//!     amount: i64,
+//! pub struct Incremented {
+//!     pub amount: u64,
 //! }
 //!
-//! #[derive(Serialize, Deserialize)]
-//! pub struct DecrementedV1 {
-//!     amount: i64,
+//! impl Apply<Incremented> for Counter {
+//!     fn apply(&mut self, event: Incremented) {
+//!         self.count += event.amount;
+//!     }
 //! }
 //! ```
 
 #[macro_use]
 mod macros;
-mod stream_name;
-
-pub use stream_name::*;
-pub use thalo_derive::*;
+pub mod stream_name;
 
 use std::fmt;
 
-use serde::{de::DeserializeOwned, Serialize};
+pub use thalo_derive::*;
 
 /// Represents an aggregate root in an event-sourced system.
 ///
-/// An aggregate root is the entry-point for the cluster of entities and value objects
-/// that are changed together in response to commands. This trait defines the behavior
-/// for an aggregate root, including initializing, handling commands, and applying events.
+/// An aggregate root is the entry-point for the cluster of entities and that are changed
+/// together in response to commands.
 ///
-/// Types implementing this trait must define an identifier, command type, event type,
-/// and error type.
+/// *See the [crate level docs](crate#counter-aggregate-example) for an example aggregate.*
 pub trait Aggregate {
-    /// The identifier type for the aggregate.
-    ///
-    /// This is usually a unique identifier that can be created from a `String`.
-    type ID: From<String>;
-
     /// The type of commands that this aggregate can handle.
     ///
     /// Commands are inputs to the aggregate that cause state changes,
     /// typically after being validated and generating domain events.
-    type Command: DeserializeOwned;
+    /// The type used here typically derives the [Command] derive macro.
+    type Command;
 
     /// The type of events that this aggregate can produce.
     ///
     /// Events are the result of handling commands, representing state changes
     /// that have occurred to the aggregate.
-    type Events: Events;
-
-    /// The type of error that can occur when handling a command.
-    ///
-    /// This error is used to represent any issue encountered during command handling,
-    /// such as validation errors or domain rule violations.
-    type Error: fmt::Display;
+    /// The type used here typically derives the [Event] derive macro.
+    type Event;
 
     /// Initializes an aggregate with the given identifier.
     ///
-    /// This method is called to create a new instance of an aggregate root.
-    ///
-    /// # Arguments
-    /// * `id` - The identifier for the aggregate.
-    ///
-    /// # Returns
-    /// Returns a new instance of the implementing aggregate type.
-    fn init(id: Self::ID) -> Self;
-
-    /// Applies an event to the aggregate.
-    ///
-    /// This method is used to mutate the state of the aggregate based on the given event.
-    ///
-    /// # Arguments
-    /// * `event` - The event to apply to the aggregate.
-    fn apply(&mut self, event: <Self::Events as Events>::Event);
-
-    /// Handles a command and produces events.
-    ///
-    /// This method is called when a command is dispatched to the aggregate.
-    /// If successful, it returns a list of events that represent the state changes
-    /// resulting from the command.
-    ///
-    /// # Arguments
-    /// * `cmd` - The command to handle.
-    ///
-    /// # Returns
-    /// On success, returns `Ok` with a vector of resultant events.
-    /// On failure, returns `Err` with an appropriate error.
-    fn handle(
-        &self,
-        cmd: Self::Command,
-    ) -> Result<Vec<<Self::Events as Events>::Event>, Self::Error>;
+    /// This method is called to create a new instance of an aggregate root
+    /// with a default state.
+    fn init(id: String) -> Self;
 }
 
-/// The `Events` trait, along with its associated `Events` derive macro,
-/// plays a pivotal role in defining and handling versioned events in Thalo.
+/// Handles a command, returning events.
 ///
-/// It enables the creation of enum types where each variant represents a distinct
-/// event type with potentially multiple versions. This setup facilitates the evolution
-/// of event structures over time, while maintaining backward compatibility.
-///
-/// # Key Concepts
-///
-/// - **Versioned Events:** Each enum variant in an `Events` implementation can contain
-///   multiple versions of an event, ensuring a smooth transition between different event schemas.
-///
-/// - **Migration Path:** All event versions must implement `From<PreviousVersion>`, allowing
-///   automatic conversion from older to newer versions.
-///
-/// - **Generated Event Enum:** A corresponding `Event` enum is automatically generated,
-///   encapsulating the latest version of each event type.
-///
-/// - **Generated Event Names:** The event names for serialization are derived from the enum
-///   variants and are suffixed with 'V1', 'V2', etc., to represent different versions.
-///   The internal names of structs are not used in serialization.
+/// Commands use the aggregates state to validate business rules, and returns
+/// events which are later used to update the aggregate state.
 ///
 /// # Example
 ///
-/// ```rust
-/// #[derive(thalo::Events)]
-/// pub enum Events {
-///     Incremented(IncrementedV1, IncrementedV2),
-///     Decremented(DecrementedV1, DecrementedV2),
+/// ```
+/// use thalo::{events, Handle};
+///
+/// pub struct Increment {
+///     pub amount: u64,
 /// }
 ///
-/// #[derive(Serialize, Deserialize)]
-/// pub struct IncrementedV1 { /* fields */ }
+/// impl Handle<Increment> for Counter {
+///     type Error = &'static str;
 ///
-/// #[derive(Serialize, Deserialize)]
-/// pub struct IncrementedV2 { /* fields */ }
-///
-/// // Implement conversions between versions
-/// impl From<IncrementedV1> for IncrementedV2 { /* conversion logic */ }
+///     fn handle(&self, cmd: Increment) -> Result<Vec<CounterEvent>, Self::Error> {
+///         if self.count + cmd.amount > 100_000 {
+///             return Err("count would be too high");
+///         }
+///         
+///         events![ Incremented { amount: cmd.amount } ]
+///     }
+/// }
 /// ```
+pub trait Handle<C>: Aggregate {
+    type Error: fmt::Display;
+
+    fn handle(&self, cmd: C) -> Result<Vec<<Self as Aggregate>::Event>, Self::Error>;
+}
+
+/// Applies an event, updating the aggregate state.
 ///
-/// In this example, `IncrementedV1` and `IncrementedV2` are versions of the `Incremented` event.
-/// The macro generates an `Event` enum with the latest version (`IncrementedV2`), and during
-/// serialization, these events will be tagged as `IncrementedV1` and `IncrementedV2`.
-pub trait Events {
-    /// The event type associated with this trait, typically generated by the `thalo::Events` macro.
-    /// It should encompass all versions of an event.
-    type Event: Serialize + DeserializeOwned;
+/// Events modify aggregate state, and are emitted as the result of commands.
+///
+/// # Example
+///
+/// ```
+/// use thalo::Apply;
+///
+/// pub struct Increment {
+///     pub amount: u64,
+/// }
+///
+/// impl Apply<Incremented> for Counter {
+///     fn apply(&mut self, event: Incremented) {
+///         self.count += self.amount;
+///     }
+/// }
+/// ```
+pub trait Apply<E>: Aggregate {
+    fn apply(&mut self, event: E);
+}
+
+#[doc(hidden)]
+pub struct State<T>(pub T);
+
+impl<T> Aggregate for State<T>
+where
+    T: Aggregate,
+{
+    type Command = T::Command;
+    type Event = T::Event;
+
+    fn init(id: String) -> Self {
+        State(T::init(id))
+    }
 }
 
 #[doc(hidden)]

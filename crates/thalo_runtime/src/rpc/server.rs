@@ -1,7 +1,7 @@
 use std::pin::Pin;
 
 use futures::StreamExt as _;
-use thalo::{Category, ID};
+use thalo::stream_name::{Category, ID};
 use thalo_message_store::message::GenericMessage;
 use tokio::sync::mpsc;
 use tokio_stream::{wrappers::ReceiverStream, Stream, StreamExt};

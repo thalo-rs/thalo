@@ -25,7 +25,7 @@ use std::borrow::Cow;
 use std::time::SystemTime;
 
 use serde::{Deserialize, Serialize};
-use thalo::StreamName;
+use thalo::stream_name::StreamName;
 
 /// Generic message JSON data.
 pub type MessageData = serde_json::Value;
@@ -69,29 +69,12 @@ where
     /// # Example
     ///
     /// ```
-    /// # use message_db::message::{Message, Metadata};
-    /// # use chrono::Utc;
-    /// # use uuid::Uuid;
-    /// #
-    /// # fn main() -> message_db::Result<()> {
-    /// # let message = Message {
-    /// #     id: Uuid::new_v4(),
-    /// #     stream_name: Category::new("category-id").unwrap(),
-    /// #     msg_type: "foo".to_string(),
-    /// #     position: 0,
-    /// #     global_position: 0,
-    /// #     data: Foo { num: 10 },
-    /// #     metadata: Metadata::default(),
-    /// #     time: Utc::now(),
-    /// # };
     /// struct Foo { num: i32 }
     /// struct Bar { num: String }
     ///
     /// let message: Message<Bar> = message.map_data(|foo| Bar {
     ///     num: foo.num.to_string(),
     /// });
-    /// # Ok(())
-    /// # }
     /// ```
     pub fn map_data<'b, U, F>(self, f: F) -> Message<'b, U>
     where

@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::{anyhow, Context, Result};
 use serde_json::Value;
-use thalo::{Category, ID};
+use thalo::stream_name::{Category, ID};
 use thalo_message_store::{message::GenericMessage, MessageStore};
 use tokio::{
     fs,

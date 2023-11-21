@@ -10,7 +10,6 @@ members = [
 
   # Examples
   "examples/bank_account",
-  # "examples/count_read_model",
   "examples/counter",
   "examples/projection",
   "examples/todos",
@@ -23,20 +22,11 @@ thalo_message_store = { path = "crates/thalo_message_store", version = "0.7.0" }
 thalo_runtime = { path = "crates/thalo_runtime", version = "0.7.0" }
 
 anyhow = "1.0"
-async-recursion = "1.0.5"
-async-trait = "0.1"
-bytes = "1.2"
 clap = { version = "4.0", features = ["derive", "env"] }
-directories-next = "2.0"
-futures = "0.3.25"
-quinn = "0.9"
-rmp-serde = "1.1"
-rustls = "0.20"
 serde = "1.0"
 serde_json = "1.0"
 thiserror = "1.0"
 tokio = "1.20"
+tonic = "0.10"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-uuid = "1.2"
-wit-bindgen = "0.14"
