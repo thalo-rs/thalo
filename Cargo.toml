@@ -16,10 +16,10 @@ members = [
 ]
 
 [workspace.dependencies]
-thalo = { path = "crates/thalo", version = "0.7.0" }
-thalo_derive = { path = "crates/thalo_derive", version = "0.7.0" }
-thalo_message_store = { path = "crates/thalo_message_store", version = "0.7.0" }
-thalo_runtime = { path = "crates/thalo_runtime", version = "0.7.0" }
+thalo = { path = "crates/thalo", version = "0.8.0" }
+thalo_derive = { path = "crates/thalo_derive", version = "0.8.0" }
+thalo_message_store = { path = "crates/thalo_message_store", version = "0.8.0" }
+thalo_runtime = { path = "crates/thalo_runtime", version = "0.8.0" }
 
 anyhow = "1.0"
 clap = { version = "4.0", features = ["derive", "env"] }

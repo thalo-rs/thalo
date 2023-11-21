@@ -1,6 +1,6 @@
 [package]
 name = "thalo"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2021"
 description = "A high-performance event sourcing runtime utilizing WebAssembly an embedded event store."
 repository = "https://github.com/thalo-rs/thalo"

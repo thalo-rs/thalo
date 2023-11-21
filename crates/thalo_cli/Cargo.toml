@@ -1,6 +1,6 @@
 [package]
 name = "thalo_cli"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2021"
 description = "Cli tool for interacting with thalo through the quic protocol"
 repository = "https://github.com/thalo-rs/thalo"

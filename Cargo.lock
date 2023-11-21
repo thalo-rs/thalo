@@ -2225,7 +2225,7 @@ dependencies = [
 
 [[package]]
 name = "thalo"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "heck",
  "serde",
@@ -2237,7 +2237,7 @@ dependencies = [
 
 [[package]]
 name = "thalo_cli"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "cargo_metadata 0.18.1",
@@ -2257,7 +2257,7 @@ dependencies = [
 
 [[package]]
 name = "thalo_derive"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2266,7 +2266,7 @@ dependencies = [
 
 [[package]]
 name = "thalo_message_store"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "bincode",
  "serde",
@@ -2280,7 +2280,7 @@ dependencies = [
 
 [[package]]
 name = "thalo_runtime"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "async-recursion",
