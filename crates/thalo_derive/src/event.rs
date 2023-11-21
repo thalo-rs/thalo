@@ -10,14 +10,12 @@ use syn::{
 
 pub struct DeriveEvent {
     ident: syn::Ident,
-    // event_type_ident: syn::Ident,
     events: HashMap<syn::Ident, syn::Path>,
 }
 
 impl Parse for DeriveEvent {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let item_enum: ItemEnum = input.parse()?;
-        // let event_type_ident = format_ident!("{}Type", item_enum.ident);
         let events = item_enum
             .variants
             .into_iter()
@@ -57,7 +55,6 @@ impl Parse for DeriveEvent {
 
         Ok(DeriveEvent {
             ident: item_enum.ident,
-            // event_type_ident,
             events,
         })
     }
@@ -67,18 +64,10 @@ impl DeriveEvent {
     pub fn expand(self) -> TokenStream {
         let apply_impl = self.expand_apply_impl();
         let from_impls = self.expand_from_impls();
-        // let event_name_impls = self.expand_event_name_impls();
-        // let event_type = self.expand_event_type();
-        // let event_type_display_impl = self.expand_event_type_display_impl();
-        // let from_event_for_event_type_impls = self.expand_from_event_for_event_type();
 
         quote! {
             #apply_impl
             #from_impls
-            // #event_name_impls
-            // #event_type
-            // #event_type_display_impl
-            // #from_event_for_event_type_impls
         }
     }
 
@@ -86,7 +75,6 @@ impl DeriveEvent {
         let Self { ident, events, .. } = self;
 
         let paths = events.values();
-
         let arms = events.iter().map(|(name, path)| {
             quote! {
                 #ident::#name(event) => <T as ::thalo::Apply<#path>>::apply(&mut self.0, event)
@@ -127,93 +115,4 @@ impl DeriveEvent {
             #( #from_impls )*
         }
     }
-
-    // fn expand_event_name_impls(&self) -> TokenStream {
-    //     let Self { events, .. } = self;
-
-    //     let event_name_impls = events.iter().map(|(name, path)| {
-    //         let event_name = name.to_string();
-
-    //         quote! {
-    //             impl ::thalo::EventName for #path {
-    //                 fn event_name() -> &'static str {
-    //                     #event_name
-    //                 }
-    //             }
-    //         }
-    //     });
-
-    //     quote! {
-    //         #( #event_name_impls )*
-    //     }
-    // }
-
-    // fn expand_event_type(&self) -> TokenStream {
-    //     let Self {
-    //         event_type_ident,
-    //         events,
-    //         ..
-    //     } = self;
-
-    //     let variants = events.keys();
-
-    //     quote! {
-    //         #[derive(Clone, Copy, Debug, Hash, Eq, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
-    //         pub enum #event_type_ident {
-    //             #( #variants, )*
-    //         }
-
-    //     }
-    // }
-
-    // fn expand_event_type_display_impl(&self) -> TokenStream {
-    //     let Self {
-    //         event_type_ident,
-    //         events,
-    //         ..
-    //     } = self;
-
-    //     let arms = events.keys().map(|name| {
-    //         let name_str = name.to_string();
-    //         quote! {
-    //             #event_type_ident::#name => ::std::write!(#name_str)
-    //         }
-    //     });
-
-    //     quote! {
-    //         #[automatically_derived]
-    //         impl ::std::fmt::Display for #event_type_ident {
-    //             fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::result::Result<(), ::std::fmt::Error> {
-    //                 match self {
-    //                     #( #arms, )*
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-
-    // fn expand_from_event_for_event_type(&self) -> TokenStream {
-    //     let Self {
-    //         ident,
-    //         event_type_ident,
-    //         events,
-    //     } = self;
-
-    //     let arms = events.keys().map(|name| {
-    //         quote! {
-    //             #ident::#name(_) => #event_type_ident::#name
-    //         }
-    //     });
-
-    //     quote! {
-    //         #[automatically_derived]
-    //         impl ::std::convert::From<&#ident> for #event_type_ident {
-    //             fn from(event: &#ident) -> Self {
-    //                 match event {
-    //                     #( #arms, )*
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
 }
