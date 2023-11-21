@@ -32,6 +32,7 @@ It is designed to handle commands using compiled aggregate wasm components and t
 - **Wasmtime Integration:** High-performance, isolated aggregate computation using WebAssembly.
 - **Sled Event Store:** Fast, reliable embedded database for event storage.
 - **Actor-Based Aggregates:** Efficient, lock-free management supporting over 10,000 commands/sec.
+- **Projections:** Projections to handle interested events with an at-least-once gaurantee.
 - **LRU Caching:** Fast aggregate rebuilding with optimized memory usage.
 - **Streamlined State Management:** Automated reconstruction of aggregate states from events.
 - **Multi-Language Support:** Compile aggregates to wasm, enabling diverse language use (currently Rust supported).
