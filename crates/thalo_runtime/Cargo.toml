@@ -10,7 +10,7 @@ categories = ["database", "web-programming", "asynchronous"]
 license = "Apache-2.0 OR MIT"
 
 [[bin]]
-name = "thalo"
+name = "thalo-runtime"
 path = "./src/main.rs"
 
 [dependencies]
@@ -18,30 +18,24 @@ thalo = { workspace = true }
 thalo_message_store = { workspace = true }
 
 anyhow = { workspace = true }
-async-trait = { workspace = true }
-async-recursion = { workspace = true }
+async-trait = "0.1"
+async-recursion = "1.0.5"
 async-stream = "0.3.5"
-bytes = { workspace = true }
+bytes = "1.2"
 clap = { workspace = true }
-directories-next = { workspace = true }
-futures = { workspace = true }
+futures = "0.3.25"
 itertools = "0.11.0"
 moka = { version = "0.12.1", features = ["future"] }
 prost = "0.12"
 prost-types = "0.12"
-quinn = { workspace = true }
 rand = "0.8.5"
-rcgen = { version = "0.10.0", features = ["pem", "x509-parser"] }
 redis = { version = "0.23.3", features = ["tokio-comp"] }
-rmp-serde = { workspace = true }
-rustls = { workspace = true }
-rustls-pemfile = "1.0.1"
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync"] }
 tokio-stream = "0.1"
-tonic = "0.10"
+tonic = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 wasmtime-wasi = { version = "14.0.4", features = ["tokio"] }

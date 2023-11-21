@@ -1,5 +1,5 @@
 use sled::transaction::ConflictableTransactionError;
-use thalo::EmptyStreamName;
+use thalo::stream_name::EmptyStreamName;
 use thiserror::Error;
 
 /// Type alias for `Result<T, message_db::Error>`

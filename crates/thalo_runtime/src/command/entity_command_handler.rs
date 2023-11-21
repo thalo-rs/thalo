@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use anyhow::Context as AnyhowContext;
 use anyhow::Result;
 use serde_json::Value;
-use thalo::StreamName;
+use thalo::stream_name::StreamName;
 use thalo_message_store::{
     message::{GenericMessage, MessageData},
     stream::Stream,

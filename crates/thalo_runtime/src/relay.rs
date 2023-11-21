@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use redis::{aio::MultiplexedConnection, streams::StreamMaxlen, ToRedisArgs};
-use thalo::Category;
+use thalo::stream_name::Category;
 use thalo_message_store::message::GenericMessage;
 
 #[derive(Clone)]

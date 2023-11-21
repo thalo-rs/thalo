@@ -1,9 +1,8 @@
-use std::time::Duration;
-
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use clap::Args;
-use quinn::{RecvStream, SendStream};
-use uuid::Uuid;
+use thalo::stream_name::{Category, ID};
+use thalo_runtime::rpc::client::*;
+use tonic::transport::Channel;
 
 /// Execute a command for a given module
 #[derive(Args, Clone, Debug)]
@@ -13,32 +12,23 @@ pub struct Execute {
     /// ID of aggregate instance
     id: String,
     /// Command to execute
-    #[clap(long)]
-    command_id: Option<Uuid>,
-    /// Command to execute
     command: String,
     /// Command data in JSON
     payload: String,
-    /// Timeout in milliseconds
-    timeout: Option<u64>,
 }
 
 impl Execute {
-    pub async fn execute(self, send: &mut SendStream, recv: &mut RecvStream) -> Result<()> {
-        // let request = Request::Execute {
-        //     name: self.name,
-        //     id: self.id,
-        //     command: self.command,
-        //     payload: self.payload,
-        //     timeout: self.timeout.map(|timeout| Duration::from_millis(timeout)),
-        // };
-        // let mut request = pack(&request)?;
+    pub async fn execute(self, mut client: CommandCenterClient<Channel>) -> Result<()> {
+        let name = Category::new(self.name)?;
+        let id = ID::new(self.id)?;
+        let payload = serde_json::from_str(&self.payload)?;
+        let events =
+            CommandCenterClientExt::execute(&mut client, name, id, self.command, payload).await?;
 
-        // send.write_all_chunks(&mut request)
-        //     .await
-        //     .map_err(|e| anyhow!("failed to send request: {}", e))?;
-
-        // handle_response(recv).await?;
+        println!("Executed with {} events:", events.len());
+        for event in &events {
+            println!("    {}  {}", event.msg_type, event.data);
+        }
 
         Ok(())
     }

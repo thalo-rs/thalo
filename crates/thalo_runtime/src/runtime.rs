@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use serde_json::Value;
-use thalo::{Category, ID};
+use thalo::stream_name::{Category, ID};
 use thalo_message_store::message::GenericMessage;
 use thalo_message_store::MessageStore;
 use tokio::fs;
@@ -19,7 +19,6 @@ use crate::relay::Relay;
 pub struct Runtime {
     message_store: MessageStore,
     modules_path: PathBuf,
-    broadcaster: BroadcasterHandle,
     event_tx: broadcast::Sender<GenericMessage<'static>>,
     command_gateway: CommandGatewayHandle,
     projection_gateway: ProjectionGatewayHandle,
@@ -55,7 +54,6 @@ impl Runtime {
         Ok(Runtime {
             message_store,
             modules_path,
-            broadcaster,
             event_tx,
             command_gateway,
             projection_gateway,

@@ -1,8 +1,15 @@
+use counter::Incremented;
+use serde::Deserialize;
 use serde_json::json;
 use thalo_runtime::rpc::{client::ProjectionClient, Acknowledgement, SubscriptionRequest};
 
 const LAST_GLOBAL_ID_KEY: [u8; 1] = [0];
 const COUNT_KEY: [u8; 1] = [1];
+
+#[derive(Deserialize)]
+enum ListeningEvent {
+    Incremented(Incremented),
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -16,7 +23,7 @@ async fn main() -> anyhow::Result<()> {
         .get(COUNT_KEY)?
         .map(|value| {
             let slice = value.as_ref().try_into().unwrap();
-            i64::from_be_bytes(slice)
+            u64::from_be_bytes(slice)
         })
         .unwrap_or(0);
 
@@ -26,7 +33,7 @@ async fn main() -> anyhow::Result<()> {
     let mut streaming = client
         .subscribe_to_events(SubscriptionRequest {
             name: "foo".to_string(),
-            events: vec!["IncrementedV1".to_string(), "DecrementedV1".to_string()],
+            events: vec!["Incremented".to_string()],
         })
         .await?
         .into_inner();
@@ -43,18 +50,10 @@ async fn main() -> anyhow::Result<()> {
 
         // Update the count
         let event = serde_json::from_str::<serde_json::Value>(&message.data)
-            .and_then(|payload| serde_json::from_value(json!({ message.msg_type: payload })));
+            .and_then(|payload| serde_json::from_value(json!({ message.msg_type: payload })))?;
         match event {
-            Ok(event) => match event {
-                counter::Event::Incremented(event) => {
-                    count += event.amount;
-                }
-                counter::Event::Decremented(event) => {
-                    count -= event.amount;
-                }
-            },
-            Err(err) => {
-                println!("ignoring event: {err}");
+            ListeningEvent::Incremented(event) => {
+                count += event.amount;
             }
         }
 

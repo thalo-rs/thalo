@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use sled::{Db, Mode};
-use thalo::{Category, StreamName};
+use thalo::stream_name::{Category, StreamName};
 
 use crate::error::Result;
 use crate::global_event_log::GlobalEventLog;

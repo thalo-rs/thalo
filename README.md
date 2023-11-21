@@ -84,64 +84,52 @@ Thalo will automatically load all modules within this directory, and use them to
 
 ```rust
 use serde::{Deserialize, Serialize};
-use thalo::{export_aggregate, Aggregate, Events};
+use thalo::{events, export_aggregate, Aggregate, Apply, Command, Event, Handle};
 
 export_aggregate!(Counter);
 
 pub struct Counter {
-    count: i64,
+    count: u64,
 }
 
 impl Aggregate for Counter {
-    type ID = String;
     type Command = CounterCommand;
-    type Events = CounterEvents;
-    type Error = &'static str;
+    type Event = CounterEvent;
 
-    fn init(_id: Self::ID) -> Self {
+    fn init(_id: String) -> Self {
         Counter { count: 0 }
     }
-
-    fn apply(&mut self, evt: Event) {
-        use Event::*;
-
-        match evt {
-            Incremented(IncrementedV1 { amount }) => self.count += amount,
-            Decremented(DecrementedV1 { amount }) => self.count -= amount,
-        }
-    }
-
-    fn handle(&self, cmd: Self::Command) -> Result<Vec<Event>, Self::Error> {
-        use CounterCommand::*;
-        use Event::*;
-
-        match cmd {
-            Increment { amount } => Ok(vec![Incremented(IncrementedV1 { amount })]),
-            Decrement { amount } => Ok(vec![Decremented(DecrementedV1 { amount })]),
-        }
-    }
 }
 
-#[derive(Deserialize)]
+#[derive(Command, Deserialize)]
 pub enum CounterCommand {
-    Increment { amount: i64 },
-    Decrement { amount: i64 },
+    Increment { amount: u64 },
 }
 
-#[derive(Events)]
-pub enum CounterEvents {
-    Incremented(IncrementedV1),
-    Decremented(DecrementedV1),
+impl Handle<CounterCommand> for Counter {
+    type Error = Infallible;
+
+    fn handle(&self, cmd: CounterCommand) -> Result<Vec<CounterEvent>, Self::Error> {
+        match cmd {
+            CounterCommand::Increment { amount } => events![Incremented { amount }],
+        }
+    }
+}
+
+#[derive(Event, Serialize, Deserialize)]
+pub enum CounterEvent {
+    Incremented(Incremented),
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct IncrementedV1 {
-    amount: i64,
+pub struct Incremented {
+    pub amount: u64,
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct DecrementedV1 {
-    amount: i64,
+impl Apply<Incremented> for Counter {
+    fn apply(&mut self, event: Incremented) {
+        self.count += event.amount;
+    }
 }
 ```
 </details>

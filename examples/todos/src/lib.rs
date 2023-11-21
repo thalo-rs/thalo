@@ -1,86 +1,91 @@
-#![allow(dead_code)]
-
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
-use thalo::{export_aggregate, Aggregate, Events};
+use thalo::{events, export_aggregate, Aggregate, Apply, Command, Event, Handle};
+use thiserror::Error;
 
 export_aggregate!(Todos);
 
 pub struct Todos {
-    id: String,
     todos: HashMap<String, Todo>,
 }
 
-struct Todo {
-    description: String,
+pub struct Todo {
+    pub description: String,
 }
 
 impl Aggregate for Todos {
-    type ID = String;
     type Command = TodosCommand;
-    type Events = TodosEvents;
-    type Error = &'static str;
+    type Event = TodosEvent;
 
-    fn init(id: Self::ID) -> Self {
+    fn init(_id: String) -> Self {
         Todos {
-            id,
             todos: HashMap::new(),
-        }
-    }
-
-    fn apply(&mut self, event: <Self::Events as Events>::Event) {
-        use Event::*;
-
-        match event {
-            TodoAdded(TodoAddedV1 { id, description }) => {
-                self.todos.insert(id, Todo { description });
-            }
-            TodoRemoved(TodoRemovedV1 { id }) => {
-                self.todos.remove(&id);
-            }
-        }
-    }
-
-    fn handle(
-        &self,
-        cmd: Self::Command,
-    ) -> Result<Vec<<Self::Events as Events>::Event>, Self::Error> {
-        use Event::*;
-        use TodosCommand::*;
-
-        match cmd {
-            AddTodo { id, description } => {
-                if self.todos.contains_key(&id) {
-                    return Err("todo already added");
-                }
-
-                Ok(vec![TodoAdded(TodoAddedV1 { id, description })])
-            }
-            RemoveTodo { id } => Ok(vec![TodoRemoved(TodoRemovedV1 { id })]),
         }
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Command, Deserialize)]
 pub enum TodosCommand {
     AddTodo { id: String, description: String },
     RemoveTodo { id: String },
 }
 
-#[derive(Events)]
-pub enum TodosEvents {
-    TodoAdded(TodoAddedV1),
-    TodoRemoved(TodoRemovedV1),
+#[derive(Debug, Error)]
+pub enum TodosError {
+    #[error("todo already exists")]
+    TodoAlreadyExists,
+}
+
+impl Handle<TodosCommand> for Todos {
+    type Error = TodosError;
+
+    fn handle(&self, cmd: TodosCommand) -> Result<Vec<TodosEvent>, Self::Error> {
+        use TodosCommand::*;
+
+        match cmd {
+            AddTodo { id, description } => {
+                if self.todos.contains_key(&id) {
+                    return Err(TodosError::TodoAlreadyExists);
+                }
+
+                events![AddedTodo { id, description }]
+            }
+            RemoveTodo { id } => events![RemovedTodo { id }],
+        }
+    }
+}
+
+#[derive(Event, Serialize, Deserialize)]
+pub enum TodosEvent {
+    AddedTodo(AddedTodo),
+    RemovedTodo(RemovedTodo),
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct TodoAddedV1 {
+pub struct AddedTodo {
     id: String,
     description: String,
 }
 
+impl Apply<AddedTodo> for Todos {
+    fn apply(&mut self, event: AddedTodo) {
+        self.todos.insert(
+            event.id,
+            Todo {
+                description: event.description,
+            },
+        );
+    }
+}
+
 #[derive(Serialize, Deserialize)]
-pub struct TodoRemovedV1 {
+pub struct RemovedTodo {
     id: String,
+}
+
+impl Apply<RemovedTodo> for Todos {
+    fn apply(&mut self, event: RemovedTodo) {
+        self.todos.remove(&event.id);
+    }
 }

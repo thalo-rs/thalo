@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use moka::future::Cache;
 use serde_json::Value;
-use thalo::{Category, StreamName, ID};
+use thalo::stream_name::{Category, StreamName, ID};
 use thalo_message_store::{message::GenericMessage, MessageStore};
 use tokio::sync::{mpsc, oneshot};
 use tracing::warn;

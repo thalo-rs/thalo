@@ -6,12 +6,11 @@
 //! This implementation dispatches events in batches, with each batch containing a maximum of 100 events. Events are
 //! relayed to a pre-configured external system for further handling.
 
-use std::{pin::Pin, time::Duration};
+use std::time::Duration;
 
 use anyhow::{Context, Result};
 use async_recursion::async_recursion;
-use futures::Future;
-use thalo::Category;
+use thalo::stream_name::Category;
 use thalo_message_store::{message::MessageData, outbox::Outbox};
 use tokio::{sync::mpsc, time::interval};
 use tracing::{error, warn};

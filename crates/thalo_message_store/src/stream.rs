@@ -5,7 +5,7 @@ use sled::{
     transaction::{ConflictableTransactionError, Transactional, TransactionalTree},
     IVec, Tree,
 };
-use thalo::StreamName;
+use thalo::stream_name::StreamName;
 use tracing::info;
 
 use crate::{
