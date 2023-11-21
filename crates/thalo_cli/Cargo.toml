@@ -19,8 +19,13 @@ thalo_runtime = { workspace = true }
 
 anyhow = { workspace = true }
 clap = { workspace = true }
+owo-colors = "3.5.0"
 serde_json = { workspace = true }
 tokio = { workspace = true, features = ["fs", "macros", "rt-multi-thread"] }
 tonic = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+cargo_metadata = "0.18.1"
+wit-component = "0.18.2"
+wasm-metadata = "0.10.13"
+libc = "0.2.150"

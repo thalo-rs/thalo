@@ -40,16 +40,14 @@ It is designed to handle commands using compiled aggregate wasm components and t
 ## Prerequisites
 
 1. **Rust:** Latest stable version of the Rust programming language.
-2. **[Cargo Component]:** A CLI tool for building and managing wasm components.
-    - Install with: `cargo install cargo-component`
-3. **Thalo Runtime:** Required for running the Thalo event sourcing environment.
+2. **Thalo:** Required for building aggregates to wasm.
+    - Install with: `cargo install thalo_cli`
+2. **Thalo Runtime:** Required for running the Thalo event sourcing environment.
     - Install with: `cargo install thalo_runtime`
 
-Thalo can be started by running `thalo`.
+Thalo can be started by running `thalo-runtime`.
 
-For a list of supported arguments, use `thalo --help`.
-
-[cargo component]: https://github.com/bytecodealliance/cargo-component
+For a list of supported arguments, use `thalo_runtime --help`.
 
 ## Writing an Aggregate
 
@@ -61,23 +59,31 @@ struct Counter { ... }
 impl thalo::Aggregate for Counter { ... }
 ```
 
-The crate type needs to be set to `cdylib` in the `Cargo.toml`.
-
-```toml
-[lib]
-crate-type = ["cdylib"]
-```
-
-Finally, it can be compiled with [cargo component].
+It can then be compiled with the thalo cli.
 
 ```bash
-cargo component build --release
+$ thalo build counter -o ./modules
 ```
 
-The generated `.wasm` module (`target/wasm32-wasi/release/<name>.wasm`) can be placed in a `modules` directory where `thalo` is started.
-Thalo will automatically load all modules within this directory, and use them to handle commands.
+> *The `thalo build` command is essentially a wrapper around `cargo build`,
+> handling wasm specifics including converting the resulting binary to a wasm component.*
 
-[cargo component]: https://github.com/bytecodealliance/cargo-component
+Thalo will automatically load all modules within this the `./modules` directory, and use them to handle commands.
+
+You can restart the thalo runtime and you should see a message saying our counter was loaded from the `modules/counter.wasm` file.
+
+```bash
+$ ./target/debug/thalo-runtime
+INFO: loaded module from file file="modules/counter.wasm"
+```
+
+We can now send commands to this module with the `thalo execute` command for testing.
+
+```bash
+$ thalo execute counter abc123 Increment '{"amount":10}'
+Executed with 1 events:
+    Incremented  {"amount":10}
+```
 
 <details>
   <summary><a href="examples/counter/src/lib.rs">Counter Example</a></summary>
