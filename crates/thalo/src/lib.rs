@@ -1,5 +1,8 @@
-//! [Thalo] is an event sourcing runtime that leverages the power of WebAssembly (wasm) through [wasmtime], combined with [sled] as an embedded event store.
-//! It is designed to handle commands using compiled aggregate wasm components and to persist the resulting events, efficiently managing the rebuilding of aggregate states from previous events.
+//! [Thalo] is an event sourcing runtime that leverages the power of WebAssembly
+//! (wasm) through [wasmtime], combined with [sled] as an embedded event store.
+//! It is designed to handle commands using compiled aggregate wasm components
+//! and to persist the resulting events, efficiently managing the rebuilding of
+//! aggregate states from previous events.
 //!
 //! [thalo]: https://github.com/thalo-rs/thalo
 //! [wasmtime]: https://wasmtime.dev/
@@ -7,7 +10,8 @@
 //!
 //! # Counter Aggregate Example
 //!
-//! This example shows a basic counter aggregate, allowing the count to be incremented by an amount.
+//! This example shows a basic counter aggregate, allowing the count to be
+//! incremented by an amount.
 //!
 //! ```
 //! # use std::convert::Infallible;
@@ -72,10 +76,11 @@ pub use thalo_derive::*;
 
 /// Represents an aggregate root in an event-sourced system.
 ///
-/// An aggregate root is the entry-point for the cluster of entities and that are changed
-/// together in response to commands.
+/// An aggregate root is the entry-point for the cluster of entities and that
+/// are changed together in response to commands.
 ///
-/// *See the [crate level docs](crate#counter-aggregate-example) for an example aggregate.*
+/// *See the [crate level docs](crate#counter-aggregate-example) for an example
+/// aggregate.*
 pub trait Aggregate {
     /// The type of commands that this aggregate can handle.
     ///
@@ -170,9 +175,8 @@ where
 
 #[doc(hidden)]
 pub mod __macro_helpers {
-    pub use serde_json;
     use serde_json::Value;
-    pub use wit_bindgen;
+    pub use {serde_json, wit_bindgen};
 
     /// Extracts the event name and payload from an event json value.
     /// `{"EventName": {"foo": 1}}` returns `("EventName", {"foo": 1})`.

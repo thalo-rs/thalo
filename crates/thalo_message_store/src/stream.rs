@@ -1,19 +1,19 @@
-use std::{borrow::Cow, marker::PhantomData, ops, time::SystemTime};
+use std::borrow::Cow;
+use std::marker::PhantomData;
+use std::ops;
+use std::time::SystemTime;
 
-use serde::{de::DeserializeOwned, Deserialize};
-use sled::{
-    transaction::{ConflictableTransactionError, Transactional, TransactionalTree},
-    IVec, Tree,
-};
+use serde::de::DeserializeOwned;
+use serde::Deserialize;
+use sled::transaction::{ConflictableTransactionError, Transactional, TransactionalTree};
+use sled::{IVec, Tree};
 use thalo::stream_name::StreamName;
 use tracing::info;
 
-use crate::{
-    error::{Error, Result},
-    global_event_log::GlobalEventLog,
-    id_generator::IdGenerator,
-    message::{GenericMessage, Message},
-};
+use crate::error::{Error, Result};
+use crate::global_event_log::GlobalEventLog;
+use crate::id_generator::IdGenerator;
+use crate::message::{GenericMessage, Message};
 
 #[derive(Clone)]
 pub struct Stream<'a> {

@@ -1,7 +1,8 @@
 use counter::Incremented;
 use serde::Deserialize;
 use serde_json::json;
-use thalo_runtime::rpc::{client::ProjectionClient, Acknowledgement, SubscriptionRequest};
+use thalo_runtime::rpc::client::ProjectionClient;
+use thalo_runtime::rpc::{Acknowledgement, SubscriptionRequest};
 
 const LAST_GLOBAL_ID_KEY: [u8; 1] = [0];
 const COUNT_KEY: [u8; 1] = [1];
@@ -42,8 +43,8 @@ async fn main() -> anyhow::Result<()> {
         if last_global_id.map_or(false, |last_global_id| message.global_id <= last_global_id) {
             // Ignore, since we've already handled this event.
             // This logic keeps the projection idempotent, which is important since
-            // projections have an at-least-once guarantee, meaning if a connection issue occurs,
-            // we might reprocess event we've already seen.
+            // projections have an at-least-once guarantee, meaning if a connection issue
+            // occurs, we might reprocess event we've already seen.
             println!("ignoring since we've handled this message");
             continue;
         }

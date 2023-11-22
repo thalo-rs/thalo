@@ -1,18 +1,22 @@
 //! Outbox Relay for Event Distribution
 //!
-//! The outbox relay facilitates the transfer of events to external streams, such as Redis. It enables event handlers to
-//! efficiently receive and process these events.
+//! The outbox relay facilitates the transfer of events to external streams,
+//! such as Redis. It enables event handlers to efficiently receive and process
+//! these events.
 //!
-//! This implementation dispatches events in batches, with each batch containing a maximum of 100 events. Events are
-//! relayed to a pre-configured external system for further handling.
+//! This implementation dispatches events in batches, with each batch containing
+//! a maximum of 100 events. Events are relayed to a pre-configured external
+//! system for further handling.
 
 use std::time::Duration;
 
 use anyhow::{Context, Result};
 use async_recursion::async_recursion;
 use thalo::stream_name::Category;
-use thalo_message_store::{message::MessageData, outbox::Outbox};
-use tokio::{sync::mpsc, time::interval};
+use thalo_message_store::message::MessageData;
+use thalo_message_store::outbox::Outbox;
+use tokio::sync::mpsc;
+use tokio::time::interval;
 use tracing::{error, warn};
 
 use crate::relay::Relay;

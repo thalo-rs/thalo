@@ -141,10 +141,11 @@ macro_rules! export_aggregate {
     };
 }
 
-/// Shorthand for creating a `Ok(vec![...])` in [`Handle`](crate::Handle) implmentations.
+/// Shorthand for creating a `Ok(vec![...])` in [`Handle`](crate::Handle)
+/// implmentations.
 ///
-/// Each expression in the macro is automcically converted to the aggregates `Event` type
-/// using [std::convert::From].
+/// Each expression in the macro is automcically converted to the aggregates
+/// `Event` type using [std::convert::From].
 #[macro_export]
 macro_rules! events {
     () => {

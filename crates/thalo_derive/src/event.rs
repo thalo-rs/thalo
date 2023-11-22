@@ -2,11 +2,9 @@ use std::collections::HashMap;
 
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{
-    parse::{Parse, ParseStream},
-    spanned::Spanned,
-    ItemEnum,
-};
+use syn::parse::{Parse, ParseStream};
+use syn::spanned::Spanned;
+use syn::ItemEnum;
 
 pub struct DeriveEvent {
     ident: syn::Ident,

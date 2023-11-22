@@ -109,8 +109,9 @@ where
 
 mod ts_milliseconds {
     use core::fmt;
-    use serde::{de, ser};
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+    use serde::{de, ser};
 
     pub fn serialize<S>(dt: &SystemTime, serializer: S) -> Result<S::Ok, S::Error>
     where

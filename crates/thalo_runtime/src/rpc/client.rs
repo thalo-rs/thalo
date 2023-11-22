@@ -4,7 +4,8 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use thalo::stream_name::{Category, ID};
 use thalo_message_store::message::GenericMessage;
-use tonic::{codegen::*, Request};
+use tonic::codegen::*;
+use tonic::Request;
 
 use super::proto;
 pub use super::proto::command_center_client::*;

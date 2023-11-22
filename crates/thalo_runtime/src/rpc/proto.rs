@@ -1,7 +1,5 @@
-use std::{
-    borrow::Cow,
-    time::{Duration, UNIX_EPOCH},
-};
+use std::borrow::Cow;
+use std::time::{Duration, UNIX_EPOCH};
 
 use thalo::stream_name::StreamName;
 use thalo_message_store::message::GenericMessage;

@@ -1,15 +1,12 @@
-use std::{iter::Skip, time::Duration};
+use std::iter::Skip;
+use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
 use async_recursion::async_recursion;
-use thalo_message_store::{
-    global_event_log::{GlobalEventLog, GlobalEventLogIter},
-    message::GenericMessage,
-};
-use tokio::{
-    sync::{mpsc, oneshot},
-    time::interval,
-};
+use thalo_message_store::global_event_log::{GlobalEventLog, GlobalEventLogIter};
+use thalo_message_store::message::GenericMessage;
+use tokio::sync::{mpsc, oneshot};
+use tokio::time::interval;
 use tracing::{error, info, trace};
 
 use super::ProjectionGatewayHandle;
@@ -190,7 +187,8 @@ impl ProjectionSubscription {
                     };
 
                     if self.is_event_of_interest(&event.msg_type) {
-                        // Check if this is the first event being processed or if the last processed event has been acknowledged
+                        // Check if this is the first event being processed or if the last processed
+                        // event has been acknowledged
                         if self.last_processed_id.is_none()
                             || self.last_processed_id == self.last_acknowledged_id
                         {
@@ -243,9 +241,11 @@ impl ProjectionSubscription {
 enum ProjectionSubscriptionState {
     /// Initially processing missed events from the event store.
     ProcessingMissedEvents,
-    /// Buffering new live events while still processing any remaining missed events.
+    /// Buffering new live events while still processing any remaining missed
+    /// events.
     BufferingLiveEvents,
-    /// Processing new live events as they arrive, but only after the previous event is acknowledged.
+    /// Processing new live events as they arrive, but only after the previous
+    /// event is acknowledged.
     ProcessingLiveEvents,
 }
 

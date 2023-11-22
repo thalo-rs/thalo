@@ -1,21 +1,21 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
+use std::path::PathBuf;
 
 use anyhow::{anyhow, Context, Result};
 use serde_json::Value;
 use thalo::stream_name::{Category, ID};
-use thalo_message_store::{message::GenericMessage, MessageStore};
-use tokio::{
-    fs,
-    sync::{mpsc, oneshot},
-};
+use thalo_message_store::message::GenericMessage;
+use thalo_message_store::MessageStore;
+use tokio::fs;
+use tokio::sync::{mpsc, oneshot};
 use tracing::{error, warn};
 use wasmtime::Engine;
 
-use crate::{broadcaster::BroadcasterHandle, module::Module, relay::Relay};
-
-use super::{
-    aggregate_command_handler::AggregateCommandHandlerHandle, outbox_relay::OutboxRelayHandle,
-};
+use super::aggregate_command_handler::AggregateCommandHandlerHandle;
+use super::outbox_relay::OutboxRelayHandle;
+use crate::broadcaster::BroadcasterHandle;
+use crate::module::Module;
+use crate::relay::Relay;
 
 #[derive(Clone)]
 pub struct CommandGatewayHandle {

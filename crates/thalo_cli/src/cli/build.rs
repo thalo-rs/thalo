@@ -1,8 +1,6 @@
-use std::{
-    env, fs,
-    path::{Path, PathBuf},
-    process::{self, Command, Stdio},
-};
+use std::path::{Path, PathBuf};
+use std::process::{self, Command, Stdio};
+use std::{env, fs};
 
 use anyhow::{bail, Context, Result};
 use cargo_metadata::{Metadata, MetadataCommand};

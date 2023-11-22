@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use redis::{aio::MultiplexedConnection, streams::StreamMaxlen, ToRedisArgs};
+use redis::aio::MultiplexedConnection;
+use redis::streams::StreamMaxlen;
+use redis::ToRedisArgs;
 use thalo::stream_name::Category;
 use thalo_message_store::message::GenericMessage;
 

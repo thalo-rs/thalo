@@ -4,14 +4,14 @@ use futures::StreamExt as _;
 use thalo::stream_name::{Category, ID};
 use thalo_message_store::message::GenericMessage;
 use tokio::sync::mpsc;
-use tokio_stream::{wrappers::ReceiverStream, Stream, StreamExt};
+use tokio_stream::wrappers::ReceiverStream;
+use tokio_stream::{Stream, StreamExt};
 use tonic::{Request, Response, Status};
-
-use crate::Runtime;
 
 use super::proto;
 pub use super::proto::command_center_server::*;
 pub use super::proto::projection_server::*;
+use crate::Runtime;
 
 #[tonic::async_trait]
 impl proto::command_center_server::CommandCenter for Runtime {

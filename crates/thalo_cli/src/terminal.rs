@@ -3,16 +3,14 @@
 //! This implementation is heavily inspired by `Shell` from `cargo`.
 #![allow(dead_code)]
 
-use anyhow::{bail, Result};
-use owo_colors::{AnsiColors, OwoColorize};
-use std::{
-    cell::RefCell,
-    fmt,
-    io::{stderr, stdout, IsTerminal, Write},
-    str::FromStr,
-};
+use std::cell::RefCell;
+use std::fmt;
+use std::io::{stderr, stdout, IsTerminal, Write};
+use std::str::FromStr;
 
+use anyhow::{bail, Result};
 pub use owo_colors::AnsiColors as Colors;
+use owo_colors::{AnsiColors, OwoColorize};
 
 /// The supported color options of `cargo`.
 #[derive(Default, Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -96,7 +94,8 @@ impl fmt::Debug for TerminalState {
     }
 }
 
-/// An abstraction around output that considers preferences for verbosity and color.
+/// An abstraction around output that considers preferences for verbosity and
+/// color.
 ///
 /// This is based off of the `cargo` implementation.
 #[derive(Debug)]
@@ -115,7 +114,8 @@ impl Terminal {
         }))
     }
 
-    /// Creates a terminal from a plain writable object, with no color, and max verbosity.
+    /// Creates a terminal from a plain writable object, with no color, and max
+    /// verbosity.
     pub fn from_write(out: Box<dyn Write>) -> Self {
         Self(RefCell::new(TerminalState {
             output: Output::Write(out),
@@ -210,7 +210,8 @@ impl Terminal {
 
     /// Write a styled fragment to stdout.
     ///
-    /// Caller is responsible for deciding whether [`Shell::verbosity`] is affects output.
+    /// Caller is responsible for deciding whether [`Shell::verbosity`] is
+    /// affects output.
     pub fn write_stdout(
         &self,
         fragment: impl fmt::Display,
@@ -381,10 +382,11 @@ mod imp {
 #[cfg(windows)]
 mod imp {
     use std::{cmp, mem, ptr};
+
     use windows_sys::core::PCSTR;
-    use windows_sys::Win32::Foundation::CloseHandle;
-    use windows_sys::Win32::Foundation::INVALID_HANDLE_VALUE;
-    use windows_sys::Win32::Foundation::{GENERIC_READ, GENERIC_WRITE};
+    use windows_sys::Win32::Foundation::{
+        CloseHandle, GENERIC_READ, GENERIC_WRITE, INVALID_HANDLE_VALUE,
+    };
     use windows_sys::Win32::Storage::FileSystem::{
         CreateFileA, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
     };

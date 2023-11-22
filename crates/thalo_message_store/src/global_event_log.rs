@@ -2,11 +2,9 @@ use std::ops;
 
 use sled::{Db, Tree};
 
-use crate::{
-    error::{Error, Result},
-    message::MessageData,
-    stream::RawMessage,
-};
+use crate::error::{Error, Result};
+use crate::message::MessageData;
+use crate::stream::RawMessage;
 
 const GLOBAL_EVENT_LOG_TREE: &str = "thalo:global_event_log";
 

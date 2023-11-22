@@ -1,11 +1,12 @@
-use std::{collections::HashMap, time::Duration};
+use std::collections::HashMap;
+use std::time::Duration;
 
 use anyhow::{Context, Result};
-use thalo_message_store::{message::GenericMessage, projection::Projection, MessageStore};
-use tokio::{
-    sync::{broadcast, mpsc, oneshot},
-    time::interval,
-};
+use thalo_message_store::message::GenericMessage;
+use thalo_message_store::projection::Projection;
+use thalo_message_store::MessageStore;
+use tokio::sync::{broadcast, mpsc, oneshot};
+use tokio::time::interval;
 use tracing::{error, warn};
 
 use super::projection_subscription::ProjectionSubscriptionHandle;

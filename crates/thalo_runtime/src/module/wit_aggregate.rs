@@ -9,10 +9,7 @@ mod wit {
 
 use std::borrow::Cow;
 
-pub use wit::exports::aggregate::Command;
-pub use wit::exports::aggregate::Error;
-pub use wit::exports::aggregate::EventParam;
-pub use wit::exports::aggregate::EventResult;
+pub use wit::exports::aggregate::{Command, Error, EventParam, EventResult};
 pub use wit::Aggregate;
 
 impl TryFrom<EventResult> for super::Event<'static> {

@@ -1,4 +1,5 @@
-//! Stream names are strings containing a category, and optional entity identifier.
+//! Stream names are strings containing a category, and optional entity
+//! identifier.
 //!
 //! Messages like events and commands are written to and read from streams. To
 //! write and read from streams, the subject stream is identified by its name.

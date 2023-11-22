@@ -2,13 +2,15 @@ use anyhow::{anyhow, Context, Result};
 use moka::future::Cache;
 use serde_json::Value;
 use thalo::stream_name::{Category, StreamName, ID};
-use thalo_message_store::{message::GenericMessage, MessageStore};
+use thalo_message_store::message::GenericMessage;
+use thalo_message_store::MessageStore;
 use tokio::sync::{mpsc, oneshot};
 use tracing::warn;
 
-use crate::{broadcaster::BroadcasterHandle, module::Module};
-
-use super::{entity_command_handler::EntityCommandHandlerHandle, outbox_relay::OutboxRelayHandle};
+use super::entity_command_handler::EntityCommandHandlerHandle;
+use super::outbox_relay::OutboxRelayHandle;
+use crate::broadcaster::BroadcasterHandle;
+use crate::module::Module;
 
 #[derive(Clone)]
 pub struct AggregateCommandHandlerHandle {

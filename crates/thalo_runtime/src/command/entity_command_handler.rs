@@ -1,24 +1,17 @@
 use std::borrow::Cow;
 
-use anyhow::Context as AnyhowContext;
-use anyhow::Result;
+use anyhow::{Context as AnyhowContext, Result};
 use serde_json::Value;
 use thalo::stream_name::StreamName;
-use thalo_message_store::{
-    message::{GenericMessage, MessageData},
-    stream::Stream,
-    MessageStore,
-};
-use tokio::sync::mpsc;
-use tokio::sync::oneshot;
+use thalo_message_store::message::{GenericMessage, MessageData};
+use thalo_message_store::stream::Stream;
+use thalo_message_store::MessageStore;
+use tokio::sync::{mpsc, oneshot};
 use tracing::{error, trace};
 
-use crate::{
-    broadcaster::BroadcasterHandle,
-    module::{Event, Module, ModuleInstance},
-};
-
 use super::outbox_relay::OutboxRelayHandle;
+use crate::broadcaster::BroadcasterHandle;
+use crate::module::{Event, Module, ModuleInstance};
 
 #[derive(Clone)]
 pub struct EntityCommandHandlerHandle {
