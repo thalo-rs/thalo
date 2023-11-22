@@ -2,3 +2,4 @@
 /*.db
 /modules
 .env
+/.direnv
