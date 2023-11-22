@@ -24,7 +24,6 @@ async-stream = "0.3.5"
 bytes = "1.2"
 clap = { workspace = true }
 futures = "0.3.25"
-itertools = "0.11.0"
 moka = { version = "0.12.1", features = ["future"] }
 prost = "0.12"
 prost-types = "0.12"
@@ -38,8 +37,8 @@ tokio-stream = "0.1"
 tonic = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-wasmtime-wasi = { version = "14.0.4", features = ["tokio"] }
-wasmtime = { version = "14.0", features = ["component-model"] }
+wasmtime-wasi = { version = "15.0", features = ["tokio"] }
+wasmtime = { version = "15.0", features = ["component-model"] }
 
 [build-dependencies]
 tonic-build = "0.10"
