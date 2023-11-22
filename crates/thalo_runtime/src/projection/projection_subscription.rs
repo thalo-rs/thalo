@@ -4,12 +4,12 @@ use std::time::Duration;
 use anyhow::{bail, Context, Result};
 use async_recursion::async_recursion;
 use thalo_message_store::global_event_log::{GlobalEventLog, GlobalEventLogIter};
-use thalo_message_store::message::GenericMessage;
+use thalo_message_store::message::{GenericMessage, Message};
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::interval;
 use tracing::{error, info, trace};
 
-use super::ProjectionGatewayHandle;
+use super::{EventInterest, ProjectionGatewayHandle};
 
 #[derive(Clone)]
 pub struct ProjectionSubscriptionHandle {
@@ -20,7 +20,7 @@ impl ProjectionSubscriptionHandle {
     pub fn new(
         name: String,
         projection_gateway: ProjectionGatewayHandle,
-        interested_events: Vec<String>,
+        events: Vec<EventInterest<'static>>,
         tx: mpsc::Sender<GenericMessage<'static>>,
         last_acknowledged_id: Option<u64>,
         global_event_log: GlobalEventLog,
@@ -30,7 +30,7 @@ impl ProjectionSubscriptionHandle {
             receiver,
             name,
             projection_gateway,
-            interested_events,
+            events,
             tx,
             last_acknowledged_id,
             global_event_log,
@@ -71,7 +71,7 @@ async fn run_projection_subscription(
     mut receiver: mpsc::Receiver<ProjectionSubscriptionMsg>,
     name: String,
     projection_gateway: ProjectionGatewayHandle,
-    interested_events: Vec<String>,
+    events: Vec<EventInterest<'static>>,
     tx: mpsc::Sender<GenericMessage<'static>>,
     last_acknowledged_id: Option<u64>,
     global_event_log: GlobalEventLog,
@@ -86,7 +86,7 @@ async fn run_projection_subscription(
         tx,
         name,
         projection_gateway,
-        interested_events,
+        events,
         last_acknowledged_id,
         last_processed_id: None,
         pending_events: Vec::new(),
@@ -130,7 +130,7 @@ struct ProjectionSubscription {
     tx: mpsc::Sender<GenericMessage<'static>>,
     name: String,
     projection_gateway: ProjectionGatewayHandle,
-    interested_events: Vec<String>,
+    events: Vec<EventInterest<'static>>,
     last_acknowledged_id: Option<u64>,
     last_processed_id: Option<u64>,
     pending_events: Vec<GenericMessage<'static>>,
@@ -186,7 +186,7 @@ impl ProjectionSubscription {
                         }
                     };
 
-                    if self.is_event_of_interest(&event.msg_type) {
+                    if self.is_event_of_interest(&event) {
                         // Check if this is the first event being processed or if the last processed
                         // event has been acknowledged
                         if self.last_processed_id.is_none()
@@ -230,10 +230,10 @@ impl ProjectionSubscription {
         Ok(())
     }
 
-    fn is_event_of_interest(&self, event_type: &str) -> bool {
-        self.interested_events
+    fn is_event_of_interest<T: Clone>(&self, message: &Message<T>) -> bool {
+        self.events
             .iter()
-            .any(|interested_event| interested_event == event_type)
+            .any(|event_interest| event_interest.is_interested(message))
     }
 }
 

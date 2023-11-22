@@ -2,7 +2,8 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
-use thalo_message_store::message::GenericMessage;
+use thalo::stream_name::Category;
+use thalo_message_store::message::{GenericMessage, Message};
 use thalo_message_store::projection::Projection;
 use thalo_message_store::MessageStore;
 use tokio::sync::{broadcast, mpsc, oneshot};
@@ -49,7 +50,7 @@ impl ProjectionGatewayHandle {
         &self,
         tx: mpsc::Sender<GenericMessage<'static>>,
         name: String,
-        events: Vec<String>,
+        events: Vec<EventInterest<'static>>,
     ) -> Result<()> {
         let (reply, recv) = oneshot::channel();
         let msg = ProjectionGatewayMsg::StartProjection {
@@ -70,6 +71,30 @@ impl ProjectionGatewayHandle {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct EventInterest<'a> {
+    pub category: CategoryInterest<'a>,
+    pub event: String,
+}
+
+#[derive(Clone, Debug)]
+pub enum CategoryInterest<'a> {
+    Any,
+    Category(Category<'a>),
+}
+
+impl EventInterest<'_> {
+    pub fn is_interested<T: Clone>(&self, message: &Message<T>) -> bool {
+        if let CategoryInterest::Category(category) = &self.category {
+            if category != &message.stream_name.category() {
+                return false;
+            }
+        }
+
+        self.event == message.msg_type
+    }
+}
+
 enum ProjectionGatewayMsg {
     AcknowledgeEvent {
         name: String,
@@ -79,7 +104,7 @@ enum ProjectionGatewayMsg {
     StartProjection {
         tx: mpsc::Sender<GenericMessage<'static>>,
         name: String,
-        events: Vec<String>,
+        events: Vec<EventInterest<'static>>,
         reply: oneshot::Sender<Result<()>>,
     },
     StopProjection {
@@ -188,7 +213,7 @@ impl ProjectionGateway {
         &mut self,
         tx: mpsc::Sender<GenericMessage<'static>>,
         name: String,
-        events: Vec<String>,
+        events: Vec<EventInterest<'static>>,
     ) -> Result<()> {
         let projection = self.message_store.projection(name.clone())?;
         let projection_subscription = ProjectionSubscriptionHandle::new(
@@ -223,7 +248,7 @@ impl ProjectionGateway {
                 || subscription
                     .events
                     .iter()
-                    .any(|event_name| event_name == &event.msg_type);
+                    .any(|event_interest| event_interest.is_interested(&event));
             subscription
                 .projection
                 .acknowledge_event(event.global_id, false)?;
@@ -266,6 +291,6 @@ impl ProjectionGateway {
 struct Subscription {
     projection_subscription: ProjectionSubscriptionHandle,
     projection: Projection,
-    events: Vec<String>,
+    events: Vec<EventInterest<'static>>,
     process_new_events: bool,
 }

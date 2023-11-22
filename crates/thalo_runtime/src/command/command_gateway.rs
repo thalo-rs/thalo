@@ -197,7 +197,10 @@ impl CommandGateway {
 
             let module_name = Category::new(Category::normalize(module_name))?;
             if let Err(err) = self.start_module(module_name, dir_entry.path()).await {
-                error!("failed to start module: {err}");
+                error!(
+                    "failed to start module '{}': {err}",
+                    dir_entry.path().display()
+                );
             }
         }
 

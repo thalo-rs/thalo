@@ -84,6 +84,11 @@ impl proto::projection_server::Projection for Runtime {
         let proto::SubscriptionRequest { name, events } = request.into_inner();
 
         let (tx, rx) = mpsc::channel::<GenericMessage>(1);
+        let events = events
+            .into_iter()
+            .map(crate::projection::EventInterest::try_from)
+            .collect::<Result<_, _>>()
+            .map_err(|err| Status::invalid_argument(err.to_string()))?;
         self.start_projection(tx, name, events)
             .await
             .map_err(|err| Status::internal(err.to_string()))?;

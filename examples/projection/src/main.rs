@@ -2,7 +2,7 @@ use counter::Incremented;
 use serde::Deserialize;
 use serde_json::json;
 use thalo_runtime::rpc::client::ProjectionClient;
-use thalo_runtime::rpc::{Acknowledgement, SubscriptionRequest};
+use thalo_runtime::rpc::{Acknowledgement, EventInterest, SubscriptionRequest};
 
 const LAST_GLOBAL_ID_KEY: [u8; 1] = [0];
 const COUNT_KEY: [u8; 1] = [1];
@@ -34,7 +34,10 @@ async fn main() -> anyhow::Result<()> {
     let mut streaming = client
         .subscribe_to_events(SubscriptionRequest {
             name: "foo".to_string(),
-            events: vec!["Incremented".to_string()],
+            events: vec![EventInterest {
+                category: "counter".to_string(),
+                event: "Incremented".to_string(),
+            }],
         })
         .await?
         .into_inner();

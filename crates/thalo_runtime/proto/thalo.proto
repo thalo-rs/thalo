@@ -36,7 +36,12 @@ service Projection {
 
 message SubscriptionRequest {
   string name = 1;
-  repeated string events = 2;
+  repeated EventInterest events = 2;
+}
+
+message EventInterest {
+  string category = 1;
+  string event = 2;
 }
 
 message Message {

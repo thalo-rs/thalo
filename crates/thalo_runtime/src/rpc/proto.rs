@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::time::{Duration, UNIX_EPOCH};
 
-use thalo::stream_name::StreamName;
+use thalo::stream_name::{Category, EmptyStreamName, StreamName};
 use thalo_message_store::message::GenericMessage;
 use thiserror::Error;
 
@@ -48,6 +48,22 @@ impl TryFrom<Message> for GenericMessage<'static> {
             msg_type: Cow::Owned(msg.msg_type),
             data: serde_json::from_str(&msg.data)?,
             time: UNIX_EPOCH + Duration::from_millis(msg.time),
+        })
+    }
+}
+
+impl TryFrom<EventInterest> for crate::projection::EventInterest<'static> {
+    type Error = EmptyStreamName;
+
+    fn try_from(event_interest: EventInterest) -> Result<Self, Self::Error> {
+        let category = if event_interest.category == "*" {
+            crate::projection::CategoryInterest::Any
+        } else {
+            crate::projection::CategoryInterest::Category(Category::new(event_interest.category)?)
+        };
+        Ok(crate::projection::EventInterest {
+            category,
+            event: event_interest.event,
         })
     }
 }

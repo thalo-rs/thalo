@@ -12,7 +12,7 @@ use wasmtime::Engine;
 
 use crate::broadcaster::BroadcasterHandle;
 use crate::command::CommandGatewayHandle;
-use crate::projection::ProjectionGatewayHandle;
+use crate::projection::{EventInterest, ProjectionGatewayHandle};
 use crate::relay::Relay;
 
 #[derive(Clone)]
@@ -94,7 +94,7 @@ impl Runtime {
         &self,
         tx: mpsc::Sender<GenericMessage<'static>>,
         name: String,
-        events: Vec<String>,
+        events: Vec<EventInterest<'static>>,
     ) -> Result<()> {
         self.projection_gateway
             .start_projection(tx, name, events)
