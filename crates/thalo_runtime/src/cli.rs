@@ -48,6 +48,9 @@ pub async fn start() -> Result<()> {
     let cli = Cli::parse();
 
     tracing_subscriber::fmt()
+        .with_target(false)
+        .with_file(false)
+        .with_line_number(false)
         .with_env_filter(EnvFilter::builder().parse_lossy(cli.log))
         .init();
 

@@ -13,7 +13,7 @@ use self::build::Build;
 use self::execute::Execute;
 use self::publish::Publish;
 
-/// Thalo client
+/// Thalo cli
 #[derive(Parser, Debug)]
 struct Cli {
     #[command(subcommand)]

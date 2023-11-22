@@ -10,6 +10,12 @@ struct Payload(Vec<u8>);
 async fn main() {
     // Initialize logging
     tracing_subscriber::fmt()
+        .pretty()
+        .without_time()
+        .with_target(false)
+        .with_level(true)
+        .with_file(false)
+        .with_line_number(false)
         .with_env_filter(
             EnvFilter::builder()
                 .with_default_directive("thalo=info".parse().unwrap())
