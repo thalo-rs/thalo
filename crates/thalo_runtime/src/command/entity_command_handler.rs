@@ -154,10 +154,13 @@ impl EntityCommandHandler {
         let written_messages = self.stream.write_messages(&messages, sequence)?;
 
         for message in &written_messages {
-            let _ = self
+            if let Err(err) = self
                 .broadcaster
                 .broadcast_event(message.clone().into_owned())
-                .await;
+                .await
+            {
+                error!("failed to broadcast event: {err}");
+            }
         }
 
         if let Err(err) = self.outbox_relay.relay_next_batch().await {

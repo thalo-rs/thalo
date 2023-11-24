@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use anyhow::{Context, Result};
 use thalo_message_store::message::GenericMessage;
 use tokio::sync::{broadcast, mpsc};
+use tracing::error;
 
 #[derive(Clone)]
 pub struct BroadcasterHandle {
@@ -39,7 +40,9 @@ async fn run_broadcaster(
     };
 
     while let Some(event) = receiver.recv().await {
-        let _ = broadcaster.broadcast_event(event);
+        if let Err(err) = broadcaster.broadcast_event(event) {
+            error!("failed to broadcast message: {err}");
+        }
     }
 
     Ok(())

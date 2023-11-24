@@ -126,8 +126,7 @@ impl ModuleInstance {
                         self.sequence = Some(0);
                     }
                     _ => bail!(
-                        "wrong event position {}, expected {}",
-                        position,
+                        "wrong event position {position}, expected {}",
                         self.sequence.map(|s| s + 1).unwrap_or(0)
                     ),
                 }
