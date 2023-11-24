@@ -24,16 +24,15 @@ pub trait CommandCenterClientExt {
         payload: &serde_json::Value,
     ) -> anyhow::Result<Vec<Message>>;
 
-    async fn execute<A, C>(
+    async fn execute<A>(
         &mut self,
         name: Category<'static>,
         id: ID<'static>,
-        cmd: C,
+        cmd: impl Into<A::Command> + Send,
     ) -> anyhow::Result<Vec<Message<A::Event>>>
     where
         A: Aggregate,
         A::Command: Serialize,
-        C: Into<A::Command> + Send,
     {
         let cmd: A::Command = cmd.into();
         let cmd_value = serde_json::to_value(cmd)?;
