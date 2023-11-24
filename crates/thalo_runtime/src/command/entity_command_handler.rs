@@ -131,8 +131,9 @@ impl EntityCommandHandler {
         // and it can actually apply the events emitted.
         let events_to_apply: Vec<_> = events
             .iter()
-            .map(|event| {
-                let position = sequence.map(|v| v + 1).unwrap_or(0);
+            .enumerate()
+            .map(|(i, event)| {
+                let position = sequence.map(|v| v + 1 + i as u64).unwrap_or(i as u64);
                 let event = Event {
                     event: Cow::Borrowed(&event.event),
                     payload: Cow::Borrowed(&event.payload),
