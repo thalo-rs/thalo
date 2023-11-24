@@ -157,7 +157,7 @@ async fn run_projection_gateway(
             },
             event = subscriber.recv() => match event {
                 Ok(event) => {
-                    if let Err(err) = projection_gateway.new_event(event) {
+                    if let Err(err) = projection_gateway.new_event(event).await {
                         error!("{err}");
                     }
                 }
@@ -177,6 +177,8 @@ async fn run_projection_gateway(
             }
         }
     }
+
+    error!("projection gateway stopping");
 }
 
 struct ProjectionGateway {
@@ -238,7 +240,7 @@ impl ProjectionGateway {
         Ok(())
     }
 
-    fn new_event(&mut self, event: GenericMessage<'static>) -> Result<()> {
+    async fn new_event(&mut self, event: GenericMessage<'static>) -> Result<()> {
         for (name, subscription) in &mut self.projections {
             if !subscription.process_new_events {
                 continue;
@@ -255,15 +257,23 @@ impl ProjectionGateway {
             self.is_dirty = true;
 
             if is_relevant {
-                let projection_subscription = subscription.projection_subscription.clone();
                 let sender = self.sender.clone();
                 let event = event.clone();
                 let name = name.clone();
+                let res = subscription.projection_subscription.new_event(event).await;
                 tokio::spawn(async move {
-                    if let Err(err) = projection_subscription.new_event(event).await {
-                        warn!("failed to send new event to projection subscription: {err}");
-                        let _ = sender.try_send(ProjectionGatewayMsg::StopProjection { name });
-                    }
+                    let err = match res {
+                        Ok(res_fut) => match res_fut.await {
+                            Ok(Ok(())) => {
+                                return;
+                            }
+                            Ok(Err(err)) => err,
+                            Err(err) => err.into(),
+                        },
+                        Err(err) => err,
+                    };
+                    warn!("failed to send new event to projection subscription: {err}");
+                    let _ = sender.try_send(ProjectionGatewayMsg::StopProjection { name });
                 });
             }
         }

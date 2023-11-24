@@ -1,7 +1,7 @@
 use std::iter::Skip;
 use std::time::Duration;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use async_recursion::async_recursion;
 use thalo_message_store::global_event_log::{GlobalEventLog, GlobalEventLogIter};
 use thalo_message_store::message::{GenericMessage, Message};
@@ -39,12 +39,15 @@ impl ProjectionSubscriptionHandle {
         ProjectionSubscriptionHandle { sender }
     }
 
-    pub async fn new_event(&self, event: GenericMessage<'static>) -> Result<()> {
+    pub async fn new_event(
+        &self,
+        event: GenericMessage<'static>,
+    ) -> Result<oneshot::Receiver<Result<()>>> {
+        let this = self.clone();
         let (reply, recv) = oneshot::channel();
         let msg = ProjectionSubscriptionMsg::NewEvent { event, reply };
-        let _ = self.sender.send(msg).await;
-        recv.await
-            .context("no response from projection subscription")?
+        let _ = this.sender.send(msg).await?;
+        Ok(recv)
     }
 
     pub async fn acknowledge_event(&self, global_id: u64) -> Result<()> {
