@@ -156,7 +156,7 @@ impl<'a> Stream<'a> {
         tx_stream.insert(message_id_bytes, raw_message.clone())?;
         tx_global_event_log.insert(global_id.to_be_bytes().to_vec(), message_ref)?;
 
-        info!(id = message.id, stream_name = %message.stream_name, msg_type = %message.msg_type, position = message.position, data = ?message.data, "message written");
+        info!(id = message.id, global_id = message.global_id, stream_name = %message.stream_name, msg_type = %message.msg_type, position = message.position);
 
         Ok(message)
     }
