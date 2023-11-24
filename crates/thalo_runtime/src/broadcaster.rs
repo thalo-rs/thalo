@@ -35,7 +35,7 @@ async fn run_broadcaster(
     let mut broadcaster = Broadcaster {
         tx,
         buffer: HashMap::new(),
-        expected_next_id: last_position.unwrap_or(0),
+        expected_next_id: last_position.unwrap_or(0) + 1,
     };
 
     while let Some(event) = receiver.recv().await {
