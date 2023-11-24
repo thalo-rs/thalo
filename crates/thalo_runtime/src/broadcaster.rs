@@ -13,7 +13,7 @@ pub struct BroadcasterHandle {
 
 impl BroadcasterHandle {
     pub fn new(tx: broadcast::Sender<GenericMessage<'static>>, last_position: Option<u64>) -> Self {
-        let (sender, receiver) = mpsc::channel(8);
+        let (sender, receiver) = mpsc::channel(64);
         tokio::spawn(run_broadcaster(receiver, tx, last_position));
 
         BroadcasterHandle { sender }

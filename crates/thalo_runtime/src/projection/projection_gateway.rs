@@ -24,7 +24,7 @@ impl ProjectionGatewayHandle {
         message_store: MessageStore,
         subscriber: broadcast::Receiver<GenericMessage<'static>>,
     ) -> Self {
-        let (sender, receiver) = mpsc::channel(8);
+        let (sender, receiver) = mpsc::channel(16);
         tokio::spawn(run_projection_gateway(
             (sender.clone(), receiver),
             message_store,

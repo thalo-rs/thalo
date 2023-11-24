@@ -25,7 +25,7 @@ impl ProjectionSubscriptionHandle {
         last_acknowledged_id: Option<u64>,
         global_event_log: GlobalEventLog,
     ) -> Self {
-        let (sender, receiver) = mpsc::channel(8);
+        let (sender, receiver) = mpsc::channel(1024);
         tokio::spawn(run_projection_subscription(
             receiver,
             name,

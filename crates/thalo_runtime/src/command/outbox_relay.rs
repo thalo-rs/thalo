@@ -31,7 +31,7 @@ pub struct OutboxRelayHandle {
 
 impl OutboxRelayHandle {
     pub fn new(name: Category<'static>, outbox: Outbox, relay: Relay) -> Self {
-        let (sender, receiver) = mpsc::channel(8);
+        let (sender, receiver) = mpsc::channel(16);
         tokio::spawn(run_outbox_relay(receiver, name, outbox, relay));
 
         OutboxRelayHandle { sender }
