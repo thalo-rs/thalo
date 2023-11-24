@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use anyhow::{Context as AnyhowContext, Result};
 use serde_json::Value;
 use thalo::stream_name::StreamName;
-use thalo_message_store::message::{GenericMessage, MessageData};
+use thalo_message_store::message::Message;
 use thalo_message_store::stream::Stream;
 use thalo_message_store::MessageStore;
 use tokio::sync::{mpsc, oneshot};
@@ -22,7 +22,7 @@ pub struct EntityCommandHandlerHandle {
 struct ExecuteEntityCommand {
     command: String,
     payload: Value,
-    reply: oneshot::Sender<Result<Vec<GenericMessage<'static>>>>,
+    reply: oneshot::Sender<Result<Vec<Message<'static>>>>,
 }
 
 impl EntityCommandHandlerHandle {
@@ -46,11 +46,7 @@ impl EntityCommandHandlerHandle {
         EntityCommandHandlerHandle { sender }
     }
 
-    pub async fn execute(
-        &self,
-        command: String,
-        payload: Value,
-    ) -> Result<Vec<GenericMessage<'static>>> {
+    pub async fn execute(&self, command: String, payload: Value) -> Result<Vec<Message<'static>>> {
         let (reply, recv) = oneshot::channel();
         let msg = ExecuteEntityCommand {
             command,
@@ -76,7 +72,7 @@ async fn run_entity_command_handler(
         .init(&stream_name.id().context("missing ID")?)
         .await?;
     let stream = message_store.stream(stream_name)?;
-    for res in stream.iter_all_messages::<MessageData>() {
+    for res in stream.iter_all_messages::<()>() {
         let raw_message = res?;
         let message = raw_message.message()?;
         let event = Event {
@@ -113,11 +109,7 @@ struct EntityCommandHandler {
 }
 
 impl EntityCommandHandler {
-    async fn execute(
-        &mut self,
-        command: String,
-        payload: Value,
-    ) -> Result<Vec<GenericMessage<'static>>> {
+    async fn execute(&mut self, command: String, payload: Value) -> Result<Vec<Message<'static>>> {
         let payload = serde_json::to_string(&payload)?;
         let events = self.instance.handle(&command, &payload).await?;
         if events.is_empty() {

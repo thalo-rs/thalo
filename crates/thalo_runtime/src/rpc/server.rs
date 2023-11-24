@@ -2,7 +2,7 @@ use std::pin::Pin;
 
 use futures::StreamExt as _;
 use thalo::stream_name::{Category, ID};
-use thalo_message_store::message::GenericMessage;
+use thalo_message_store::message::Message;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_stream::{Stream, StreamExt};
@@ -83,7 +83,7 @@ impl proto::projection_server::Projection for Runtime {
     ) -> Result<Response<Self::SubscribeToEventsStream>, Status> {
         let proto::SubscriptionRequest { name, events } = request.into_inner();
 
-        let (tx, rx) = mpsc::channel::<GenericMessage>(1);
+        let (tx, rx) = mpsc::channel::<Message>(1);
         let events = events
             .into_iter()
             .map(crate::projection::EventInterest::try_from)

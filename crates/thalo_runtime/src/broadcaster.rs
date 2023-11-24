@@ -3,24 +3,24 @@
 use std::collections::HashMap;
 
 use anyhow::{Context, Result};
-use thalo_message_store::message::GenericMessage;
+use thalo_message_store::message::Message;
 use tokio::sync::{broadcast, mpsc};
 use tracing::error;
 
 #[derive(Clone)]
 pub struct BroadcasterHandle {
-    sender: mpsc::Sender<GenericMessage<'static>>,
+    sender: mpsc::Sender<Message<'static>>,
 }
 
 impl BroadcasterHandle {
-    pub fn new(tx: broadcast::Sender<GenericMessage<'static>>, last_position: Option<u64>) -> Self {
+    pub fn new(tx: broadcast::Sender<Message<'static>>, last_position: Option<u64>) -> Self {
         let (sender, receiver) = mpsc::channel(64);
         tokio::spawn(run_broadcaster(receiver, tx, last_position));
 
         BroadcasterHandle { sender }
     }
 
-    pub async fn broadcast_event(&self, event: GenericMessage<'static>) -> Result<()> {
+    pub async fn broadcast_event(&self, event: Message<'static>) -> Result<()> {
         self.sender
             .send(event)
             .await
@@ -29,8 +29,8 @@ impl BroadcasterHandle {
 }
 
 async fn run_broadcaster(
-    mut receiver: mpsc::Receiver<GenericMessage<'static>>,
-    tx: broadcast::Sender<GenericMessage<'static>>,
+    mut receiver: mpsc::Receiver<Message<'static>>,
+    tx: broadcast::Sender<Message<'static>>,
     last_position: Option<u64>,
 ) -> Result<()> {
     let mut broadcaster = Broadcaster {
@@ -49,13 +49,13 @@ async fn run_broadcaster(
 }
 
 struct Broadcaster {
-    tx: broadcast::Sender<GenericMessage<'static>>,
-    buffer: HashMap<u64, GenericMessage<'static>>,
+    tx: broadcast::Sender<Message<'static>>,
+    buffer: HashMap<u64, Message<'static>>,
     expected_next_id: u64,
 }
 
 impl Broadcaster {
-    fn broadcast_event(&mut self, event: GenericMessage<'static>) -> Result<()> {
+    fn broadcast_event(&mut self, event: Message<'static>) -> Result<()> {
         self.buffer.insert(event.global_id, event);
         self.process_buffer()
     }

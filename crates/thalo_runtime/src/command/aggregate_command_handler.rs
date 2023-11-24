@@ -2,7 +2,7 @@ use anyhow::{anyhow, Context, Result};
 use moka::future::Cache;
 use serde_json::Value;
 use thalo::stream_name::{Category, StreamName, ID};
-use thalo_message_store::message::GenericMessage;
+use thalo_message_store::message::Message;
 use thalo_message_store::MessageStore;
 use tokio::sync::{mpsc, oneshot};
 use tracing::warn;
@@ -46,7 +46,7 @@ impl AggregateCommandHandlerHandle {
         id: ID<'static>,
         command: String,
         payload: Value,
-    ) -> Result<Vec<GenericMessage<'static>>> {
+    ) -> Result<Vec<Message<'static>>> {
         let (reply, recv) = oneshot::channel();
         let msg = ExecuteAggregateCommand {
             name,
@@ -66,7 +66,7 @@ struct ExecuteAggregateCommand {
     id: ID<'static>,
     command: String,
     payload: Value,
-    reply: oneshot::Sender<Result<Vec<GenericMessage<'static>>>>,
+    reply: oneshot::Sender<Result<Vec<Message<'static>>>>,
 }
 
 async fn run_aggregate_command_handler(
@@ -113,7 +113,7 @@ impl AggregateCommandHandler {
         id: ID<'static>,
         command: String,
         payload: Value,
-    ) -> Result<Vec<GenericMessage<'static>>> {
+    ) -> Result<Vec<Message<'static>>> {
         let Ok(stream_name) = StreamName::from_parts(name, Some(&id)) else {
             return Err(anyhow!("invalid name or id"));
         };

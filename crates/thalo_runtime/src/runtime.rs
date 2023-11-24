@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::Result;
 use serde_json::Value;
 use thalo::stream_name::{Category, ID};
-use thalo_message_store::message::GenericMessage;
+use thalo_message_store::message::Message;
 use thalo_message_store::MessageStore;
 use tokio::fs;
 use tokio::sync::{broadcast, mpsc};
@@ -19,7 +19,7 @@ use crate::relay::Relay;
 pub struct Runtime {
     message_store: MessageStore,
     modules_path: PathBuf,
-    event_tx: broadcast::Sender<GenericMessage<'static>>,
+    event_tx: broadcast::Sender<Message<'static>>,
     command_gateway: CommandGatewayHandle,
     projection_gateway: ProjectionGatewayHandle,
 }
@@ -73,7 +73,7 @@ impl Runtime {
         id: ID<'static>,
         command: String,
         payload: Value,
-    ) -> Result<Vec<GenericMessage<'static>>> {
+    ) -> Result<Vec<Message<'static>>> {
         self.command_gateway
             .execute(name, id, command, payload)
             .await
@@ -92,7 +92,7 @@ impl Runtime {
 
     pub async fn start_projection(
         &self,
-        tx: mpsc::Sender<GenericMessage<'static>>,
+        tx: mpsc::Sender<Message<'static>>,
         name: String,
         events: Vec<EventInterest<'static>>,
     ) -> Result<()> {
@@ -101,7 +101,7 @@ impl Runtime {
             .await
     }
 
-    pub fn subscribe_events(&self) -> broadcast::Receiver<GenericMessage<'static>> {
+    pub fn subscribe_events(&self) -> broadcast::Receiver<Message<'static>> {
         self.event_tx.subscribe()
     }
 

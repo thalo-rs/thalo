@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use anyhow::{anyhow, Context, Result};
 use serde_json::Value;
 use thalo::stream_name::{Category, ID};
-use thalo_message_store::message::GenericMessage;
+use thalo_message_store::message::Message;
 use thalo_message_store::MessageStore;
 use tokio::fs;
 use tokio::sync::{mpsc, oneshot};
@@ -51,7 +51,7 @@ impl CommandGatewayHandle {
         id: ID<'static>,
         command: String,
         payload: Value,
-    ) -> Result<Vec<GenericMessage<'static>>> {
+    ) -> Result<Vec<Message<'static>>> {
         let (reply, recv) = oneshot::channel();
         let msg = CommandGatewayMsg::Execute {
             name,
@@ -80,7 +80,7 @@ enum CommandGatewayMsg {
         id: ID<'static>,
         command: String,
         payload: Value,
-        reply: oneshot::Sender<Result<Vec<GenericMessage<'static>>>>,
+        reply: oneshot::Sender<Result<Vec<Message<'static>>>>,
     },
     StartModule {
         name: Category<'static>,
@@ -150,7 +150,7 @@ impl CommandGateway {
         id: ID<'static>,
         command: String,
         payload: Value,
-    ) -> Result<Vec<GenericMessage<'static>>> {
+    ) -> Result<Vec<Message<'static>>> {
         let Some(aggregate_command_handler) = self.modules.get(&name).cloned() else {
             return Err(anyhow!("aggregate does not exist or is not running"));
         };

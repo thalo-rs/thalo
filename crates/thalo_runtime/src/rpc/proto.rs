@@ -1,16 +1,18 @@
 use std::borrow::Cow;
+use std::marker::PhantomData;
 use std::time::{Duration, UNIX_EPOCH};
 
 use thalo::stream_name::{Category, EmptyStreamName, StreamName};
-use thalo_message_store::message::GenericMessage;
 use thiserror::Error;
 
 tonic::include_proto!("thalo");
 
-impl TryFrom<GenericMessage<'static>> for Message {
+impl<T> TryFrom<thalo_message_store::message::Message<'static, T>> for Message {
     type Error = serde_json::Error;
 
-    fn try_from(msg: GenericMessage<'static>) -> Result<Self, Self::Error> {
+    fn try_from(
+        msg: thalo_message_store::message::Message<'static, T>,
+    ) -> Result<Self, Self::Error> {
         Ok(Message {
             id: msg.id,
             global_id: msg.global_id,
@@ -35,11 +37,11 @@ pub enum TryFromMessageError {
     InvalidStreamName,
 }
 
-impl TryFrom<Message> for GenericMessage<'static> {
+impl<T> TryFrom<Message> for thalo_message_store::message::Message<'static, T> {
     type Error = TryFromMessageError;
 
     fn try_from(msg: Message) -> Result<Self, Self::Error> {
-        Ok(GenericMessage {
+        Ok(thalo_message_store::message::Message {
             id: msg.id,
             global_id: msg.global_id,
             position: msg.position,
@@ -48,6 +50,7 @@ impl TryFrom<Message> for GenericMessage<'static> {
             msg_type: Cow::Owned(msg.msg_type),
             data: serde_json::from_str(&msg.data)?,
             time: UNIX_EPOCH + Duration::from_millis(msg.time),
+            _marker: PhantomData,
         })
     }
 }

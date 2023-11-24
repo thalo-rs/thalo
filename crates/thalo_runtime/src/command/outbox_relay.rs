@@ -13,7 +13,6 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use async_recursion::async_recursion;
 use thalo::stream_name::Category;
-use thalo_message_store::message::MessageData;
 use thalo_message_store::outbox::Outbox;
 use tokio::sync::mpsc;
 use tokio::time::interval;
@@ -97,10 +96,7 @@ struct OutboxRelay {
 impl OutboxRelay {
     #[async_recursion]
     async fn relay_next_batch(&mut self) -> Result<()> {
-        let batch = self
-            .outbox
-            .iter_all_messages::<MessageData>()
-            .take(BATCH_SIZE);
+        let batch = self.outbox.iter_all_messages::<()>().take(BATCH_SIZE);
 
         let size_hint = batch.size_hint().0;
         let mut keys = Vec::with_capacity(size_hint);

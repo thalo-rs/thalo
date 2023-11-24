@@ -3,8 +3,6 @@ use std::marker::PhantomData;
 use std::ops;
 use std::time::SystemTime;
 
-use serde::de::DeserializeOwned;
-use serde::Deserialize;
 use sled::transaction::{ConflictableTransactionError, Transactional, TransactionalTree};
 use sled::{IVec, Tree};
 use thalo::stream_name::StreamName;
@@ -13,7 +11,7 @@ use tracing::info;
 use crate::error::{Error, Result};
 use crate::global_event_log::GlobalEventLog;
 use crate::id_generator::IdGenerator;
-use crate::message::{GenericMessage, Message};
+use crate::message::Message;
 
 #[derive(Clone)]
 pub struct Stream<'a> {
@@ -44,10 +42,7 @@ impl<'a> Stream<'a> {
         &self.stream_name
     }
 
-    pub fn iter_all_messages<T>(&self) -> MessageIter<T>
-    where
-        T: Clone + DeserializeOwned + 'static,
-    {
+    pub fn iter_all_messages<T>(&self) -> MessageIter<T> {
         MessageIter::new(self.tree.iter())
     }
 
@@ -55,7 +50,7 @@ impl<'a> Stream<'a> {
         &'b mut self,
         messages: &[(&'b str, Cow<'b, serde_json::Value>)],
         expected_starting_version: Option<u64>,
-    ) -> Result<Vec<GenericMessage<'b>>>
+    ) -> Result<Vec<Message<'b>>>
     where
         'a: 'b,
     {
@@ -117,7 +112,7 @@ impl<'a> Stream<'a> {
         msg_type: &'b str,
         data: Cow<'b, serde_json::Value>,
         expected_version: Option<u64>,
-    ) -> Result<GenericMessage<'b>, ConflictableTransactionError<Box<Error>>> {
+    ) -> Result<Message<'b>, ConflictableTransactionError<Box<Error>>> {
         if let Some(expected_version) = expected_version {
             if stream_version
                 .map(|stream_version| expected_version != stream_version)
@@ -149,6 +144,7 @@ impl<'a> Stream<'a> {
             msg_type: Cow::Borrowed(msg_type),
             data,
             time: SystemTime::now(),
+            _marker: PhantomData,
         };
         let raw_message = serde_cbor::to_vec(&message).map_err(|err| {
             ConflictableTransactionError::Abort(Box::new(Error::SerializeData(err)))
@@ -214,10 +210,7 @@ impl<T> RawMessage<T> {
         Ok(u64::from_be_bytes(slice))
     }
 
-    pub fn message<'a>(&'a self) -> Result<Message<'a, T>>
-    where
-        T: Clone + Deserialize<'a>,
-    {
+    pub fn message<'a>(&'a self) -> Result<Message<'a, T>> {
         serde_cbor::from_slice(&self.value).map_err(Error::DeserializeData)
     }
 }
@@ -236,10 +229,7 @@ impl<T> MessageIter<T> {
     }
 }
 
-impl<T> Iterator for MessageIter<T>
-where
-    T: Clone,
-{
+impl<T> Iterator for MessageIter<T> {
     type Item = Result<RawMessage<T>>;
 
     fn next(&mut self) -> Option<Self::Item> {

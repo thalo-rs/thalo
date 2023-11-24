@@ -3,7 +3,6 @@ use std::ops;
 use sled::{Db, Tree};
 
 use crate::error::{Error, Result};
-use crate::message::MessageData;
 use crate::stream::RawMessage;
 
 const GLOBAL_EVENT_LOG_TREE: &str = "thalo:global_event_log";
@@ -24,7 +23,7 @@ impl GlobalEventLog {
         GlobalEventLogIter::new(self.db.clone(), self.tree.iter())
     }
 
-    pub fn get(&self, id: u64) -> Result<Option<RawMessage<MessageData>>> {
+    pub fn get(&self, id: u64) -> Result<Option<RawMessage<()>>> {
         self.tree
             .get(id.to_be_bytes())?
             .map(|value| {
@@ -71,7 +70,7 @@ impl GlobalEventLogIter {
 }
 
 impl Iterator for GlobalEventLogIter {
-    type Item = Result<RawMessage<MessageData>>;
+    type Item = Result<RawMessage<()>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next().map(|res| {

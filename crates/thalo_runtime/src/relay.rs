@@ -4,7 +4,7 @@ use redis::aio::MultiplexedConnection;
 use redis::streams::StreamMaxlen;
 use redis::ToRedisArgs;
 use thalo::stream_name::Category;
-use thalo_message_store::message::GenericMessage;
+use thalo_message_store::message::Message;
 
 #[derive(Clone)]
 pub enum Relay {
@@ -23,7 +23,7 @@ impl Relay {
     pub async fn relay<'a>(
         &mut self,
         stream_name: &str,
-        batch: Vec<GenericMessage<'a>>,
+        batch: Vec<Message<'a>>,
     ) -> anyhow::Result<()> {
         match self {
             Relay::Noop => Ok(()),
@@ -59,7 +59,7 @@ impl RedisRelay {
     pub async fn relay<'a>(
         &mut self,
         stream_name: &str,
-        batch: Vec<GenericMessage<'a>>,
+        batch: Vec<Message<'a>>,
     ) -> anyhow::Result<()> {
         if !batch.is_empty() {
             let mut pipe = redis::pipe();

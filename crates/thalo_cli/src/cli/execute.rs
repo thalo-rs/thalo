@@ -25,8 +25,14 @@ impl Execute {
         let id = ID::new(self.id)?;
         let payload = serde_json::from_str(&self.payload)?;
         let mut client = CommandCenterClient::connect(self.url).await?;
-        let events =
-            CommandCenterClientExt::execute(&mut client, name, id, self.command, payload).await?;
+        let events = CommandCenterClientExt::execute_anonymous_command(
+            &mut client,
+            name,
+            id,
+            self.command,
+            &payload,
+        )
+        .await?;
 
         println!("Executed with {} events:", events.len());
         for event in &events {

@@ -22,22 +22,17 @@
 //! message class should include a prefix or suffix.
 
 use std::borrow::Cow;
+use std::marker::PhantomData;
 use std::time::SystemTime;
 
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use thalo::stream_name::StreamName;
-
-/// Generic message JSON data.
-pub type MessageData = serde_json::Value;
-/// A generic message with any JSON data.
-pub type GenericMessage<'a> = Message<'a, MessageData>;
 
 /// A message used with the message store, containing data `T`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Message<'a, T>
-where
-    T: Clone,
-{
+pub struct Message<'a, T = ()> {
     /// Unique monotonic identifier of the message.
     ///
     /// While this is monotonic, it may contain gaps.
@@ -54,43 +49,41 @@ where
     /// For events, this is typically the event name.
     pub msg_type: Cow<'a, str>,
     /// Message data.
-    pub data: Cow<'a, T>,
+    pub data: Cow<'a, serde_json::Value>,
     /// Time message was saved to the message store.
     #[serde(with = "ts_milliseconds")]
     pub time: SystemTime,
+    /// Marker type for the event.
+    pub _marker: PhantomData<T>,
 }
 
-impl<'a, T> Message<'a, T>
-where
-    T: Clone,
-{
-    /// Maps a messages data from one type to another.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// struct Foo { num: i32 }
-    /// struct Bar { num: String }
-    ///
-    /// let message: Message<Bar> = message.map_data(|foo| Bar {
-    ///     num: foo.num.to_string(),
-    /// });
-    /// ```
-    pub fn map_data<'b, U, F>(self, f: F) -> Message<'b, U>
+impl<'a, T> Message<'a, T> {
+    pub fn event(&self) -> Result<T, serde_json::Error>
     where
-        F: FnOnce(Cow<'a, T>) -> Cow<'b, U>,
-        U: Clone,
-        'a: 'b,
+        T: DeserializeOwned,
     {
-        let new_data = f(self.data);
+        let msg_type = self.msg_type.clone().into_owned();
+        serde_json::from_value(json!({ msg_type: self.data }))
+    }
+
+    pub fn into_event(self) -> Result<T, serde_json::Error>
+    where
+        T: DeserializeOwned,
+    {
+        let msg_type = self.msg_type.into_owned();
+        serde_json::from_value(json!({ msg_type: self.data }))
+    }
+
+    pub fn as_event_type<U>(self) -> Message<'a, U> {
         Message {
             id: self.id,
             global_id: self.global_id,
             position: self.position,
             stream_name: self.stream_name,
             msg_type: self.msg_type,
-            data: new_data,
+            data: self.data,
             time: self.time,
+            _marker: PhantomData,
         }
     }
 
@@ -103,6 +96,7 @@ where
             msg_type: Cow::Owned(self.msg_type.into_owned()),
             data: Cow::Owned(self.data.into_owned()),
             time: self.time,
+            _marker: self._marker,
         }
     }
 }

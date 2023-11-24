@@ -1,4 +1,3 @@
-use serde::de::DeserializeOwned;
 use sled::{Batch, IVec, Tree};
 
 use crate::error::Result;
@@ -14,10 +13,7 @@ impl Outbox {
         Outbox { tree }
     }
 
-    pub fn iter_all_messages<T>(&self) -> MessageIter<T>
-    where
-        T: Clone + DeserializeOwned + 'static,
-    {
+    pub fn iter_all_messages<T>(&self) -> MessageIter<T> {
         MessageIter::new(self.tree.iter())
     }
 

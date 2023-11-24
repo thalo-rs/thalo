@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use anyhow::{Context, Result};
 use thalo::stream_name::Category;
-use thalo_message_store::message::{GenericMessage, Message};
+use thalo_message_store::message::Message;
 use thalo_message_store::projection::Projection;
 use thalo_message_store::MessageStore;
 use tokio::sync::{broadcast, mpsc, oneshot};
@@ -22,7 +22,7 @@ pub struct ProjectionGatewayHandle {
 impl ProjectionGatewayHandle {
     pub fn new(
         message_store: MessageStore,
-        subscriber: broadcast::Receiver<GenericMessage<'static>>,
+        subscriber: broadcast::Receiver<Message<'static>>,
     ) -> Self {
         let (sender, receiver) = mpsc::channel(16);
         tokio::spawn(run_projection_gateway(
@@ -48,7 +48,7 @@ impl ProjectionGatewayHandle {
 
     pub async fn start_projection(
         &self,
-        tx: mpsc::Sender<GenericMessage<'static>>,
+        tx: mpsc::Sender<Message<'static>>,
         name: String,
         events: Vec<EventInterest<'static>>,
     ) -> Result<()> {
@@ -84,7 +84,7 @@ pub enum CategoryInterest<'a> {
 }
 
 impl EventInterest<'_> {
-    pub fn is_interested<T: Clone>(&self, message: &Message<T>) -> bool {
+    pub fn is_interested<T>(&self, message: &Message<T>) -> bool {
         if let CategoryInterest::Category(category) = &self.category {
             if category != &message.stream_name.category() {
                 return false;
@@ -102,7 +102,7 @@ enum ProjectionGatewayMsg {
         reply: oneshot::Sender<Result<()>>,
     },
     StartProjection {
-        tx: mpsc::Sender<GenericMessage<'static>>,
+        tx: mpsc::Sender<Message<'static>>,
         name: String,
         events: Vec<EventInterest<'static>>,
         reply: oneshot::Sender<Result<()>>,
@@ -122,7 +122,7 @@ async fn run_projection_gateway(
         mpsc::Receiver<ProjectionGatewayMsg>,
     ),
     message_store: MessageStore,
-    mut subscriber: broadcast::Receiver<GenericMessage<'static>>,
+    mut subscriber: broadcast::Receiver<Message<'static>>,
 ) {
     let mut projection_gateway = ProjectionGateway {
         sender,
@@ -213,7 +213,7 @@ impl ProjectionGateway {
 
     fn start_projection(
         &mut self,
-        tx: mpsc::Sender<GenericMessage<'static>>,
+        tx: mpsc::Sender<Message<'static>>,
         name: String,
         events: Vec<EventInterest<'static>>,
     ) -> Result<()> {
@@ -240,7 +240,7 @@ impl ProjectionGateway {
         Ok(())
     }
 
-    async fn new_event(&mut self, event: GenericMessage<'static>) -> Result<()> {
+    async fn new_event(&mut self, event: Message<'static>) -> Result<()> {
         for (name, subscription) in &mut self.projections {
             if !subscription.process_new_events {
                 continue;
