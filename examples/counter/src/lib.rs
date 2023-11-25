@@ -1,5 +1,3 @@
-use std::convert::Infallible;
-
 use serde::{Deserialize, Serialize};
 use thalo::{events, export_aggregate, Aggregate, Apply, Command, Event, Handle};
 
@@ -24,11 +22,13 @@ pub enum CounterCommand {
 }
 
 impl Handle<CounterCommand> for Counter {
-    type Error = Infallible;
+    type Error = ();
 
     fn handle(&self, cmd: CounterCommand) -> Result<Vec<CounterEvent>, Self::Error> {
         match cmd {
-            CounterCommand::Increment { amount } => events![Incremented { amount }],
+            CounterCommand::Increment { amount } => {
+                events![Incremented { amount }, Incremented { amount }]
+            }
         }
     }
 }

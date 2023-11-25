@@ -70,8 +70,6 @@
 mod macros;
 pub mod stream_name;
 
-use std::fmt;
-
 pub use thalo_derive::*;
 
 /// Represents an aggregate root in an event-sourced system.
@@ -130,7 +128,7 @@ pub trait Aggregate {
 /// }
 /// ```
 pub trait Handle<C>: Aggregate {
-    type Error: fmt::Display;
+    type Error;
 
     fn handle(&self, cmd: C) -> Result<Vec<<Self as Aggregate>::Event>, Self::Error>;
 }

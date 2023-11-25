@@ -46,7 +46,7 @@ impl AggregateCommandHandlerHandle {
         id: ID<'static>,
         command: String,
         payload: Value,
-    ) -> Result<Vec<Message<'static>>> {
+    ) -> Result<Result<Vec<Message<'static>>, serde_json::Value>> {
         let (reply, recv) = oneshot::channel();
         let msg = ExecuteAggregateCommand {
             name,
@@ -66,7 +66,7 @@ struct ExecuteAggregateCommand {
     id: ID<'static>,
     command: String,
     payload: Value,
-    reply: oneshot::Sender<Result<Vec<Message<'static>>>>,
+    reply: oneshot::Sender<Result<Result<Vec<Message<'static>>, serde_json::Value>>>,
 }
 
 async fn run_aggregate_command_handler(
@@ -113,7 +113,7 @@ impl AggregateCommandHandler {
         id: ID<'static>,
         command: String,
         payload: Value,
-    ) -> Result<Vec<Message<'static>>> {
+    ) -> Result<Result<Vec<Message<'static>>, serde_json::Value>> {
         let Ok(stream_name) = StreamName::from_parts(name, Some(&id)) else {
             return Err(anyhow!("invalid name or id"));
         };

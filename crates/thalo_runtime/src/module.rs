@@ -157,7 +157,11 @@ impl ModuleInstance {
         Ok(())
     }
 
-    pub async fn handle(&self, command: &str, payload: &str) -> Result<Vec<Event<'static>>> {
+    pub async fn handle(
+        &self,
+        command: &str,
+        payload: &str,
+    ) -> Result<Result<Vec<Event<'static>>, serde_json::Value>> {
         let command = wit_aggregate::Command { command, payload };
 
         let result = {
@@ -169,10 +173,13 @@ impl ModuleInstance {
                 .await?
         };
         match result {
-            Ok(events) => events
+            Ok(events) => Ok(Ok(events
                 .into_iter()
                 .map(Event::try_from)
-                .collect::<Result<Vec<_>, _>>(),
+                .collect::<Result<Vec<_>, _>>()?)),
+            Err(wit_aggregate::Error::Command(err)) => Ok(Err(
+                serde_json::from_str(&err).context("failed to deserialize error")?
+            )),
             Err(err) => Err(anyhow!(err)),
         }
     }

@@ -31,7 +31,7 @@ pub enum TodosCommand {
     RemoveTodo { id: String },
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Serialize)]
 pub enum TodosError {
     #[error("todo already exists")]
     TodoAlreadyExists,

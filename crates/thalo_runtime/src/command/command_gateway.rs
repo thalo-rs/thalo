@@ -51,7 +51,7 @@ impl CommandGatewayHandle {
         id: ID<'static>,
         command: String,
         payload: Value,
-    ) -> Result<Vec<Message<'static>>> {
+    ) -> Result<Result<Vec<Message<'static>>, serde_json::Value>> {
         let (reply, recv) = oneshot::channel();
         let msg = CommandGatewayMsg::Execute {
             name,
@@ -80,7 +80,7 @@ enum CommandGatewayMsg {
         id: ID<'static>,
         command: String,
         payload: Value,
-        reply: oneshot::Sender<Result<Vec<Message<'static>>>>,
+        reply: oneshot::Sender<Result<Result<Vec<Message<'static>>, serde_json::Value>>>,
     },
     StartModule {
         name: Category<'static>,
@@ -150,7 +150,7 @@ impl CommandGateway {
         id: ID<'static>,
         command: String,
         payload: Value,
-    ) -> Result<Vec<Message<'static>>> {
+    ) -> Result<Result<Vec<Message<'static>>, serde_json::Value>> {
         let Some(aggregate_command_handler) = self.modules.get(&name).cloned() else {
             return Err(anyhow!("aggregate does not exist or is not running"));
         };

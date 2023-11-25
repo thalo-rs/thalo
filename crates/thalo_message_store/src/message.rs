@@ -54,6 +54,7 @@ pub struct Message<'a, T = ()> {
     #[serde(with = "ts_milliseconds")]
     pub time: SystemTime,
     /// Marker type for the event.
+    #[serde(skip)]
     pub _marker: PhantomData<T>,
 }
 

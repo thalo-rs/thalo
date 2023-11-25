@@ -25,7 +25,7 @@ impl Execute {
         let id = ID::new(self.id)?;
         let payload = serde_json::from_str(&self.payload)?;
         let mut client = CommandCenterClient::connect(self.url).await?;
-        let events = CommandCenterClientExt::execute_anonymous_command(
+        let res = CommandCenterClientExt::execute_anonymous_command(
             &mut client,
             name,
             id,
@@ -33,10 +33,17 @@ impl Execute {
             &payload,
         )
         .await?;
-
-        println!("Executed with {} events:", events.len());
-        for event in &events {
-            println!("    {}  {}", event.msg_type, event.data);
+        match res {
+            Ok(events) => {
+                println!("Executed with {} events:", events.len());
+                for event in &events {
+                    println!("    {}  {}", event.msg_type, event.data);
+                }
+            }
+            Err(err) => {
+                let err = serde_json::to_string_pretty(&err)?;
+                println!("Failed to execute command: {err}");
+            }
         }
 
         Ok(())

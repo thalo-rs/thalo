@@ -22,7 +22,7 @@ pub struct EntityCommandHandlerHandle {
 struct ExecuteEntityCommand {
     command: String,
     payload: Value,
-    reply: oneshot::Sender<Result<Vec<Message<'static>>>>,
+    reply: oneshot::Sender<Result<Result<Vec<Message<'static>>, serde_json::Value>>>,
 }
 
 impl EntityCommandHandlerHandle {
@@ -46,7 +46,11 @@ impl EntityCommandHandlerHandle {
         EntityCommandHandlerHandle { sender }
     }
 
-    pub async fn execute(&self, command: String, payload: Value) -> Result<Vec<Message<'static>>> {
+    pub async fn execute(
+        &self,
+        command: String,
+        payload: Value,
+    ) -> Result<Result<Vec<Message<'static>>, serde_json::Value>> {
         let (reply, recv) = oneshot::channel();
         let msg = ExecuteEntityCommand {
             command,
@@ -109,11 +113,18 @@ struct EntityCommandHandler {
 }
 
 impl EntityCommandHandler {
-    async fn execute(&mut self, command: String, payload: Value) -> Result<Vec<Message<'static>>> {
+    async fn execute(
+        &mut self,
+        command: String,
+        payload: Value,
+    ) -> Result<Result<Vec<Message<'static>>, serde_json::Value>> {
         let payload = serde_json::to_string(&payload)?;
-        let events = self.instance.handle(&command, &payload).await?;
+        let events = match self.instance.handle(&command, &payload).await? {
+            Ok(events) => events,
+            Err(err) => return Ok(Err(err)),
+        };
         if events.is_empty() {
-            return Ok(vec![]);
+            return Ok(Ok(vec![]));
         }
 
         let sequence = self.instance.sequence();
@@ -163,6 +174,6 @@ impl EntityCommandHandler {
             .into_iter()
             .map(|message| message.into_owned())
             .collect();
-        Ok(reply_messages)
+        Ok(Ok(reply_messages))
     }
 }

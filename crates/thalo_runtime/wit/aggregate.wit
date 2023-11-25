@@ -14,10 +14,10 @@ world aggregate {
 
         variant error {
             command(string),
-            ignore(option<string>),
             deserialize-command(string),
             deserialize-context(string),
             deserialize-event(string),
+            serialize-error(string),
             serialize-event(string),
         }
 

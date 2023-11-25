@@ -79,11 +79,17 @@ impl DeriveCommand {
 
         match command_type {
             CommandType::Unnamed(commands) => {
-                let paths = commands.values();
+                let paths: Vec<_> = commands.values().collect();
                 let arms = commands.iter().map(|(name, path)| {
                     quote! {
                         #ident::#name(cmd) => {
-                            <T as ::thalo::Handle<#path>>::handle(&self.0, cmd).map_err(|err| ::std::string::ToString::to_string(&err))
+                            <T as ::thalo::Handle<#path>>::handle(&self.0, cmd)
+                                .map_err(|err|
+                                    ::thalo::__macro_helpers::serde_json::to_value(err)
+                                        .unwrap_or_else(|err|
+                                            ::thalo::__macro_helpers::serde_json::Value::String(::std::string::ToString::to_string(&err))
+                                        )
+                                    )
                         }
                     }
                 });
@@ -94,8 +100,9 @@ impl DeriveCommand {
                     where
                         T: ::thalo::Aggregate,
                         #( T: ::thalo::Handle<#paths>, )*
+                        #( <T as ::thalo::Handle<#paths>>::Error: ::serde::Serialize, )*
                     {
-                        type Error = ::std::string::String;
+                        type Error = ::thalo::__macro_helpers::serde_json::Value;
 
                         fn handle(&self, event: #ident) -> ::std::result::Result<::std::vec::Vec<<T as ::thalo::Aggregate>::Event>, Self::Error> {
                             match event {

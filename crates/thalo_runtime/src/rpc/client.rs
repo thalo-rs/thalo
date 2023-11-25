@@ -1,11 +1,12 @@
 use std::convert::Into;
 use std::mem;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
+use serde::de::DeserializeOwned;
 use serde::Serialize;
 use thalo::stream_name::{Category, ID};
-use thalo::Aggregate;
+use thalo::{Aggregate, Handle};
 use thalo_message_store::message::Message;
 use tonic::codegen::*;
 use tonic::Request;
@@ -22,24 +23,32 @@ pub trait CommandCenterClientExt {
         id: ID<'static>,
         cmd: String,
         payload: &serde_json::Value,
-    ) -> anyhow::Result<Vec<Message>>;
+    ) -> anyhow::Result<Result<Vec<Message>, serde_json::Value>>;
 
-    async fn execute<A>(
+    async fn execute<A, C>(
         &mut self,
         name: Category<'static>,
         id: ID<'static>,
-        cmd: impl Into<A::Command> + Send,
-    ) -> anyhow::Result<Vec<Message<A::Event>>>
+        cmd: C,
+    ) -> anyhow::Result<Result<Vec<Message<A::Event>>, <A as Handle<C>>::Error>>
     where
         A: Aggregate,
         A::Command: Serialize,
+        A: Handle<C>,
+        <A as Handle<C>>::Error: DeserializeOwned,
+        C: Into<A::Command> + Send,
     {
         let cmd: A::Command = cmd.into();
         let cmd_value = serde_json::to_value(cmd)?;
         let (cmd, payload) = thalo::__macro_helpers::extract_event_name_payload(cmd_value)
             .map_err(|err| anyhow!("{err}"))?;
-        let messages = Self::execute_anonymous_command(self, name, id, cmd, &payload).await?;
-        Ok(unsafe { mem::transmute(messages) })
+        match Self::execute_anonymous_command(self, name, id, cmd, &payload).await? {
+            Ok(messages) => Ok(Ok(unsafe { mem::transmute(messages) })),
+            Err(err) => {
+                let err = serde_json::from_value(err)?;
+                Ok(Err(err))
+            }
+        }
     }
 
     async fn publish(&mut self, name: Category<'static>, module: Vec<u8>) -> anyhow::Result<()>;
@@ -60,7 +69,7 @@ where
         id: ID<'static>,
         cmd: String,
         payload: &serde_json::Value,
-    ) -> anyhow::Result<Vec<Message>> {
+    ) -> anyhow::Result<Result<Vec<Message>, serde_json::Value>> {
         let payload = serde_json::to_string(&payload)?;
 
         let req = Request::new(proto::ExecuteCommand {
@@ -76,9 +85,11 @@ where
                 .into_iter()
                 .map(Message::try_from)
                 .collect::<Result<_, _>>()?;
-            Ok(events)
+            Ok(Ok(events))
         } else {
-            Err(anyhow!("{}", resp.message))
+            let err = serde_json::from_str(&resp.message)
+                .context("failed to deserialize error: {err}")?;
+            Ok(Err(err))
         }
     }
 

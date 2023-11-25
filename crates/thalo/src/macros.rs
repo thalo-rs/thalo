@@ -36,10 +36,10 @@ macro_rules! export_aggregate {
 
                             variant error {
                                 command(string),
-                                ignore(option<string>),
                                 deserialize-command(string),
                                 deserialize-context(string),
                                 deserialize-event(string),
+                                serialize-error(string),
                                 serialize-event(string),
                             }
 
@@ -113,7 +113,11 @@ macro_rules! export_aggregate {
                 let cmd: <$crate::State<Agg> as $crate::Aggregate>::Command = serde_json::from_value(cmd_value)
                     .map_err(|err| wit::Error::DeserializeCommand(err.to_string()))?;
                 let events = <$crate::State<Agg> as $crate::Handle<<$crate::State<Agg> as $crate::Aggregate>::Command>>::handle(&state, cmd)
-                    .map_err(|err| wit::Error::Command(err.to_string()))?
+                    .map_err(|err|
+                        serde_json::to_string(&err)
+                            .map(wit::Error::Command)
+                            .unwrap_or_else(|err| wit::Error::SerializeError(err.to_string()))
+                    )?
                     .into_iter()
                     .map(|event| {
                         let event_value = serde_json::to_value(event)

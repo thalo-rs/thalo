@@ -21,14 +21,7 @@ impl Aggregate for BankAccount {
     }
 }
 
-#[derive(Command, Deserialize)]
-pub enum BankAccountCommand {
-    OpenAccount(OpenAccount),
-    DepositFunds(DepositFunds),
-    WithdrawFunds(WithdrawFunds),
-}
-
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Serialize)]
 pub enum BankAccountError {
     #[error("account already opened")]
     AccountAlreadyOpened,
@@ -38,6 +31,13 @@ pub enum BankAccountError {
     AmountIsZero,
     #[error("insufficient balance")]
     InsufficientBalance,
+}
+
+#[derive(Command, Deserialize)]
+pub enum BankAccountCommand {
+    OpenAccount(OpenAccount),
+    DepositFunds(DepositFunds),
+    WithdrawFunds(WithdrawFunds),
 }
 
 #[derive(Deserialize)]

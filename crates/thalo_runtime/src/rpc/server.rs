@@ -31,7 +31,7 @@ impl proto::command_center_server::CommandCenter for Runtime {
             .map_err(|err| Status::invalid_argument(format!("invalid payload: {err}")))?;
 
         let resp = match self.execute(name, id, command, payload).await {
-            Ok(events) => proto::ExecuteResponse {
+            Ok(Ok(events)) => proto::ExecuteResponse {
                 success: true,
                 events: events
                     .into_iter()
@@ -40,11 +40,13 @@ impl proto::command_center_server::CommandCenter for Runtime {
                     .map_err(|err| Status::internal(err.to_string()))?,
                 message: "ok".to_string(),
             },
-            Err(err) => proto::ExecuteResponse {
+            Ok(Err(err)) => proto::ExecuteResponse {
                 success: false,
                 events: vec![],
-                message: err.to_string(),
+                message: serde_json::to_string(&err)
+                    .map_err(|err| Status::internal(format!("failed to serialize error: {err}")))?,
             },
+            Err(err) => return Err(Status::internal(err.to_string())),
         };
 
         Ok(Response::new(resp))

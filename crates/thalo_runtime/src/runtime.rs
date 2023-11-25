@@ -73,7 +73,7 @@ impl Runtime {
         id: ID<'static>,
         command: String,
         payload: Value,
-    ) -> Result<Vec<Message<'static>>> {
+    ) -> Result<Result<Vec<Message<'static>>, serde_json::Value>> {
         self.command_gateway
             .execute(name, id, command, payload)
             .await
