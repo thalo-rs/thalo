@@ -234,9 +234,11 @@ impl ProjectionSubscription {
     }
 
     fn is_event_of_interest(&self, message: &Message) -> bool {
-        self.events
-            .iter()
-            .any(|event_interest| event_interest.is_interested(message))
+        self.events.is_empty()
+            || self
+                .events
+                .iter()
+                .any(|event_interest| event_interest.is_interested(message))
     }
 }
 
