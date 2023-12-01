@@ -27,7 +27,7 @@ world aggregate {
             serialize-event(string),
         }
 
-        resource agg {
+        resource entity {
             constructor(id: string);
             apply: func(events: list<event>) -> result<_, error>;
             handle: func(command: command) -> result<list<event>, error>;

@@ -106,7 +106,7 @@ impl Module {
             let mut store = self.store.lock().await;
             self.aggregate
                 .aggregate()
-                .agg()
+                .entity()
                 .call_constructor(store.deref_mut(), id)
                 .await?
         };
@@ -175,7 +175,7 @@ impl ModuleInstance {
         let res = self
             .aggregate
             .aggregate()
-            .agg()
+            .entity()
             .call_apply(store.deref_mut(), self.resource, &events)
             .await
             .map(|res| {
@@ -204,7 +204,7 @@ impl ModuleInstance {
             let mut store = self.store.lock().await;
             self.aggregate
                 .aggregate()
-                .agg()
+                .entity()
                 .call_handle(store.deref_mut(), self.resource, command)
                 .await?
                 .map_err(AggregateError::from)

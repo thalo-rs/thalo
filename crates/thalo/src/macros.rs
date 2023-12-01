@@ -18,7 +18,7 @@ macro_rules! export_aggregate {
 
             pub type Agg = super::$t;
 
-            wit_bindgen::generate!({
+            $crate::__macro_helpers::wit_bindgen::generate!({
                 inline: r#"
                     package thalo:aggregate;
 
@@ -49,7 +49,7 @@ macro_rules! export_aggregate {
                                 serialize-event(string),
                             }
 
-                            resource agg {
+                            resource entity {
                                 constructor(id: string);
                                 apply: func(events: list<event>) -> result<_, error>;
                                 handle: func(command: command) -> result<list<event>, error>;
@@ -58,7 +58,7 @@ macro_rules! export_aggregate {
                     }
                 "#,
                 exports: {
-                    "aggregate/agg": AggWrapper
+                    "aggregate/entity": AggWrapper
                 }
             });
 
@@ -74,7 +74,7 @@ macro_rules! export_aggregate {
                 tracing::subscriber::with_default(subscriber, f)
             }
 
-            impl wit::GuestAgg for AggWrapper {
+            impl wit::GuestEntity for AggWrapper {
                 fn new(id: String) -> Self {
                     with_subscriber(|| {
                         init_aggregate(id)
