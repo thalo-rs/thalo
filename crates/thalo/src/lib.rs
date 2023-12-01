@@ -130,7 +130,7 @@ pub trait Aggregate {
 pub trait Handle<C>: Aggregate {
     type Error;
 
-    fn handle(&self, cmd: C) -> Result<Vec<<Self as Aggregate>::Event>, Self::Error>;
+    fn handle(&self, cmd: C) -> Result<Vec<Self::Event>, Self::Error>;
 }
 
 /// Applies an event, updating the aggregate state.
