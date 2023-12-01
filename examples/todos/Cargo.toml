@@ -7,4 +7,4 @@ edition = "2021"
 thalo = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
-wit-bindgen = "0.14"
+wit-bindgen = "0.15"
