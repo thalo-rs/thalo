@@ -1,6 +1,6 @@
 mod broadcaster;
 mod command;
-mod module;
+pub mod module;
 mod projection;
 pub mod relay;
 pub mod rpc;
