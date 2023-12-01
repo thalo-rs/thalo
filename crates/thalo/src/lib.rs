@@ -71,6 +71,13 @@ mod macros;
 pub mod stream_name;
 
 pub use thalo_derive::*;
+/// Re-exports of [tracing](::tracing) macros.
+pub mod tracing {
+    pub use tracing::{
+        debug, debug_span, enabled, error, error_span, info, info_span, trace, trace_span, warn,
+        warn_span,
+    };
+}
 
 /// Represents an aggregate root in an event-sourced system.
 ///
