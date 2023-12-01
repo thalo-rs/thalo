@@ -34,14 +34,20 @@ impl EntityCommandHandlerHandle {
         stream_name: StreamName<'static>,
     ) -> Self {
         let (sender, receiver) = mpsc::channel(16);
-        tokio::spawn(run_entity_command_handler(
-            receiver,
-            outbox_relay,
-            message_store,
-            broadcaster,
-            module,
-            stream_name,
-        ));
+        tokio::spawn(async move {
+            if let Err(err) = run_entity_command_handler(
+                receiver,
+                outbox_relay,
+                message_store,
+                broadcaster,
+                module,
+                stream_name,
+            )
+            .await
+            {
+                error!("failed to start entity command handler: {err}");
+            }
+        });
 
         EntityCommandHandlerHandle { sender }
     }
