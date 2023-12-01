@@ -1,6 +1,12 @@
 package thalo:aggregate;
 
+interface tracing {
+    send-event: func(event: list<u8>);
+}
+
 world aggregate {
+    import tracing;
+
     export aggregate: interface {
         record event {
             event: string,

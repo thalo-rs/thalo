@@ -174,7 +174,7 @@ where
 #[doc(hidden)]
 pub mod __macro_helpers {
     use serde_json::Value;
-    pub use {serde_json, wit_bindgen};
+    pub use {serde_json, tracing, tracing_tunnel, wit_bindgen};
 
     /// Extracts the event name and payload from an event json value.
     /// `{"EventName": {"foo": 1}}` returns `("EventName", {"foo": 1})`.

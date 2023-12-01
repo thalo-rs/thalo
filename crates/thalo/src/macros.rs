@@ -22,7 +22,13 @@ macro_rules! export_aggregate {
                 inline: r#"
                     package thalo:aggregate;
 
+                    interface tracing {
+                        send-event: func(event: list<u8>);
+                    }
+
                     world aggregate {
+                        import tracing;
+
                         export aggregate: interface {
                             record event {
                                 event: string,
@@ -60,17 +66,31 @@ macro_rules! export_aggregate {
 
             pub struct AggWrapper(RefCell<$crate::State<Agg>>);
 
+            fn with_subscriber<F: FnOnce() -> T, T>(f: F) -> T {
+                let subscriber = tracing_tunnel::TracingEventSender::new(|event| {
+                    let event_bytes = serde_json::to_vec(&event).unwrap();
+                    thalo::aggregate::tracing::send_event(&event_bytes);
+                });
+                tracing::subscriber::with_default(subscriber, f)
+            }
+
             impl wit::GuestAgg for AggWrapper {
                 fn new(id: String) -> Self {
-                    init_aggregate(id)
+                    with_subscriber(|| {
+                        init_aggregate(id)
+                    })
                 }
 
                 fn apply(&self, events: Vec<wit::Event>) -> Result<(), wit::Error> {
-                    apply_aggregate_events(self, events)
+                    with_subscriber(|| {
+                        apply_aggregate_events(self, events)
+                    })
                 }
 
                 fn handle(&self, command: wit::Command) -> Result<Vec<wit::Event>, wit::Error> {
-                    handle_aggregate_command(self, command)
+                    with_subscriber(|| {
+                        handle_aggregate_command(self, command)
+                    })
                 }
             }
 

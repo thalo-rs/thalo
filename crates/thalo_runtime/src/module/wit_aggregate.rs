@@ -11,6 +11,7 @@ use std::borrow::Cow;
 
 use thiserror::Error;
 pub use wit::exports::aggregate::{Command, EventParam, EventResult};
+pub use wit::thalo::aggregate::tracing;
 pub use wit::Aggregate;
 
 #[derive(Clone, Debug, Error)]

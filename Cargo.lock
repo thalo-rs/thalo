@@ -2226,6 +2226,8 @@ dependencies = [
  "serde_json",
  "thalo_derive",
  "thiserror",
+ "tracing",
+ "tracing-tunnel",
  "wit-bindgen",
 ]
 
@@ -2299,6 +2301,7 @@ dependencies = [
  "tonic-build",
  "tracing",
  "tracing-subscriber",
+ "tracing-tunnel",
  "wasmtime",
  "wasmtime-wasi",
 ]
@@ -2562,6 +2565,17 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-log",
+]
+
+[[package]]
+name = "tracing-tunnel"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "507bbab1fc2c9e606543558f5656b62e8014ba7e0ffa68b9484511b6871019c5"
+dependencies = [
+ "once_cell",
+ "serde",
+ "tracing-core",
 ]
 
 [[package]]

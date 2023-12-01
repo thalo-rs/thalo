@@ -7,15 +7,17 @@ use std::sync::Arc;
 use std::{fmt, str};
 
 use anyhow::{anyhow, bail, Context as AnyhowContext, Result};
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 use tracing::{info, trace};
+use tracing_tunnel::TracingEventReceiver;
 use wasmtime::component::{Component, Linker, ResourceAny};
 use wasmtime::{Engine, Store};
 use wasmtime_wasi::preview2::{command, Stdout, Table, WasiCtx, WasiCtxBuilder, WasiView};
 
 use self::wit_aggregate::Aggregate;
-use crate::module::wit_aggregate::AggregateError;
+use crate::module::wit_aggregate::{tracing as wit_tracing, AggregateError};
 
 #[derive(Clone)]
 pub struct Module {
@@ -41,7 +43,39 @@ pub struct Event<'a> {
 
 pub struct CommandCtx {
     table: Table,
+    tracing_subscriber: TracingSubscriber,
     wasi: WasiCtx,
+}
+
+impl CommandCtx {
+    pub fn new() -> Self {
+        let table = Table::new();
+        let tracing_subscriber = TracingSubscriber(TracingEventReceiver::default());
+        let wasi = WasiCtxBuilder::new().stdout(Stdout).build();
+        CommandCtx {
+            table,
+            tracing_subscriber,
+            wasi,
+        }
+    }
+}
+
+impl Default for CommandCtx {
+    fn default() -> Self {
+        CommandCtx::new()
+    }
+}
+
+#[derive(Debug, Default)]
+struct TracingSubscriber(TracingEventReceiver);
+
+#[async_trait]
+impl wit_tracing::Host for TracingSubscriber {
+    async fn send_event(&mut self, event: Vec<u8>) -> wasmtime::Result<()> {
+        let event = serde_json::from_slice(&event).map_err(wasmtime::Error::new)?;
+        self.0.try_receive(event).map_err(wasmtime::Error::new)?;
+        Ok(())
+    }
 }
 
 impl Module {
@@ -49,12 +83,12 @@ impl Module {
     where
         T: AsRef<Path> + fmt::Debug,
     {
-        let table = Table::new();
-        let wasi = WasiCtxBuilder::new().stdout(Stdout).build();
-        let mut store = Store::new(&engine, CommandCtx { table, wasi });
+        let ctx = CommandCtx::default();
+        let mut store = Store::new(&engine, ctx);
         let component = Component::from_file(&engine, &file)?;
-        let mut linker = Linker::new(&engine);
+        let mut linker: Linker<CommandCtx> = Linker::new(&engine);
         command::add_to_linker(&mut linker)?;
+        wit_tracing::add_to_linker(&mut linker, |ctx| &mut ctx.tracing_subscriber)?;
 
         let (aggregate, _instance) =
             wit_aggregate::Aggregate::instantiate_async(&mut store, &component, &linker).await?;
