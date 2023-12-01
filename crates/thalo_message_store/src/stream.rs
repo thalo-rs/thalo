@@ -72,7 +72,7 @@ impl<'a> Stream<'a> {
                         Some(
                             expected_starting_version
                                 .map(|ev| ev + i as u64)
-                                .unwrap_or(0),
+                                .unwrap_or(i as u64 - 1),
                         )
                     };
                     let global_id = self.id_generator.generate_id();
