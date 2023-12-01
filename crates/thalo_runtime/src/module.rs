@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 use tracing::{info, trace};
 use tracing_tunnel::TracingEventReceiver;
-use wasmtime::component::{Component, Linker, ResourceAny};
+use wasmtime::component::{Component, InstancePre, Linker, ResourceAny};
 use wasmtime::{Engine, Store};
 use wasmtime_wasi::preview2::{command, Stdout, Table, WasiCtx, WasiCtxBuilder, WasiView};
 
@@ -24,7 +24,10 @@ pub struct Module {
     // TODO: This Arc shouldn't be necessary, but `wasmtime::component::bindgen` doesn't generate
     // Clone implementations.
     aggregate: Arc<Aggregate>,
+    engine: Engine,
     store: Arc<Mutex<Store<CommandCtx>>>,
+    component: Component,
+    instance_pre: InstancePre<CommandCtx>,
 }
 
 #[derive(Clone)]
@@ -79,25 +82,50 @@ impl wit_tracing::Host for TracingSubscriber {
 }
 
 impl Module {
-    pub async fn from_file<T>(engine: Engine, file: T) -> Result<Self>
-    where
-        T: AsRef<Path> + fmt::Debug,
-    {
+    pub async fn new(engine: Engine, component: Component) -> Result<Self> {
         let ctx = CommandCtx::default();
         let mut store = Store::new(&engine, ctx);
-        let component = Component::from_file(&engine, &file)?;
         let mut linker: Linker<CommandCtx> = Linker::new(&engine);
         command::add_to_linker(&mut linker)?;
         wit_tracing::add_to_linker(&mut linker, |ctx| &mut ctx.tracing_subscriber)?;
 
+        let instance_pre = linker.instantiate_pre(&component)?;
         let (aggregate, _instance) =
-            wit_aggregate::Aggregate::instantiate_async(&mut store, &component, &linker).await?;
-
-        info!(?file, "loaded module from file");
+            wit_aggregate::Aggregate::instantiate_pre(&mut store, &instance_pre).await?;
 
         Ok(Module {
             aggregate: Arc::new(aggregate),
+            engine,
             store: Arc::new(Mutex::new(store)),
+            component,
+            instance_pre,
+        })
+    }
+
+    pub async fn from_file<T>(engine: Engine, file: T) -> Result<Self>
+    where
+        T: AsRef<Path> + fmt::Debug,
+    {
+        let component = Component::from_file(&engine, &file)?;
+        let module = Module::new(engine, component).await?;
+
+        info!(?file, "loaded module from file");
+
+        Ok(module)
+    }
+
+    pub async fn new_instance(self) -> Result<Self> {
+        let ctx = CommandCtx::default();
+        let mut store = Store::new(&self.engine, ctx);
+        let (aggregate, _instance) =
+            wit_aggregate::Aggregate::instantiate_pre(&mut store, &self.instance_pre).await?;
+
+        Ok(Module {
+            aggregate: Arc::new(aggregate),
+            engine: self.engine,
+            store: Arc::new(Mutex::new(store)),
+            component: self.component,
+            instance_pre: self.instance_pre,
         })
     }
 

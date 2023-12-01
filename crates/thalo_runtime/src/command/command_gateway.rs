@@ -33,6 +33,7 @@ impl CommandGatewayHandle {
     ) -> Self {
         let (sender, receiver) = mpsc::channel(16);
         tokio::spawn(run_command_gateway(
+            sender.clone(),
             receiver,
             engine,
             message_store,
@@ -65,9 +66,29 @@ impl CommandGatewayHandle {
         recv.await.context("no response from command handler")?
     }
 
-    pub async fn start_module(&self, name: Category<'static>, path: PathBuf) -> Result<()> {
+    pub async fn start_module_from_file(
+        &self,
+        name: Category<'static>,
+        path: PathBuf,
+    ) -> Result<()> {
         let (reply, recv) = oneshot::channel();
-        let msg = CommandGatewayMsg::StartModule { name, path, reply };
+        let msg = CommandGatewayMsg::StartModuleFromFile { name, path, reply };
+
+        let _ = self.sender.send(msg).await;
+        recv.await.context("no response from command gateway")?
+    }
+
+    pub async fn start_module_from_module(
+        &self,
+        name: Category<'static>,
+        module: Module,
+    ) -> Result<()> {
+        let (reply, recv) = oneshot::channel();
+        let msg = CommandGatewayMsg::StartModuleFromModule {
+            name,
+            module,
+            reply,
+        };
 
         let _ = self.sender.send(msg).await;
         recv.await.context("no response from command gateway")?
@@ -82,14 +103,20 @@ enum CommandGatewayMsg {
         payload: Value,
         reply: oneshot::Sender<Result<Result<Vec<Message<'static>>, serde_json::Value>>>,
     },
-    StartModule {
+    StartModuleFromFile {
         name: Category<'static>,
         path: PathBuf,
+        reply: oneshot::Sender<Result<()>>,
+    },
+    StartModuleFromModule {
+        name: Category<'static>,
+        module: Module,
         reply: oneshot::Sender<Result<()>>,
     },
 }
 
 async fn run_command_gateway(
+    sender: mpsc::Sender<CommandGatewayMsg>,
     mut receiver: mpsc::Receiver<CommandGatewayMsg>,
     engine: Engine,
     message_store: MessageStore,
@@ -99,6 +126,7 @@ async fn run_command_gateway(
     modules_path: PathBuf,
 ) {
     let mut cmd_gateway = CommandGateway {
+        handle: CommandGatewayHandle { sender },
         engine,
         message_store,
         relay,
@@ -126,15 +154,26 @@ async fn run_command_gateway(
                 let res = cmd_gateway.execute(name, id, command, payload).await;
                 let _ = reply.send(res);
             }
-            CommandGatewayMsg::StartModule { name, path, reply } => {
-                let res = cmd_gateway.start_module(name, path).await;
+            CommandGatewayMsg::StartModuleFromFile { name, path, reply } => {
+                let res = cmd_gateway.start_module_from_file(name, path).await;
+                let _ = reply.send(res);
+            }
+            CommandGatewayMsg::StartModuleFromModule {
+                name,
+                module,
+                reply,
+            } => {
+                let res = cmd_gateway.start_module_from_module(name, module).await;
                 let _ = reply.send(res);
             }
         }
     }
+
+    error!("command gateway stopping");
 }
 
 struct CommandGateway {
+    handle: CommandGatewayHandle,
     engine: Engine,
     message_store: MessageStore,
     relay: Relay,
@@ -152,7 +191,9 @@ impl CommandGateway {
         payload: Value,
     ) -> Result<Result<Vec<Message<'static>>, serde_json::Value>> {
         let Some(aggregate_command_handler) = self.modules.get(&name).cloned() else {
-            return Err(anyhow!("aggregate does not exist or is not running"));
+            return Err(anyhow!(
+                "aggregate '{name}' does not exist or is not running"
+            ));
         };
 
         aggregate_command_handler
@@ -160,23 +201,40 @@ impl CommandGateway {
             .await
     }
 
-    async fn start_module(&mut self, name: Category<'static>, path: PathBuf) -> Result<()> {
-        let module = Module::from_file(self.engine.clone(), path).await?;
+    async fn start_module(&mut self, name: Category<'static>, module: Module) -> Result<()> {
         let outbox = self.message_store.outbox(name.clone())?;
         let outbox_relay = OutboxRelayHandle::new(name.clone(), outbox, self.relay.clone());
 
         let aggregate_command_handler = AggregateCommandHandlerHandle::new(
+            self.handle.clone(),
             name.clone(),
             outbox_relay.clone(),
             self.message_store.clone(),
             self.broadcaster.clone(),
             self.cache_size,
-            module.clone(),
+            module,
         );
 
         self.modules.insert(name, aggregate_command_handler);
 
         Ok(())
+    }
+
+    async fn start_module_from_file(
+        &mut self,
+        name: Category<'static>,
+        path: PathBuf,
+    ) -> Result<()> {
+        let module = Module::from_file(self.engine.clone(), path).await?;
+        self.start_module(name, module).await
+    }
+
+    async fn start_module_from_module(
+        &mut self,
+        name: Category<'static>,
+        module: Module,
+    ) -> Result<()> {
+        self.start_module(name, module).await
     }
 
     async fn load_modules_in_dir(&mut self, modules_path: PathBuf) -> Result<()> {
@@ -195,8 +253,11 @@ impl CommandGateway {
                 continue;
             }
 
-            let module_name = Category::new(Category::normalize(module_name))?;
-            if let Err(err) = self.start_module(module_name, dir_entry.path()).await {
+            let module_name = Category::new(module_name.to_string())?;
+            if let Err(err) = self
+                .start_module_from_file(module_name, dir_entry.path())
+                .await
+            {
                 error!(
                     "failed to start module '{}': {err}",
                     dir_entry.path().display()

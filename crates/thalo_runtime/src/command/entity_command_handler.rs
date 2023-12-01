@@ -2,16 +2,14 @@ use std::borrow::Cow;
 
 use anyhow::{Context as AnyhowContext, Result};
 use serde_json::Value;
-use thalo::stream_name::StreamName;
 use thalo_message_store::message::Message;
 use thalo_message_store::stream::Stream;
-use thalo_message_store::MessageStore;
 use tokio::sync::{mpsc, oneshot};
 use tracing::{error, trace};
 
 use super::outbox_relay::OutboxRelayHandle;
 use crate::broadcaster::BroadcasterHandle;
-use crate::module::{Event, Module, ModuleInstance};
+use crate::module::{Event, ModuleInstance};
 
 #[derive(Clone)]
 pub struct EntityCommandHandlerHandle {
@@ -28,26 +26,18 @@ struct ExecuteEntityCommand {
 impl EntityCommandHandlerHandle {
     pub fn new(
         outbox_relay: OutboxRelayHandle,
-        message_store: MessageStore,
         broadcaster: BroadcasterHandle,
-        module: Module,
-        stream_name: StreamName<'static>,
+        instance: ModuleInstance,
+        stream: Stream<'static>,
     ) -> Self {
         let (sender, receiver) = mpsc::channel(16);
-        tokio::spawn(async move {
-            if let Err(err) = run_entity_command_handler(
-                receiver,
-                outbox_relay,
-                message_store,
-                broadcaster,
-                module,
-                stream_name,
-            )
-            .await
-            {
-                error!("failed to start entity command handler: {err}");
-            }
-        });
+        tokio::spawn(run_entity_command_handler(
+            receiver,
+            outbox_relay,
+            broadcaster,
+            instance,
+            stream,
+        ));
 
         EntityCommandHandlerHandle { sender }
     }
@@ -73,26 +63,10 @@ impl EntityCommandHandlerHandle {
 async fn run_entity_command_handler(
     mut receiver: mpsc::Receiver<ExecuteEntityCommand>,
     outbox_relay: OutboxRelayHandle,
-    message_store: MessageStore,
     broadcaster: BroadcasterHandle,
-    module: Module,
-    stream_name: StreamName<'static>,
+    instance: ModuleInstance,
+    stream: Stream<'static>,
 ) -> Result<()> {
-    let mut instance = module
-        .init(&stream_name.id().context("missing ID")?)
-        .await?;
-    let stream = message_store.stream(stream_name)?;
-    for res in stream.iter_all_messages::<()>() {
-        let raw_message = res?;
-        let message = raw_message.message()?;
-        let event = Event {
-            event: message.msg_type,
-            payload: Cow::Owned(serde_json::to_string(&message.data)?),
-        };
-        instance.apply(&[(message.position, event)]).await?;
-        trace!(stream_name = ?stream.stream_name(), position = message.position, "applied event");
-    }
-
     let mut handler = EntityCommandHandler {
         outbox_relay,
         broadcaster,

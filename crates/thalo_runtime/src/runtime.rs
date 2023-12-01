@@ -87,7 +87,9 @@ impl Runtime {
         let path = self.modules_path.join(&format!("{name}.wasm"));
         fs::write(&path, module).await?;
 
-        self.command_gateway.start_module(name, path).await
+        self.command_gateway
+            .start_module_from_file(name, path)
+            .await
     }
 
     pub async fn start_projection(
