@@ -32,17 +32,21 @@ impl Execute {
             self.command,
             &payload,
         )
-        .await?;
+        .await;
         match res {
-            Ok(events) => {
+            Ok(Ok(events)) => {
                 println!("Executed with {} events:", events.len());
                 for event in &events {
                     println!("    {}  {}", event.msg_type, event.data);
                 }
             }
-            Err(err) => {
+            Ok(Err(err)) => {
                 let err = serde_json::to_string_pretty(&err)?;
                 println!("Failed to execute command: {err}");
+            }
+            Err(err) => {
+                println!("Failed to execute command with status {}:", err.code());
+                println!("{}", err.message());
             }
         }
 

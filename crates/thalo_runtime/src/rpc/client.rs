@@ -1,7 +1,6 @@
 use std::convert::Into;
 use std::mem;
 
-use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -9,7 +8,7 @@ use thalo::stream_name::{Category, ID};
 use thalo::{Aggregate, Handle};
 use thalo_message_store::message::Message;
 use tonic::codegen::*;
-use tonic::Request;
+use tonic::{Request, Status};
 
 use super::proto;
 pub use super::proto::command_center_client::*;
@@ -23,14 +22,14 @@ pub trait CommandCenterClientExt {
         id: ID<'static>,
         cmd: String,
         payload: &serde_json::Value,
-    ) -> anyhow::Result<Result<Vec<Message>, serde_json::Value>>;
+    ) -> Result<Result<Vec<Message>, serde_json::Value>, Status>;
 
     async fn execute<A, C>(
         &mut self,
         name: Category<'static>,
         id: ID<'static>,
         cmd: C,
-    ) -> anyhow::Result<Result<Vec<Message<A::Event>>, <A as Handle<C>>::Error>>
+    ) -> Result<Result<Vec<Message<A::Event>>, <A as Handle<C>>::Error>, Status>
     where
         A: Aggregate,
         A::Command: Serialize,
@@ -39,19 +38,25 @@ pub trait CommandCenterClientExt {
         C: Into<A::Command> + Send,
     {
         let cmd: A::Command = cmd.into();
-        let cmd_value = serde_json::to_value(cmd)?;
+        let cmd_value = serde_json::to_value(cmd).map_err(|err| {
+            Status::invalid_argument(format!("failed to serialize command: {err}"))
+        })?;
         let (cmd, payload) = thalo::__macro_helpers::extract_event_name_payload(cmd_value)
-            .map_err(|err| anyhow!("{err}"))?;
+            .map_err(|err| Status::invalid_argument(err.to_string()))?;
         match Self::execute_anonymous_command(self, name, id, cmd, &payload).await? {
             Ok(messages) => Ok(Ok(unsafe { mem::transmute(messages) })),
             Err(err) => {
-                let err = serde_json::from_value(err)?;
+                let err = serde_json::from_value(err).map_err(|err| {
+                    Status::internal(format!(
+                        "command failed, but the error was unable to be deserialized: {err}"
+                    ))
+                })?;
                 Ok(Err(err))
             }
         }
     }
 
-    async fn publish(&mut self, name: Category<'static>, module: Vec<u8>) -> anyhow::Result<()>;
+    async fn publish(&mut self, name: Category<'static>, module: Vec<u8>) -> Result<(), Status>;
 }
 
 #[async_trait]
@@ -69,8 +74,10 @@ where
         id: ID<'static>,
         cmd: String,
         payload: &serde_json::Value,
-    ) -> anyhow::Result<Result<Vec<Message>, serde_json::Value>> {
-        let payload = serde_json::to_string(&payload)?;
+    ) -> Result<Result<Vec<Message>, serde_json::Value>, Status> {
+        let payload = serde_json::to_string(&payload).map_err(|err| {
+            Status::invalid_argument(format!("failed to serialize payload: {err}"))
+        })?;
 
         let req = Request::new(proto::ExecuteCommand {
             name: name.into_string(),
@@ -84,16 +91,17 @@ where
                 .events
                 .into_iter()
                 .map(Message::try_from)
-                .collect::<Result<_, _>>()?;
+                .collect::<Result<_, _>>()
+                .map_err(|err| Status::internal(err.to_string()))?;
             Ok(Ok(events))
         } else {
             let err = serde_json::from_str(&resp.message)
-                .context("failed to deserialize error: {err}")?;
+                .map_err(|err| Status::internal(format!("failed to deserialize error: {err}")))?;
             Ok(Err(err))
         }
     }
 
-    async fn publish(&mut self, name: Category<'static>, module: Vec<u8>) -> anyhow::Result<()> {
+    async fn publish(&mut self, name: Category<'static>, module: Vec<u8>) -> Result<(), Status> {
         let req = Request::new(proto::PublishModule {
             name: name.into_string(),
             module,
@@ -102,7 +110,7 @@ where
         if resp.success {
             Ok(())
         } else {
-            Err(anyhow!("{}", resp.message))
+            Err(Status::internal(resp.message))
         }
     }
 }
