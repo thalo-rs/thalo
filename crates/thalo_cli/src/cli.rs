@@ -22,6 +22,7 @@ struct Cli {
 
 #[derive(Subcommand, Clone, Debug)]
 enum Command {
+    #[clap(alias = "b")]
     Build(Build),
     Execute(Execute),
     Publish(Publish),
