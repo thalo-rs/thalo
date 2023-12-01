@@ -13,11 +13,11 @@ world aggregate {
         }
 
         variant error {
-            command(string),
-            deserialize-command(string),
+            command(tuple<string, string>),
+            deserialize-command(tuple<string, string>),
             deserialize-context(string),
-            deserialize-event(string),
-            serialize-error(string),
+            deserialize-event(tuple<string, string>),
+            serialize-error(tuple<string, string>),
             serialize-event(string),
         }
 

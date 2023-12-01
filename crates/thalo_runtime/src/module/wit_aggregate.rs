@@ -9,8 +9,46 @@ mod wit {
 
 use std::borrow::Cow;
 
-pub use wit::exports::aggregate::{Command, Error, EventParam, EventResult};
+use thiserror::Error;
+pub use wit::exports::aggregate::{Command, EventParam, EventResult};
 pub use wit::Aggregate;
+
+#[derive(Clone, Debug, Error)]
+pub enum AggregateError {
+    #[error("command {command} returned an error: {error}")]
+    Command { command: String, error: String },
+    #[error("failed to deserialize command {command}: {error}")]
+    DeserializeCommand { command: String, error: String },
+    #[error("failed to deserialize context: {0}")]
+    DeserializeContext(String),
+    #[error("failed to deserialize event {event}: {error}")]
+    DeserializeEvent { event: String, error: String },
+    #[error("failed to serialize command error {command}: {error}")]
+    SerializeError { command: String, error: String },
+    #[error("failed to serialize event: {0}")]
+    SerializeEvent(String),
+}
+
+impl From<wit::exports::aggregate::Error> for AggregateError {
+    fn from(err: wit::exports::aggregate::Error) -> Self {
+        use wit::exports::aggregate::Error;
+
+        match err {
+            Error::Command((command, error)) => AggregateError::Command { command, error },
+            Error::DeserializeCommand((command, error)) => {
+                AggregateError::DeserializeCommand { command, error }
+            }
+            Error::DeserializeContext(err) => AggregateError::DeserializeContext(err),
+            Error::DeserializeEvent((event, error)) => {
+                AggregateError::DeserializeEvent { event, error }
+            }
+            Error::SerializeError((command, error)) => {
+                AggregateError::SerializeError { command, error }
+            }
+            Error::SerializeEvent(err) => AggregateError::SerializeEvent(err),
+        }
+    }
+}
 
 impl TryFrom<EventResult> for super::Event<'static> {
     type Error = anyhow::Error;

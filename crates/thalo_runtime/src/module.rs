@@ -15,6 +15,7 @@ use wasmtime::{Engine, Store};
 use wasmtime_wasi::preview2::{command, Stdout, Table, WasiCtx, WasiCtxBuilder, WasiView};
 
 use self::wit_aggregate::Aggregate;
+use crate::module::wit_aggregate::AggregateError;
 
 #[derive(Clone)]
 pub struct Module {
@@ -56,9 +57,7 @@ impl Module {
         command::add_to_linker(&mut linker)?;
 
         let (aggregate, _instance) =
-            wit_aggregate::Aggregate::instantiate_async(&mut store, &component, &linker)
-                .await
-                .context("failed to instantiate module")?;
+            wit_aggregate::Aggregate::instantiate_async(&mut store, &component, &linker).await?;
 
         info!(?file, "loaded module from file");
 
@@ -145,7 +144,10 @@ impl ModuleInstance {
             .agg()
             .call_apply(store.deref_mut(), self.resource, &events)
             .await
-            .map(|res| res.map_err(anyhow::Error::from))
+            .map(|res| {
+                res.map_err(AggregateError::from)
+                    .map_err(anyhow::Error::from)
+            })
             .map_err(anyhow::Error::from);
         if let Err(err) | Ok(Err(err)) = res {
             self.sequence = original_sequence;
@@ -171,15 +173,18 @@ impl ModuleInstance {
                 .agg()
                 .call_handle(store.deref_mut(), self.resource, command)
                 .await?
+                .map_err(AggregateError::from)
         };
         match result {
             Ok(events) => Ok(Ok(events
                 .into_iter()
                 .map(Event::try_from)
                 .collect::<Result<Vec<_>, _>>()?)),
-            Err(wit_aggregate::Error::Command(err)) => Ok(Err(
-                serde_json::from_str(&err).context("failed to deserialize error")?
-            )),
+            Err(AggregateError::Command { command, error }) => {
+                Ok(Err(serde_json::from_str(&error).with_context(|| {
+                    format!("failed to error returned from command '{command}'")
+                })?))
+            }
             Err(err) => Err(anyhow!(err)),
         }
     }

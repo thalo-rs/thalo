@@ -35,11 +35,11 @@ macro_rules! export_aggregate {
                             }
 
                             variant error {
-                                command(string),
-                                deserialize-command(string),
+                                command(tuple<string, string>),
+                                deserialize-command(tuple<string, string>),
                                 deserialize-context(string),
-                                deserialize-event(string),
-                                serialize-error(string),
+                                deserialize-event(tuple<string, string>),
+                                serialize-error(tuple<string, string>),
                                 serialize-event(string),
                             }
 
@@ -88,11 +88,22 @@ macro_rules! export_aggregate {
                     payload,
                 } in events
                 {
-                    let payload: serde_json::Value = serde_json::from_str(&payload)
-                        .map_err(|err| wit::Error::DeserializeEvent(err.to_string()))?;
-                    let event_value = serde_json::json!({ event: payload });
-                    let event: <$crate::State<Agg> as $crate::Aggregate>::Event = serde_json::from_value(event_value)
-                        .map_err(|err| wit::Error::DeserializeEvent(err.to_string()))?;
+                    let payload: serde_json::Value = match serde_json::from_str(&payload) {
+                        Ok(payload) => payload,
+                        Err(err) => {
+                            return Err(wit::Error::DeserializeEvent((event, err.to_string())));
+                        }
+                    };
+                    let event_value = {
+                        let event = event.clone();
+                        serde_json::json!({ event: payload })
+                    };
+                    let event: <$crate::State<Agg> as $crate::Aggregate>::Event = match serde_json::from_value(event_value) {
+                        Ok(event) => event,
+                        Err(err) => {
+                            return Err(wit::Error::DeserializeEvent((event, err.to_string())));
+                        }
+                    };
                     <$crate::State<Agg> as $crate::Apply<<$crate::State<Agg> as $crate::Aggregate>::Event>>::apply(&mut state, event);
                 }
 
@@ -107,16 +118,28 @@ macro_rules! export_aggregate {
                 }: wit::Command,
             ) -> Result<Vec<wit::Event>, wit::Error> {
                 let state = state.borrow();
-                let payload: serde_json::Value = serde_json::from_str(&payload)
-                    .map_err(|err| wit::Error::DeserializeCommand(err.to_string()))?;
-                let cmd_value = serde_json::json!({ command: payload });
-                let cmd: <$crate::State<Agg> as $crate::Aggregate>::Command = serde_json::from_value(cmd_value)
-                    .map_err(|err| wit::Error::DeserializeCommand(err.to_string()))?;
+                let payload: serde_json::Value = match serde_json::from_str(&payload) {
+                    Ok(payload) => payload,
+                    Err(err) => {
+                        return Err(wit::Error::DeserializeCommand((command, err.to_string())));
+                    }
+                };
+                let cmd_value = {
+                    let command = command.clone();
+                    serde_json::json!({ command: payload })
+                };
+                let cmd: <$crate::State<Agg> as $crate::Aggregate>::Command = match serde_json::from_value(cmd_value) {
+                    Ok(cmd) => cmd,
+                    Err(err) => {
+                        return Err(wit::Error::DeserializeCommand((command, err.to_string())));
+                    }
+                };
                 let events = <$crate::State<Agg> as $crate::Handle<<$crate::State<Agg> as $crate::Aggregate>::Command>>::handle(&state, cmd)
                     .map_err(|err|
-                        serde_json::to_string(&err)
-                            .map(wit::Error::Command)
-                            .unwrap_or_else(|err| wit::Error::SerializeError(err.to_string()))
+                        match serde_json::to_string(&err) {
+                            Ok(err) => wit::Error::Command((command, err)),
+                            Err(err) => wit::Error::SerializeError((command, err.to_string())),
+                        }
                     )?
                     .into_iter()
                     .map(|event| {
