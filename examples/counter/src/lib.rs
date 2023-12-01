@@ -27,7 +27,7 @@ impl Handle<CounterCommand> for Counter {
     fn handle(&self, cmd: CounterCommand) -> Result<Vec<CounterEvent>, Self::Error> {
         match cmd {
             CounterCommand::Increment { amount } => {
-                events![Incremented { amount }, Incremented { amount }]
+                events![Incremented { amount }]
             }
         }
     }
