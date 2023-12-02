@@ -9,6 +9,7 @@ thalo_runtime = { workspace = true }
 counter = { path = "../counter" }
 
 anyhow = { workspace = true }
+async-trait = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sled = "0.34"
