@@ -2,7 +2,7 @@ use sled::transaction::ConflictableTransactionError;
 use thalo::stream_name::EmptyStreamName;
 use thiserror::Error;
 
-/// Type alias for `Result<T, message_db::Error>`
+/// Type alias for `Result<T, thalo_message_store::Error>`
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 /// Represents all the ways a method can fail.

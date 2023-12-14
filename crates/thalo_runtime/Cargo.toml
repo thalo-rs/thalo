@@ -15,15 +15,20 @@ path = "./src/main.rs"
 
 [dependencies]
 thalo = { workspace = true }
-thalo_message_store = { workspace = true }
+thalo_eventstore = { workspace = true }
+thalo_scylla = { workspace = true }
+eventstore = "2.3.0"
+scylla = "0.10.1"
+# thalo_message_store = { workspace = true }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 async-recursion = "1.0.5"
 async-stream = "0.3.5"
 bytes = "1.2"
+chrono = { workspace = true }
 clap = { workspace = true }
-futures = "0.3.25"
+futures = { workspace = true }
 moka = { version = "0.12.1", features = ["future"] }
 prost = "0.12"
 prost-types = "0.12"
@@ -38,6 +43,7 @@ tonic = { workspace = true }
 tracing = { workspace = true }
 tracing-tunnel = { workspace = true, features = ["receiver"] }
 tracing-subscriber = { workspace = true }
+uuid = { workspace = true }
 wasmtime-wasi = { version = "15.0", features = ["tokio"] }
 wasmtime = { version = "15.0", features = ["component-model"] }
 

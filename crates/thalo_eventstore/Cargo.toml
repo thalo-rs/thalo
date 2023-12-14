@@ -1,0 +1,13 @@
+[package]
+name = "thalo_eventstore"
+version = "0.8.0"
+edition = "2021"
+
+[dependencies]
+thalo = { workspace = true }
+
+async-trait = { workspace = true }
+derive_more = "0.99.17"
+eventstore = "2.3.0"
+futures = { workspace = true }
+serde_json = { workspace = true }

@@ -3,8 +3,8 @@ use std::sync::Arc;
 use redis::aio::MultiplexedConnection;
 use redis::streams::StreamMaxlen;
 use redis::ToRedisArgs;
+use thalo::event_store::message::Message;
 use thalo::stream_name::Category;
-use thalo_message_store::message::Message;
 
 #[derive(Clone)]
 pub enum Relay {

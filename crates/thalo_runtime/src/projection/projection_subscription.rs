@@ -3,8 +3,8 @@ use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
 use async_recursion::async_recursion;
+use thalo::event_store::message::Message;
 use thalo_message_store::global_event_log::{GlobalEventLog, GlobalEventLogIter};
-use thalo_message_store::message::Message;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::interval;
 use tracing::{error, info, trace};

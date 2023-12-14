@@ -12,10 +12,15 @@ license = "Apache-2.0 OR MIT"
 [dependencies]
 thalo_derive = { workspace = true }
 
+# anyhow = { workspace = true }
+async-trait = { workspace = true }
+chrono = { workspace = true }
+futures = { workspace = true }
 heck = "0.4.1"
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tracing-tunnel = { workspace = true, features = ["sender"] }
+uuid = { workspace = true }
 wit-bindgen = "0.15"

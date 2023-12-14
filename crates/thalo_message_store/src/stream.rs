@@ -1,17 +1,18 @@
 use std::borrow::Cow;
 use std::marker::PhantomData;
 use std::ops;
-use std::time::SystemTime;
 
+use chrono::Utc;
 use sled::transaction::{ConflictableTransactionError, Transactional, TransactionalTree};
 use sled::{IVec, Tree};
+use thalo::event_store::message::Message;
 use thalo::stream_name::StreamName;
 use tracing::info;
+use uuid::Uuid;
 
 use crate::error::{Error, Result};
 use crate::global_event_log::GlobalEventLog;
 use crate::id_generator::IdGenerator;
-use crate::message::Message;
 
 #[derive(Clone)]
 pub struct Stream<'a> {
@@ -87,7 +88,7 @@ impl<'a> Stream<'a> {
                         expected_version,
                     )
                     .map_err(ConflictableTransactionError::Abort)?;
-                    stream_version = Some(written_message.position);
+                    stream_version = Some(written_message.stream_sequence);
                     written_messages.push(written_message);
                 }
 
@@ -136,23 +137,20 @@ impl<'a> Stream<'a> {
         let message_id_bytes = message_id.to_be_bytes().to_vec();
         let mut message_ref = message_id_bytes.clone();
         message_ref.extend_from_slice(stream_name.as_bytes());
-        let message = Message {
-            id: message_id,
-            global_id,
-            position: next_position,
+        let message = Message::new(
             stream_name,
-            msg_type: Cow::Borrowed(msg_type),
+            next_position,
+            global_id,
+            Cow::Borrowed(msg_type),
             data,
-            time: SystemTime::now(),
-            _marker: PhantomData,
-        };
+        );
         let raw_message = serde_cbor::to_vec(&message).map_err(|err| {
             ConflictableTransactionError::Abort(Box::new(Error::SerializeData(err)))
         })?;
         tx_stream.insert(message_id_bytes, raw_message.clone())?;
         tx_global_event_log.insert(global_id.to_be_bytes().to_vec(), message_ref)?;
 
-        info!(id = message.id, global_id = message.global_id, stream_name = %message.stream_name, msg_type = %message.msg_type, position = message.position);
+        info!(stream_name = %message.stream_name, stream_sequence = message.stream_sequence, global_sequence = %message.global_sequence, event_type = %message.event_type);
 
         Ok(message)
     }

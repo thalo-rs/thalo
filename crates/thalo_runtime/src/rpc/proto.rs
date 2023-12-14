@@ -2,29 +2,30 @@ use std::borrow::Cow;
 use std::marker::PhantomData;
 use std::time::{Duration, UNIX_EPOCH};
 
-use thalo::stream_name::{Category, EmptyStreamName, StreamName};
+use chrono::{TimeZone, Utc};
+use thalo::stream_name::{EmptyStreamName, StreamName};
 use thiserror::Error;
 
 tonic::include_proto!("thalo");
 
-impl<T> TryFrom<thalo_message_store::message::Message<'static, T>> for Message {
+impl<T> TryFrom<thalo::event_store::message::Message<'static, T>> for Message {
     type Error = serde_json::Error;
 
     fn try_from(
-        msg: thalo_message_store::message::Message<'static, T>,
+        msg: thalo::event_store::message::Message<'static, T>,
     ) -> Result<Self, Self::Error> {
         Ok(Message {
-            id: msg.id,
-            global_id: msg.global_id,
-            position: msg.position,
             stream_name: msg.stream_name.into_string(),
-            msg_type: msg.msg_type.into_owned(),
+            stream_sequence: msg.stream_sequence,
+            global_sequence: msg.global_sequence,
+            id: msg.id.to_string(),
+            event_type: msg.event_type.into_owned(),
             data: serde_json::to_string(&msg.data)?,
-            time: msg
-                .time
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis() as u64,
+            timestamp: msg
+                .timestamp
+                .timestamp_millis()
+                .try_into()
+                .unwrap_or_default(),
         })
     }
 }
@@ -35,38 +36,44 @@ pub enum TryFromMessageError {
     DeserializeData(#[from] serde_json::Error),
     #[error("invalid stream name")]
     InvalidStreamName,
+    #[error("invalid uuid: {0}")]
+    ParseUuidError(#[from] uuid::Error),
 }
 
-impl<T> TryFrom<Message> for thalo_message_store::message::Message<'static, T> {
+impl<T> TryFrom<Message> for thalo::event_store::message::Message<'static, T> {
     type Error = TryFromMessageError;
 
     fn try_from(msg: Message) -> Result<Self, Self::Error> {
-        Ok(thalo_message_store::message::Message {
-            id: msg.id,
-            global_id: msg.global_id,
-            position: msg.position,
+        Ok(thalo::event_store::message::Message {
             stream_name: StreamName::new(msg.stream_name)
                 .map_err(|_| TryFromMessageError::InvalidStreamName)?,
-            msg_type: Cow::Owned(msg.msg_type),
+            stream_sequence: msg.stream_sequence,
+            global_sequence: msg.global_sequence,
+            id: msg.id.parse()?,
+            event_type: Cow::Owned(msg.event_type),
             data: serde_json::from_str(&msg.data)?,
-            time: UNIX_EPOCH + Duration::from_millis(msg.time),
+            timestamp: Utc
+                .timestamp_millis_opt(msg.timestamp as i64)
+                .single()
+                .unwrap_or_default(),
             _marker: PhantomData,
         })
     }
 }
 
-impl TryFrom<EventInterest> for crate::projection::EventInterest<'static> {
-    type Error = EmptyStreamName;
+// impl TryFrom<EventInterest> for crate::projection::EventInterest<'static> {
+//     type Error = EmptyStreamName;
 
-    fn try_from(event_interest: EventInterest) -> Result<Self, Self::Error> {
-        let category = if event_interest.category == "*" {
-            crate::projection::CategoryInterest::Any
-        } else {
-            crate::projection::CategoryInterest::Category(Category::new(event_interest.category)?)
-        };
-        Ok(crate::projection::EventInterest {
-            category,
-            event: event_interest.event,
-        })
-    }
-}
+//     fn try_from(event_interest: EventInterest) -> Result<Self, Self::Error> {
+//         let category = if event_interest.category == "*" {
+//             crate::projection::CategoryInterest::Any
+//         } else {
+//
+// crate::projection::CategoryInterest::Category(Category::new(event_interest.
+// category)?)         };
+//         Ok(crate::projection::EventInterest {
+//             category,
+//             event: event_interest.event,
+//         })
+//     }
+// }

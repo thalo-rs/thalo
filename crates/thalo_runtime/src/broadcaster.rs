@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use anyhow::{Context, Result};
-use thalo_message_store::message::Message;
+use thalo::event_store::message::Message;
 use tokio::sync::{broadcast, mpsc};
 use tracing::error;
 
@@ -56,7 +56,7 @@ struct Broadcaster {
 
 impl Broadcaster {
     fn broadcast_event(&mut self, event: Message<'static>) -> Result<()> {
-        self.buffer.insert(event.global_id, event);
+        self.buffer.insert(event.global_sequence, event);
         self.process_buffer()
     }
 

@@ -5,31 +5,30 @@ use async_trait::async_trait;
 use proto::Acknowledgement;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use thalo::stream_name::{Category, ID};
+use thalo::event_store::message::Message;
 use thalo::{Aggregate, Handle};
-use thalo_message_store::message::Message;
 use tonic::codegen::*;
 use tonic::{Request, Status};
 
 pub use super::proto::command_center_client::*;
 pub use super::proto::projection_client::*;
 use super::{proto, EventInterest, SubscriptionRequest};
-use crate::projection::Projection;
+// use crate::projection::Projection;
 
 #[async_trait]
 pub trait CommandCenterClientExt {
     async fn execute_anonymous_command(
         &mut self,
-        name: Category<'static>,
-        id: ID<'static>,
+        name: String,
+        id: String,
         cmd: String,
         payload: &serde_json::Value,
     ) -> Result<Result<Vec<Message>, serde_json::Value>, Status>;
 
     async fn execute<A, C>(
         &mut self,
-        name: Category<'static>,
-        id: ID<'static>,
+        name: String,
+        id: String,
         cmd: C,
     ) -> Result<Result<Vec<Message<A::Event>>, <A as Handle<C>>::Error>, Status>
     where
@@ -58,7 +57,7 @@ pub trait CommandCenterClientExt {
         }
     }
 
-    async fn publish(&mut self, name: Category<'static>, module: Vec<u8>) -> Result<(), Status>;
+    async fn publish(&mut self, name: String, module: Vec<u8>) -> Result<(), Status>;
 }
 
 #[async_trait]
@@ -72,8 +71,8 @@ where
 {
     async fn execute_anonymous_command(
         &mut self,
-        name: Category<'static>,
-        id: ID<'static>,
+        name: String,
+        id: String,
         cmd: String,
         payload: &serde_json::Value,
     ) -> Result<Result<Vec<Message>, serde_json::Value>, Status> {
@@ -82,8 +81,8 @@ where
         })?;
 
         let req = Request::new(proto::ExecuteCommand {
-            name: name.into_string(),
-            id: id.into_string(),
+            name,
+            id,
             command: cmd,
             payload,
         });
@@ -103,11 +102,8 @@ where
         }
     }
 
-    async fn publish(&mut self, name: Category<'static>, module: Vec<u8>) -> Result<(), Status> {
-        let req = Request::new(proto::PublishModule {
-            name: name.into_string(),
-            module,
-        });
+    async fn publish(&mut self, name: String, module: Vec<u8>) -> Result<(), Status> {
+        let req = Request::new(proto::PublishModule { name, module });
         let resp = CommandCenterClient::publish(self, req).await?.into_inner();
         if resp.success {
             Ok(())
@@ -117,75 +113,75 @@ where
     }
 }
 
-#[async_trait]
-pub trait ProjectionClientExt {
-    async fn start_projection<P>(
-        &mut self,
-        name: &str,
-        projection: P,
-        events: Vec<EventInterest>,
-    ) -> anyhow::Result<()>
-    where
-        P: Projection + Send;
-}
+// #[async_trait]
+// pub trait ProjectionClientExt {
+//     async fn start_projection<P>(
+//         &mut self,
+//         name: &str,
+//         projection: P,
+//         events: Vec<EventInterest>,
+//     ) -> anyhow::Result<()>
+//     where
+//         P: Projection + Send;
+// }
 
-#[async_trait]
-impl<T> ProjectionClientExt for ProjectionClient<T>
-where
-    T: tonic::client::GrpcService<tonic::body::BoxBody> + Send,
-    <T as tonic::client::GrpcService<tonic::body::BoxBody>>::Future: Send,
-    T::Error: Into<StdError>,
-    T::ResponseBody: Body<Data = tonic::codegen::Bytes> + Send + 'static,
-    <T::ResponseBody as Body>::Error: Into<StdError> + Send,
-{
-    async fn start_projection<P>(
-        &mut self,
-        name: &str,
-        mut projection: P,
-        events: Vec<EventInterest>,
-    ) -> anyhow::Result<()>
-    where
-        P: Projection + Send,
-    {
-        let mut streaming = self
-            .subscribe_to_events(SubscriptionRequest {
-                name: name.to_string(),
-                events,
-            })
-            .await?
-            .into_inner();
+// #[async_trait]
+// impl<T> ProjectionClientExt for ProjectionClient<T>
+// where
+//     T: tonic::client::GrpcService<tonic::body::BoxBody> + Send,
+//     <T as tonic::client::GrpcService<tonic::body::BoxBody>>::Future: Send,
+//     T::Error: Into<StdError>,
+//     T::ResponseBody: Body<Data = tonic::codegen::Bytes> + Send + 'static,
+//     <T::ResponseBody as Body>::Error: Into<StdError> + Send,
+// {
+//     async fn start_projection<P>(
+//         &mut self,
+//         name: &str,
+//         mut projection: P,
+//         events: Vec<EventInterest>,
+//     ) -> anyhow::Result<()>
+//     where
+//         P: Projection + Send,
+//     {
+//         let mut streaming = self
+//             .subscribe_to_events(SubscriptionRequest {
+//                 name: name.to_string(),
+//                 events,
+//             })
+//             .await?
+//             .into_inner();
 
-        while let Some(message) = streaming.message().await? {
-            let global_id = message.global_id;
+//         while let Some(message) = streaming.message().await? {
+//             let global_id = message.global_id;
 
-            if projection
-                .last_global_id()
-                .await?
-                .map_or(false, |last_global_id| message.global_id <= last_global_id)
-            {
-                // Ignore, since we've already handled this event.
-                // This logic keeps the projection idempotent, which is important since
-                // projections have an at-least-once guarantee, meaning if a connection issue
-                // occurs, we might reprocess event we've already seen.
-                self.acknowledge_event(Acknowledgement {
-                    name: name.to_string(),
-                    global_id,
-                })
-                .await?;
-                continue;
-            }
+//             if projection
+//                 .last_global_id()
+//                 .await?
+//                 .map_or(false, |last_global_id| message.global_id <=
+// last_global_id)             {
+//                 // Ignore, since we've already handled this event.
+//                 // This logic keeps the projection idempotent, which is
+// important since                 // projections have an at-least-once
+// guarantee, meaning if a connection issue                 // occurs, we might
+// reprocess event we've already seen.
+// self.acknowledge_event(Acknowledgement {                     name:
+// name.to_string(),                     global_id,
+//                 })
+//                 .await?;
+//                 continue;
+//             }
 
-            let message = message.try_into()?;
-            projection.handle(message).await?;
+//             let message = message.try_into()?;
+//             projection.handle(message).await?;
 
-            // Acknowledge we've handled this event
-            self.acknowledge_event(Acknowledgement {
-                name: name.to_string(),
-                global_id,
-            })
-            .await?;
-        }
+//             // Acknowledge we've handled this event
+//             self.acknowledge_event(Acknowledgement {
+//                 name: name.to_string(),
+//                 global_id,
+//             })
+//             .await?;
+//         }
 
-        Ok(())
-    }
-}
+//         Ok(())
+//     }
+// }

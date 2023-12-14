@@ -12,10 +12,15 @@ license = "Apache-2.0 OR MIT"
 [dependencies]
 thalo = { workspace = true }
 
+anyhow = { workspace = true }
+async-trait = { workspace = true }
 bincode = "1.3.3"
+chrono = { workspace = true }
+futures = { workspace = true }
 sled = "0.34.7"
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_cbor = "0.11.2"
 thiserror = { workspace = true }
 tracing = { workspace = true }
+uuid = { workspace = true }

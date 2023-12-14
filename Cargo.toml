@@ -4,9 +4,11 @@ members = [
   # Core
   "crates/thalo",
   "crates/thalo_cli",
-  "crates/thalo_message_store",
+  # "crates/thalo_message_store",
   "crates/thalo_derive",
+  "crates/thalo_eventstore",
   "crates/thalo_runtime",
+  "crates/thalo_scylla",
 
   # Examples
   "examples/bank_account",
@@ -18,12 +20,16 @@ members = [
 [workspace.dependencies]
 thalo = { path = "crates/thalo", version = "0.8.0" }
 thalo_derive = { path = "crates/thalo_derive", version = "0.8.0" }
-thalo_message_store = { path = "crates/thalo_message_store", version = "0.8.0" }
+thalo_eventstore = { path = "crates/thalo_eventstore", version = "0.8.0" }
+thalo_scylla = { path = "crates/thalo_scylla", version = "0.8.0" }
+# thalo_message_store = { path = "crates/thalo_message_store", version = "0.8.0" }
 thalo_runtime = { path = "crates/thalo_runtime", version = "0.8.0" }
 
 anyhow = "1.0"
 async-trait = "0.1"
+chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.0", features = ["derive", "env"] }
+futures = "0.3"
 serde = "1.0"
 serde_json = "1.0"
 thiserror = "1.0"
@@ -32,3 +38,4 @@ tonic = "0.10"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-tunnel = "0.1"
+uuid = { version = "1.6", features = ["v1", "v4", "serde"] }

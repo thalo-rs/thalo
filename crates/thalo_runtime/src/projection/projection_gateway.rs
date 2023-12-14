@@ -1,9 +1,11 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
+use thalo::event_store::message::Message;
+use thalo::event_store::BoxEventStore;
 use thalo::stream_name::Category;
-use thalo_message_store::message::Message;
 use thalo_message_store::projection::Projection;
 use thalo_message_store::MessageStore;
 use tokio::sync::{broadcast, mpsc, oneshot};
@@ -21,13 +23,13 @@ pub struct ProjectionGatewayHandle {
 
 impl ProjectionGatewayHandle {
     pub fn new(
-        message_store: MessageStore,
+        event_store: Arc<BoxEventStore>,
         subscriber: broadcast::Receiver<Message<'static>>,
     ) -> Self {
         let (sender, receiver) = mpsc::channel(16);
         tokio::spawn(run_projection_gateway(
             (sender.clone(), receiver),
-            message_store,
+            event_store,
             subscriber,
         ));
 
@@ -121,13 +123,13 @@ async fn run_projection_gateway(
         mpsc::Sender<ProjectionGatewayMsg>,
         mpsc::Receiver<ProjectionGatewayMsg>,
     ),
-    message_store: MessageStore,
+    event_store: Arc<BoxEventStore>,
     mut subscriber: broadcast::Receiver<Message<'static>>,
 ) {
     let mut projection_gateway = ProjectionGateway {
         sender,
         projections: HashMap::new(),
-        message_store,
+        event_store,
         is_dirty: false,
     };
 
@@ -184,7 +186,7 @@ async fn run_projection_gateway(
 struct ProjectionGateway {
     sender: mpsc::Sender<ProjectionGatewayMsg>,
     projections: HashMap<String, Subscription>,
-    message_store: MessageStore,
+    event_store: Arc<BoxEventStore>,
     is_dirty: bool,
 }
 
@@ -203,7 +205,7 @@ impl ProjectionGateway {
                 }
             });
         } else {
-            let mut projection = self.message_store.projection(&name)?;
+            let mut projection = self.event_store.projection(&name)?;
             projection.acknowledge_event(global_id, true)?;
             self.is_dirty = true;
         }

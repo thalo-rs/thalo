@@ -59,17 +59,11 @@
 //! project an event stream from its first-ever recorded event when entity is
 //! not already in the in-memory cache.
 
-mod category;
-mod id;
-
 use std::borrow::Cow;
 use std::{fmt, str};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-
-pub use self::category::Category;
-pub use self::id::ID;
 
 /// A stream name containing a category, and optionally an ID.
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -96,11 +90,8 @@ impl<'a> StreamName<'a> {
         Ok(StreamName(stream_name))
     }
 
-    pub fn from_parts(
-        category: Category<'_>,
-        id: Option<&ID<'_>>,
-    ) -> Result<Self, EmptyStreamName> {
-        let mut s = category.into_string();
+    pub fn from_parts(category: String, id: Option<&str>) -> Result<Self, EmptyStreamName> {
+        let mut s = category;
         if let Some(id) = id {
             s.push(Self::ID_SEPARATOR);
             s.push_str(id);
@@ -109,15 +100,14 @@ impl<'a> StreamName<'a> {
         Ok(StreamName(Cow::Owned(s)))
     }
 
-    pub fn category(&self) -> Category<'_> {
+    pub fn category(&self) -> &str {
         self.split_once(Self::ID_SEPARATOR)
-            .map(|(category, _)| Category(Cow::Borrowed(category)))
-            .unwrap_or(Category(Cow::Borrowed(self.as_ref())))
+            .map(|(category, _)| category)
+            .unwrap_or(self)
     }
 
-    pub fn id(&self) -> Option<ID<'_>> {
-        self.split_once(Self::ID_SEPARATOR)
-            .map(|(_, id)| ID(Cow::Borrowed(id)))
+    pub fn id(&self) -> Option<&str> {
+        self.split_once(Self::ID_SEPARATOR).map(|(_, id)| id)
     }
 
     /// Returns whether a `stream_name` is a category.

@@ -3,7 +3,7 @@ mod projection_subscription;
 
 use async_trait::async_trait;
 pub use projection_gateway::*;
-use thalo_message_store::message::Message;
+use thalo::event_store::message::Message;
 
 #[async_trait]
 pub trait Projection {

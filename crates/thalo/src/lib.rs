@@ -68,6 +68,7 @@
 
 #[macro_use]
 mod macros;
+pub mod event_store;
 pub mod stream_name;
 
 pub use thalo_derive::*;

@@ -2,41 +2,50 @@ use std::borrow::Cow;
 
 use anyhow::{Context as AnyhowContext, Result};
 use serde_json::Value;
-use thalo_message_store::message::Message;
-use thalo_message_store::stream::Stream;
+use thalo::event_store::{EventStore, NewEvent};
+use thalo::stream_name::StreamName;
 use tokio::sync::{mpsc, oneshot};
-use tracing::{error, trace};
+use tracing::trace;
 
-use super::outbox_relay::OutboxRelayHandle;
-use crate::broadcaster::BroadcasterHandle;
+// use crate::broadcaster::BroadcasterHandle;
 use crate::module::{Event, ModuleInstance};
 
 #[derive(Clone)]
-pub struct EntityCommandHandlerHandle {
-    sender: mpsc::Sender<ExecuteEntityCommand>,
+pub struct EntityCommandHandlerHandle<E: EventStore> {
+    sender: mpsc::Sender<ExecuteEntityCommand<E>>,
 }
 
 #[derive(Debug)]
-struct ExecuteEntityCommand {
+struct ExecuteEntityCommand<E>
+where
+    E: EventStore,
+{
     command: String,
     payload: Value,
-    reply: oneshot::Sender<Result<Result<Vec<Message<'static>>, serde_json::Value>>>,
+    reply: oneshot::Sender<Result<Result<Vec<E::Event>, serde_json::Value>>>,
 }
 
-impl EntityCommandHandlerHandle {
+impl<E> EntityCommandHandlerHandle<E>
+where
+    E: EventStore + Clone + 'static,
+    E::Event: Send,
+    E::Error: Send + Sync,
+{
     pub fn new(
-        outbox_relay: OutboxRelayHandle,
-        broadcaster: BroadcasterHandle,
+        // outbox_relay: OutboxRelayHandle,
+        // broadcaster: BroadcasterHandle,
+        event_store: E,
+        stream_name: StreamName<'static>,
         instance: ModuleInstance,
-        stream: Stream<'static>,
     ) -> Self {
         let (sender, receiver) = mpsc::channel(16);
         tokio::spawn(run_entity_command_handler(
             receiver,
-            outbox_relay,
-            broadcaster,
+            // outbox_relay,
+            // broadcaster,
+            event_store,
+            stream_name,
             instance,
-            stream,
         ));
 
         EntityCommandHandlerHandle { sender }
@@ -46,7 +55,7 @@ impl EntityCommandHandlerHandle {
         &self,
         command: String,
         payload: Value,
-    ) -> Result<Result<Vec<Message<'static>>, serde_json::Value>> {
+    ) -> Result<Result<Vec<E::Event>, serde_json::Value>> {
         let (reply, recv) = oneshot::channel();
         let msg = ExecuteEntityCommand {
             command,
@@ -60,17 +69,23 @@ impl EntityCommandHandlerHandle {
     }
 }
 
-async fn run_entity_command_handler(
-    mut receiver: mpsc::Receiver<ExecuteEntityCommand>,
-    outbox_relay: OutboxRelayHandle,
-    broadcaster: BroadcasterHandle,
+async fn run_entity_command_handler<E>(
+    mut receiver: mpsc::Receiver<ExecuteEntityCommand<E>>,
+    // outbox_relay: OutboxRelayHandle,
+    // broadcaster: BroadcasterHandle,
+    event_store: E,
+    stream_name: StreamName<'static>,
     instance: ModuleInstance,
-    stream: Stream<'static>,
-) -> Result<()> {
+) -> Result<()>
+where
+    E: EventStore + Clone,
+    E::Error: Send + Sync + 'static,
+{
     let mut handler = EntityCommandHandler {
-        outbox_relay,
-        broadcaster,
-        stream,
+        // outbox_relay,
+        // broadcaster,
+        event_store,
+        stream_name,
         instance,
     };
 
@@ -79,25 +94,30 @@ async fn run_entity_command_handler(
         let _ = msg.reply.send(res);
     }
 
-    trace!(stream_name = %handler.stream.stream_name(), "stopping entity command handler");
+    trace!(stream_name = %handler.stream_name, "stopping entity command handler");
     handler.instance.resource_drop().await?;
 
     Ok(())
 }
 
-struct EntityCommandHandler {
-    outbox_relay: OutboxRelayHandle,
-    broadcaster: BroadcasterHandle,
-    stream: Stream<'static>,
+struct EntityCommandHandler<E> {
+    // outbox_relay: OutboxRelayHandle,
+    // broadcaster: BroadcasterHandle,
+    event_store: E,
+    stream_name: StreamName<'static>,
     instance: ModuleInstance,
 }
 
-impl EntityCommandHandler {
+impl<E> EntityCommandHandler<E>
+where
+    E: EventStore + Clone,
+    E::Error: Send + Sync + 'static,
+{
     async fn execute(
         &mut self,
         command: String,
         payload: Value,
-    ) -> Result<Result<Vec<Message<'static>>, serde_json::Value>> {
+    ) -> Result<Result<Vec<E::Event>, serde_json::Value>> {
         let payload = serde_json::to_string(&payload)?;
         let events = match self.instance.handle(&command, &payload).await? {
             Ok(events) => events,
@@ -127,33 +147,37 @@ impl EntityCommandHandler {
         self.instance.apply(&events_to_apply).await?;
 
         // Persist events.
-        let messages: Vec<_> = events
+        let new_events: Vec<_> = events
             .iter()
             .map(|event| {
-                let payload = serde_json::from_str(&event.payload)?;
-                Ok((event.event.as_ref(), Cow::Owned(payload)))
+                let data = serde_json::from_str(&event.payload)?;
+                Ok(NewEvent::new(event.event.to_string(), data))
             })
             .collect::<anyhow::Result<_>>()?;
-        let written_messages = self.stream.write_messages(&messages, sequence)?;
+        let written_messages = self
+            .event_store
+            .append_to_stream(&self.stream_name, new_events, sequence)
+            .await?;
 
-        for message in &written_messages {
-            if let Err(err) = self
-                .broadcaster
-                .broadcast_event(message.clone().into_owned())
-                .await
-            {
-                error!("failed to broadcast event: {err}");
-            }
-        }
+        // for message in &written_messages {
+        //     if let Err(err) = self
+        //         .broadcaster
+        //         .broadcast_event(message.clone().into_owned())
+        //         .await
+        //     {
+        //         error!("failed to broadcast event: {err}");
+        //     }
+        // }
 
-        if let Err(err) = self.outbox_relay.relay_next_batch().await {
-            error!("failed to notify outbox relay: {err}");
-        }
+        // if let Err(err) = self.outbox_relay.relay_next_batch().await {
+        //     error!("failed to notify outbox relay: {err}");
+        // }
 
-        let reply_messages = written_messages
-            .into_iter()
-            .map(|message| message.into_owned())
-            .collect();
-        Ok(Ok(reply_messages))
+        // let reply_messages = written_messages
+        //     .into_iter()
+        //     .map(|message| message.into_owned())
+        //     .collect();
+
+        Ok(Ok(written_messages))
     }
 }

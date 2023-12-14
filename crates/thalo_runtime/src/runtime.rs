@@ -2,32 +2,37 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use serde_json::Value;
-use thalo::stream_name::{Category, ID};
-use thalo_message_store::message::Message;
-use thalo_message_store::MessageStore;
+use thalo::event_store::message::Message;
+use thalo::event_store::EventStore;
 use tokio::fs;
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::broadcast;
 use tracing::instrument;
 use wasmtime::Engine;
 
-use crate::broadcaster::BroadcasterHandle;
+// use crate::broadcaster::BroadcasterHandle;
 use crate::command::CommandGatewayHandle;
-use crate::projection::{EventInterest, ProjectionGatewayHandle};
-use crate::relay::Relay;
+// use crate::projection::{EventInterest, ProjectionGatewayHandle};
+// use crate::relay::Relay;
 
 #[derive(Clone)]
-pub struct Runtime {
-    message_store: MessageStore,
+pub struct Runtime<E: EventStore> {
+    event_store: E,
     modules_path: PathBuf,
     event_tx: broadcast::Sender<Message<'static>>,
-    command_gateway: CommandGatewayHandle,
-    projection_gateway: ProjectionGatewayHandle,
+    command_gateway: CommandGatewayHandle<E>,
+    // projection_gateway: ProjectionGatewayHandle,
 }
 
-impl Runtime {
+impl<E> Runtime<E>
+where
+    E: EventStore + Clone + Send + 'static,
+    E::Event: Send,
+    E::EventStream: Send + Unpin,
+    E::Error: Send + Sync,
+{
     pub async fn new(
-        message_store: MessageStore,
-        relay: Relay,
+        event_store: E,
+        // relay: Relay,
         modules_path: impl Into<PathBuf>,
         cache_size: u64,
     ) -> Result<Self> {
@@ -36,54 +41,50 @@ impl Runtime {
         let engine = Engine::new(&config)?;
 
         let (event_tx, subscriber) = broadcast::channel(1024);
-        let broadcaster = BroadcasterHandle::new(
-            event_tx.clone(),
-            message_store.global_event_log()?.last_position()?,
-        );
+        // let broadcaster =
+        //     BroadcasterHandle::new(event_tx.clone(),
+        // event_store.latest_global_version().await?);
 
-        let projection_gateway = ProjectionGatewayHandle::new(message_store.clone(), subscriber);
+        // let projection_gateway = ProjectionGatewayHandle::new(event_store.clone(),
+        // subscriber);
 
         let modules_path = modules_path.into();
         let command_gateway = CommandGatewayHandle::new(
             engine,
-            message_store.clone(),
-            relay.clone(),
-            broadcaster.clone(),
+            event_store.clone(),
+            // relay.clone(),
+            // broadcaster.clone(),
             cache_size,
             modules_path.clone(),
         );
 
         Ok(Runtime {
-            message_store,
+            event_store,
             modules_path,
             event_tx,
             command_gateway,
-            projection_gateway,
+            // projection_gateway,
         })
     }
 
-    pub fn message_store(&self) -> &MessageStore {
-        &self.message_store
+    pub fn event_store(&self) -> &E {
+        &self.event_store
     }
 
     #[instrument(skip(self, payload))]
     pub async fn execute(
         &self,
-        name: Category<'static>,
-        id: ID<'static>,
+        name: String,
+        id: String,
         command: String,
         payload: Value,
-    ) -> Result<Result<Vec<Message<'static>>, serde_json::Value>> {
+    ) -> Result<Result<Vec<E::Event>, serde_json::Value>> {
         self.command_gateway
             .execute(name, id, command, payload)
             .await
     }
 
-    pub async fn save_module(
-        &self,
-        name: Category<'static>,
-        module: impl AsRef<[u8]>,
-    ) -> Result<()> {
+    pub async fn save_module(&self, name: String, module: impl AsRef<[u8]>) -> Result<()> {
         let path = self.modules_path.join(&format!("{name}.wasm"));
         fs::write(&path, module).await?;
 
@@ -92,24 +93,24 @@ impl Runtime {
             .await
     }
 
-    pub async fn start_projection(
-        &self,
-        tx: mpsc::Sender<Message<'static>>,
-        name: String,
-        events: Vec<EventInterest<'static>>,
-    ) -> Result<()> {
-        self.projection_gateway
-            .start_projection(tx, name, events)
-            .await
-    }
+    // pub async fn start_projection(
+    //     &self,
+    //     tx: mpsc::Sender<Message<'static>>,
+    //     name: String,
+    //     events: Vec<EventInterest<'static>>,
+    // ) -> Result<()> {
+    //     self.projection_gateway
+    //         .start_projection(tx, name, events)
+    //         .await
+    // }
 
     pub fn subscribe_events(&self) -> broadcast::Receiver<Message<'static>> {
         self.event_tx.subscribe()
     }
 
-    pub async fn acknowledge_event(&self, name: impl Into<String>, global_id: u64) -> Result<()> {
-        self.projection_gateway
-            .acknowledge_event(name.into(), global_id)
-            .await
-    }
+    // pub async fn acknowledge_event(&self, name: impl Into<String>, global_id:
+    // u64) -> Result<()> {     self.projection_gateway
+    //         .acknowledge_event(name.into(), global_id)
+    //         .await
+    // }
 }
