@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::io::Write;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -6,54 +7,50 @@ use std::task::{Context, Poll};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use futures::{Stream, StreamExt};
-use num_bigint::BigInt;
 use scylla::batch::Batch;
 use scylla::cql_to_rust::{FromCqlValError, FromRowError};
 use scylla::frame::response::result::Row;
 use scylla::prepared_statement::PreparedStatement;
+use scylla::statement::{Consistency, SerialConsistency};
 use scylla::transport::errors::QueryError;
 use scylla::transport::iterator::{NextRowError, TypedRowIterator};
+use scylla::transport::query_result::{FirstRowError, FirstRowTypedError};
 use scylla::{FromRow, Session};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use thalo::event_store::{Event, EventStore, NewEvent};
+use thalo::event_store::{AppendStreamError, EventData, EventStore, NewEvent, StreamEvent};
 use thiserror::Error;
 use uuid::Uuid;
+
+const CREATE_KEYSPACE_QUERY: &str = include_str!("../cql/create_keyspace.sql");
+const CREATE_EVENT_STORE_QUERY: &str = include_str!("../cql/create_event_store.sql");
+const CREATE_EVENT_SEQUENCE_COUNTER_QUERY: &str =
+    include_str!("../cql/create_event_sequence_counter.sql");
 
 #[derive(Clone, Debug)]
 pub struct ScyllaEventStore {
     session: Arc<Session>,
     append_to_stream_stmt: PreparedStatement,
     iter_stream_stmt: PreparedStatement,
+    max_sequence_stmt: PreparedStatement,
 }
 
 impl ScyllaEventStore {
     pub async fn new(session: Arc<Session>) -> Result<Self, QueryError> {
-        session.query("CREATE KEYSPACE IF NOT EXISTS thalo WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 }", ()).await?;
+        session.query(CREATE_KEYSPACE_QUERY, ()).await?;
+        session.query(CREATE_EVENT_STORE_QUERY, ()).await?;
         session
-            .query(
-                r#"
-                CREATE TABLE IF NOT EXISTS thalo.event_store (
-                    stream_name text,
-                    sequence bigint,
-                    id uuid,
-                    event_type text,
-                    data blob,
-                    timestamp timestamp,
-                    PRIMARY KEY ((stream_name), sequence)
-                ) WITH CLUSTERING ORDER BY (sequence ASC);    
-            "#,
-                (),
-            )
+            .query(CREATE_EVENT_SEQUENCE_COUNTER_QUERY, ())
             .await?;
 
         let append_to_stream_stmt = prepare_append_to_stream_stmt(&session).await?;
         let iter_stream_stmt = prepare_iter_stream_stmt(&session).await?;
+        let max_sequence_stmt = prepare_max_sequence_stmt(&session).await?;
 
         Ok(ScyllaEventStore {
             session: Arc::clone(&session),
             append_to_stream_stmt,
             iter_stream_stmt,
+            max_sequence_stmt,
         })
     }
 }
@@ -64,16 +61,16 @@ pub struct RecordedEvent {
     pub sequence: u64,
     pub id: Uuid,
     pub event_type: String,
-    pub data: Value,
+    pub data: EventData,
     pub timestamp: DateTime<Utc>,
 }
 
-impl Event for RecordedEvent {
+impl StreamEvent for RecordedEvent {
     fn event_type(&self) -> Cow<'_, str> {
         Cow::Borrowed(&self.event_type)
     }
 
-    fn data(&self) -> Cow<'_, Value> {
+    fn data(&self) -> Cow<'_, EventData> {
         Cow::Borrowed(&self.data)
     }
 
@@ -86,7 +83,7 @@ impl FromRow for RecordedEvent {
     fn from_row(row: Row) -> Result<Self, FromRowError> {
         let (stream_name, sequence, id, event_type, data, timestamp): (
             String,
-            BigInt,
+            i64,
             Uuid,
             String,
             Vec<u8>,
@@ -117,9 +114,25 @@ impl FromRow for RecordedEvent {
 #[derive(Debug, Error)]
 pub enum Error {
     #[error(transparent)]
-    Query(#[from] QueryError),
+    FirstRow(#[from] FirstRowError),
+    #[error(transparent)]
+    FirstRowTyped(#[from] FirstRowTypedError),
+    #[error("missing [applied] column")]
+    MissingAppliedColumn,
     #[error(transparent)]
     NextRow(#[from] NextRowError),
+    #[error(transparent)]
+    Query(#[from] QueryError),
+    #[error("write conflict - something else wrote to this stream at the same time")]
+    WriteConflict,
+    #[error("wrong expected sequence")]
+    WrongExpectedSequence,
+}
+
+impl From<Error> for AppendStreamError<Error> {
+    fn from(err: Error) -> Self {
+        AppendStreamError::Error(err)
+    }
 }
 
 #[async_trait]
@@ -131,11 +144,33 @@ impl EventStore for ScyllaEventStore {
     async fn append_to_stream(
         &self,
         stream_name: &str,
-        events: Vec<NewEvent>,
+        events: Vec<NewEvent<'_>>,
         expected_sequence: Option<u64>,
-    ) -> Result<Vec<Self::Event>, Self::Error> {
+    ) -> Result<Vec<Self::Event>, AppendStreamError<Self::Error>> {
+        let max_sequence = self
+            .session
+            .execute(&self.max_sequence_stmt, (stream_name,))
+            .await
+            .map_err(Error::Query)?
+            .first_row_typed::<(Option<i64>,)>()
+            .map_err(Error::FirstRowTyped)?
+            .0
+            .map(|n| n as u64);
+        if expected_sequence != max_sequence {
+            return Err(AppendStreamError::WrongExpectedSequence {
+                expected: expected_sequence,
+                current: max_sequence,
+            });
+        }
+
+        print!("press any key to continue...");
+        let _ = std::io::stdout().flush();
+        let _ = std::io::stdin().read_line(&mut String::default());
+
         let now = Utc::now();
         let mut batch = Batch::default();
+        batch.set_consistency(Consistency::Quorum);
+        batch.set_serial_consistency(Some(SerialConsistency::Serial));
         let mut batch_values = Vec::with_capacity(events.len());
         let events: Vec<_> = events
             .into_iter()
@@ -149,7 +184,7 @@ impl EventStore for ScyllaEventStore {
                     stream_name: stream_name.to_string(),
                     sequence,
                     id: Uuid::new_v4(),
-                    event_type: new_event.event_type,
+                    event_type: new_event.event_type.to_string(),
                     data: new_event.data,
                     timestamp: now,
                 }
@@ -168,15 +203,32 @@ impl EventStore for ScyllaEventStore {
             ));
         }
 
-        self.session.batch(&batch, batch_values).await?;
+        let applied = self
+            .session
+            .batch(&batch, batch_values)
+            .await
+            .map_err(Error::Query)?
+            .first_row()
+            .map_err(Error::FirstRow)?
+            .columns
+            .first()
+            .and_then(|column| column.as_ref().and_then(|column| column.as_boolean()))
+            .ok_or(Error::MissingAppliedColumn)?;
+        if !applied {
+            return Err(AppendStreamError::WriteConflict);
+        }
 
         Ok(events)
     }
 
-    async fn iter_stream(&self, stream_name: &str) -> Result<Self::EventStream, Self::Error> {
+    async fn iter_stream(
+        &self,
+        stream_name: &str,
+        from: u64,
+    ) -> Result<Self::EventStream, Self::Error> {
         let typed_row_iter = self
             .session
-            .execute_iter(self.iter_stream_stmt.clone(), (stream_name,))
+            .execute_iter(self.iter_stream_stmt.clone(), (stream_name, from as i64))
             .await?
             .into_typed();
 
@@ -220,6 +272,7 @@ async fn prepare_append_to_stream_stmt(session: &Session) -> Result<PreparedStat
                     data,
                     timestamp
                 ) VALUES (?, ?, ?, ?, ?, ?)
+                IF NOT EXISTS
             "#,
         )
         .await
@@ -238,7 +291,20 @@ async fn prepare_iter_stream_stmt(session: &Session) -> Result<PreparedStatement
                     timestamp
                 FROM thalo.event_store
                 WHERE stream_name = ?
+                  AND sequence >= ?
                 ORDER BY sequence ASC
+            "#,
+        )
+        .await
+}
+
+async fn prepare_max_sequence_stmt(session: &Session) -> Result<PreparedStatement, QueryError> {
+    session
+        .prepare(
+            r#"
+                SELECT max(sequence)
+                FROM thalo.event_store
+                WHERE stream_name = ?
             "#,
         )
         .await

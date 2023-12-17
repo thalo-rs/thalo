@@ -9,6 +9,7 @@ use std::{fmt, str};
 use anyhow::{anyhow, bail, Context as AnyhowContext, Result};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tokio::sync::Mutex;
 use tracing::{info, trace};
 use tracing_tunnel::TracingEventReceiver;
@@ -28,6 +29,7 @@ pub struct Module {
     store: Arc<Mutex<Store<CommandCtx>>>,
     component: Component,
     instance_pre: InstancePre<CommandCtx>,
+    pub count: usize,
 }
 
 #[derive(Clone)]
@@ -41,7 +43,7 @@ pub struct ModuleInstance {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Event<'a> {
     pub event: Cow<'a, str>,
-    pub payload: Cow<'a, str>,
+    pub data: Cow<'a, str>,
 }
 
 pub struct CommandCtx {
@@ -99,6 +101,7 @@ impl Module {
             store: Arc::new(Mutex::new(store)),
             component,
             instance_pre,
+            count: 0,
         })
     }
 
@@ -114,19 +117,17 @@ impl Module {
         Ok(module)
     }
 
-    pub async fn new_instance(self) -> Result<Self> {
+    pub async fn reinitialize(&mut self) -> Result<()> {
         let ctx = CommandCtx::default();
         let mut store = Store::new(&self.engine, ctx);
         let (aggregate, _instance) =
             wit_aggregate::Aggregate::instantiate_pre(&mut store, &self.instance_pre).await?;
 
-        Ok(Module {
-            aggregate: Arc::new(aggregate),
-            engine: self.engine,
-            store: Arc::new(Mutex::new(store)),
-            component: self.component,
-            instance_pre: self.instance_pre,
-        })
+        self.aggregate = Arc::new(aggregate);
+        self.store = Arc::new(Mutex::new(store));
+        self.count = self.count + 1;
+
+        Ok(())
     }
 
     pub async fn init(&self, id: &str) -> Result<ModuleInstance> {
@@ -194,7 +195,7 @@ impl ModuleInstance {
 
                 Ok(wit_aggregate::EventParam {
                     event: &event.event,
-                    payload: &event.payload,
+                    data: &event.data,
                 })
             })
             .collect::<Result<_>>()?;
@@ -225,7 +226,7 @@ impl ModuleInstance {
         &self,
         command: &str,
         payload: &str,
-    ) -> Result<Result<Vec<Event<'static>>, serde_json::Value>> {
+    ) -> Result<Result<Vec<Event<'static>>, Value>> {
         let command = wit_aggregate::Command { command, payload };
 
         let result = {

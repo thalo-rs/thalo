@@ -57,7 +57,7 @@ impl TryFrom<EventResult> for super::Event<'static> {
     fn try_from(event: EventResult) -> Result<Self, Self::Error> {
         Ok(super::Event {
             event: Cow::Owned(event.event),
-            payload: Cow::Owned(event.payload),
+            data: Cow::Owned(event.data),
         })
     }
 }

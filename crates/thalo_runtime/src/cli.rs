@@ -1,56 +1,27 @@
-use std::borrow::Cow;
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::convert::Infallible;
-use std::error::Error as StdError;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Result;
-use async_trait::async_trait;
 use clap::Parser;
-use eventstore::{Client, ClientSettings, EventData};
-use futures::stream::BoxStream;
-use redis::streams::StreamMaxlen;
 use scylla::{Session, SessionBuilder};
-use serde::{Deserialize, Serialize};
 use serde_json::json;
-use thalo::event_store::message::Message;
-use thalo::event_store::{EventStore, NewEvent};
-use thalo::stream_name::StreamName;
-// use thalo_message_store::MessageStore;
-// use thalo_runtime::relay::{RedisRelay, Relay};
-use thalo_runtime::Runtime;
+use thalo_runtime::{Config, Runtime};
 use thalo_scylla::ScyllaEventStore;
-use thiserror::Error;
-use tokio::sync::RwLock;
-use tonic::transport::Server;
+use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;
 
 /// Thalo runtime - event sourcing runtime
 #[derive(Parser, Debug)]
 #[command(name = "thalo", version, about, long_about = None)]
 struct Cli {
-    /// Message store path
-    #[clap(short = 's', long, default_value = "message-store.db")]
-    message_store_path: PathBuf,
     /// Path to aggregate wasm modules directory
     #[clap(short = 'm', long, default_value = "modules")]
     modules_path: PathBuf,
-    /// Cache size of aggregates (LRU)
+    /// Cache size of streams (LRU)
     #[clap(long, default_value = "10000")]
-    cache_size: u64,
-    /// Redis relay
-    #[clap(long)]
-    redis: Option<String>,
-    /// Redis stream max len
-    #[clap(long, default_value = "10000")]
-    redis_stream_max_len: usize,
-    /// Template for redis streams (only `{category}` is supported)
-    #[clap(long, default_value = "{category}_events")]
-    redis_stream_name_template: String,
+    streams_cache_size: u64,
     /// Address to listen on
     #[clap(long, default_value = "[::1]:4433")]
     addr: SocketAddr,
@@ -109,19 +80,29 @@ pub async fn start() -> Result<()> {
     //     }
     //     None => Relay::Noop,
     // };
-    let runtime = Runtime::new(event_store, cli.modules_path, cli.cache_size).await?;
+    let runtime = Runtime::new(
+        event_store,
+        Config::new()
+            .modules_path(cli.modules_path)
+            .streams_cache_size(cli.streams_cache_size),
+    )
+    .await?;
 
-    for _ in 0..1 {
-        let msgs = runtime
-            .execute(
-                "counter".to_string(),
-                "123".to_string(),
-                "Increment".to_string(),
-                json!({ "amount": 2 }),
-            )
-            .await?
-            .unwrap();
-        dbg!(msgs);
+    for _ in 0..11 {
+        let runtime = runtime.clone();
+        tokio::spawn(async move {
+            let msgs = runtime
+                .execute(
+                    "counter".to_string(),
+                    "123".to_string(),
+                    "Increment".to_string(),
+                    json!({ "amount": 1 }),
+                    3,
+                )
+                .await;
+            dbg!(msgs);
+        });
+        // sleep(Duration::from_secs(1)).await;
     }
 
     // let command_center_server =
@@ -137,57 +118,57 @@ pub async fn start() -> Result<()> {
     Ok(())
 }
 
-#[derive(Clone, Debug, Default)]
-struct InMemoryEventStore {
-    streams: Arc<RwLock<HashMap<String, Vec<Message<'static>>>>>,
-    global_index: Arc<RwLock<Vec<(String, usize)>>>,
-}
+// #[derive(Clone, Debug, Default)]
+// struct InMemoryEventStore {
+//     streams: Arc<RwLock<HashMap<String, Vec<Message<'static>>>>>,
+//     global_index: Arc<RwLock<Vec<(String, usize)>>>,
+// }
 
-#[async_trait]
-impl EventStore for InMemoryEventStore {
-    type Event = Message<'static>;
-    type EventStream = BoxStream<'static, Result<Self::Event, Self::Error>>;
-    type Error = Infallible;
+// #[async_trait]
+// impl EventStore for InMemoryEventStore {
+//     type Event = Message<'static>;
+//     type EventStream = BoxStream<'static, Result<Self::Event, Self::Error>>;
+//     type Error = Infallible;
 
-    async fn append_to_stream(
-        &self,
-        stream_name: &str,
-        events: Vec<NewEvent>,
-        _expected_sequence: Option<u64>,
-    ) -> Result<Vec<Message<'static>>, Self::Error> {
-        let mut streams = self.streams.write().await;
-        let mut global_index = self.global_index.write().await;
-        let stream = streams.entry(stream_name.to_string()).or_default();
-        let mut written_messages = Vec::with_capacity(events.len());
-        for event in events {
-            let stream_sequence = stream.len();
-            let message = Message::new(
-                StreamName::new(stream_name.to_string()).unwrap(),
-                stream_sequence as u64,
-                global_index.len() as u64,
-                Cow::Owned(event.event_type),
-                Cow::Owned(event.data),
-            );
-            stream.push(message.clone());
-            written_messages.push(message);
-            global_index.push((stream_name.to_string(), stream_sequence));
-        }
+//     async fn append_to_stream(
+//         &self,
+//         stream_name: &str,
+//         events: Vec<NewEvent>,
+//         _expected_sequence: Option<u64>,
+//     ) -> Result<Vec<Message<'static>>, Self::Error> {
+//         let mut streams = self.streams.write().await;
+//         let mut global_index = self.global_index.write().await;
+//         let stream = streams.entry(stream_name.to_string()).or_default();
+//         let mut written_messages = Vec::with_capacity(events.len());
+//         for event in events {
+//             let stream_sequence = stream.len();
+//             let message = Message::new(
+//                 StreamName::new(stream_name.to_string()).unwrap(),
+//                 stream_sequence as u64,
+//                 global_index.len() as u64,
+//                 Cow::Owned(event.event_type),
+//                 Cow::Owned(event.data),
+//             );
+//             stream.push(message.clone());
+//             written_messages.push(message);
+//             global_index.push((stream_name.to_string(), stream_sequence));
+//         }
 
-        Ok(written_messages)
-    }
+//         Ok(written_messages)
+//     }
 
-    async fn iter_stream(&self, stream_name: &str) -> Result<Self::EventStream, Self::Error> {
-        let streams = self.streams.read().await;
-        let messages: Vec<_> = streams
-            .get(stream_name)
-            .map(|messages| {
-                messages
-                    .into_iter()
-                    .map(|message| Ok::<_, Self::Error>(message.clone()))
-                    .collect()
-            })
-            .unwrap_or_default();
+//     async fn iter_stream(&self, stream_name: &str) ->
+// Result<Self::EventStream, Self::Error> {         let streams =
+// self.streams.read().await;         let messages: Vec<_> = streams
+//             .get(stream_name)
+//             .map(|messages| {
+//                 messages
+//                     .into_iter()
+//                     .map(|message| Ok::<_, Self::Error>(message.clone()))
+//                     .collect()
+//             })
+//             .unwrap_or_default();
 
-        Ok(Box::pin(futures::stream::iter(messages)))
-    }
-}
+//         Ok(Box::pin(futures::stream::iter(messages)))
+//     }
+// }

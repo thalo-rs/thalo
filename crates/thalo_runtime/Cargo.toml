@@ -28,6 +28,7 @@ async-stream = "0.3.5"
 bytes = "1.2"
 chrono = { workspace = true }
 clap = { workspace = true }
+dashmap = "5.5.3"
 futures = { workspace = true }
 moka = { version = "0.12.1", features = ["future"] }
 prost = "0.12"

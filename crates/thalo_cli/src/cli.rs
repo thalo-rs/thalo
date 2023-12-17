@@ -3,15 +3,15 @@
 //! Checkout the `README.md` for guidance.
 
 mod build;
-mod execute;
-mod publish;
+// mod execute;
+// mod publish;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
 use self::build::Build;
-use self::execute::Execute;
-use self::publish::Publish;
+// use self::execute::Execute;
+// use self::publish::Publish;
 
 /// Thalo cli
 #[derive(Parser, Debug)]
@@ -24,8 +24,8 @@ struct Cli {
 enum Command {
     #[clap(alias = "b")]
     Build(Build),
-    Execute(Execute),
-    Publish(Publish),
+    // Execute(Execute),
+    // Publish(Publish),
 }
 
 pub async fn run() -> Result<()> {
@@ -34,13 +34,12 @@ pub async fn run() -> Result<()> {
     match cli.command {
         Command::Build(cmd) => {
             cmd.build().await?;
-        }
-        Command::Execute(cmd) => {
-            cmd.execute().await?;
-        }
-        Command::Publish(cmd) => {
-            cmd.publish().await?;
-        }
+        } /* Command::Execute(cmd) => {
+           *     cmd.execute().await?;
+           * }
+           * Command::Publish(cmd) => {
+           *     cmd.publish().await?;
+           * } */
     }
 
     Ok(())

@@ -9,7 +9,6 @@ thalo = { workspace = true }
 async-trait = { workspace = true }
 chrono = { workspace = true }
 futures = { workspace = true }
-num-bigint = "0.3.3"
 serde = { workspace = true }
 serde_json = { workspace = true }
 scylla = "0.10.1"

@@ -32,7 +32,7 @@ macro_rules! export_aggregate {
                         export aggregate: interface {
                             record event {
                                 event: string,
-                                payload: string,
+                                data: string,
                             }
 
                             record command {
@@ -105,18 +105,18 @@ macro_rules! export_aggregate {
                 let mut state = state.borrow_mut();
                 for wit::Event {
                     event,
-                    payload,
+                    data,
                 } in events
                 {
-                    let payload: serde_json::Value = match serde_json::from_str(&payload) {
-                        Ok(payload) => payload,
+                    let data: $crate::event_store::EventData = match serde_json::from_str(&data) {
+                        Ok(data) => data,
                         Err(err) => {
                             return Err(wit::Error::DeserializeEvent((event, err.to_string())));
                         }
                     };
                     let event_value = {
                         let event = event.clone();
-                        serde_json::json!({ event: payload })
+                        serde_json::json!({ event: data })
                     };
                     let event: <$crate::State<Agg> as $crate::Aggregate>::Event = match serde_json::from_value(event_value) {
                         Ok(event) => event,
@@ -165,13 +165,13 @@ macro_rules! export_aggregate {
                     .map(|event| {
                         let event_value = serde_json::to_value(event)
                             .map_err(|err| wit::Error::SerializeEvent(err.to_string()))?;
-                        let (event, payload_value) = extract_event_name_payload(event_value)
+                        let (event, event_data) = extract_event_name_data(event_value)
                             .map_err(|err| wit::Error::SerializeEvent(err.to_string()))?;
-                        let payload = serde_json::to_string(&payload_value)
+                        let data = serde_json::to_string(&event_data)
                             .map_err(|err| wit::Error::SerializeEvent(err.to_string()))?;
                         Ok(wit::Event {
                             event,
-                            payload,
+                            data,
                         })
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -182,7 +182,7 @@ macro_rules! export_aggregate {
             #[derive(serde::Deserialize)]
             struct EventParts {
                 event: String,
-                payload: serde_json::Value,
+                data: $crate::event_store::EventData,
             }
         }
     };

@@ -6,10 +6,10 @@ use std::collections::VecDeque;
 use async_trait::async_trait;
 use derive_more::{Deref, DerefMut};
 use eventstore::{
-    AppendToStreamOptions, Client, EventData, ExpectedRevision, ReadStreamOptions, StreamPosition,
+    AppendToStreamOptions, Client, CurrentRevision, ExpectedRevision, ReadStreamOptions,
+    StreamPosition,
 };
-use serde_json::Value;
-use thalo::event_store::{Event, EventStore, NewEvent};
+use thalo::event_store::{AppendStreamError, EventData, EventStore, NewEvent, StreamEvent};
 
 pub use crate::event_stream::EventStream;
 
@@ -22,24 +22,17 @@ impl EventStoreDb {
     pub fn new(client: Client) -> Self {
         EventStoreDb { client }
     }
-}
-
-#[async_trait]
-impl EventStore for EventStoreDb {
-    type Event = RecordedEvent;
-    type EventStream = EventStream;
-    type Error = eventstore::Error;
 
     async fn append_to_stream(
         &self,
         stream_name: &str,
-        events: Vec<NewEvent>,
+        events: Vec<NewEvent<'_>>,
         expected_sequence: Option<u64>,
-    ) -> Result<Vec<Self::Event>, Self::Error> {
+    ) -> Result<Vec<RecordedEvent>, eventstore::Error> {
         let events_len = events.len();
         let events: Vec<_> = events
             .into_iter()
-            .map(|event| EventData::json(event.event_type, event.data).unwrap())
+            .map(|event| eventstore::EventData::json(event.event_type, event.data).unwrap())
             .collect();
         let opts = AppendToStreamOptions::default().expected_revision(match expected_sequence {
             Some(n) => ExpectedRevision::Exact(n),
@@ -73,11 +66,51 @@ impl EventStore for EventStoreDb {
 
         Ok(written_events.into())
     }
+}
 
-    async fn iter_stream(&self, stream_name: &str) -> Result<Self::EventStream, Self::Error> {
+#[async_trait]
+impl EventStore for EventStoreDb {
+    type Event = RecordedEvent;
+    type EventStream = EventStream;
+    type Error = eventstore::Error;
+
+    async fn append_to_stream(
+        &self,
+        stream_name: &str,
+        events: Vec<NewEvent<'_>>,
+        expected_sequence: Option<u64>,
+    ) -> Result<Vec<Self::Event>, AppendStreamError<Self::Error>> {
+        self.append_to_stream(stream_name, events, expected_sequence)
+            .await
+            .map_err(|err| match err {
+                eventstore::Error::WrongExpectedVersion {
+                    expected: _,
+                    current,
+                } => AppendStreamError::WrongExpectedSequence {
+                    expected: expected_sequence,
+                    current: match current {
+                        CurrentRevision::Current(n) => Some(n),
+                        CurrentRevision::NoStream => None,
+                    },
+                },
+                err => AppendStreamError::Error(err),
+            })
+    }
+
+    async fn iter_stream(
+        &self,
+        stream_name: &str,
+        from: u64,
+    ) -> Result<Self::EventStream, Self::Error> {
         let res = self
             .client
-            .read_stream(stream_name, &ReadStreamOptions::default())
+            .read_stream(
+                stream_name,
+                &ReadStreamOptions::default().position(match from {
+                    0 => StreamPosition::Start,
+                    n => StreamPosition::Position(n),
+                }),
+            )
             .await;
         match res {
             Ok(read_stream) => Ok(EventStream::new(Some(read_stream))),
@@ -90,12 +123,12 @@ impl EventStore for EventStoreDb {
 #[derive(Debug, Deref, DerefMut)]
 pub struct RecordedEvent(eventstore::RecordedEvent);
 
-impl Event for RecordedEvent {
+impl StreamEvent for RecordedEvent {
     fn event_type(&self) -> Cow<'_, str> {
         Cow::Borrowed(&self.event_type)
     }
 
-    fn data(&self) -> Cow<'_, Value> {
+    fn data(&self) -> Cow<'_, EventData> {
         Cow::Owned(self.as_json().unwrap_or_default())
     }
 

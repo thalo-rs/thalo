@@ -10,7 +10,7 @@ world aggregate {
     export aggregate: interface {
         record event {
             event: string,
-            payload: string,
+            data: string,
         }
 
         record command {

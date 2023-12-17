@@ -184,15 +184,17 @@ pub mod __macro_helpers {
     use serde_json::Value;
     pub use {serde_json, tracing, tracing_tunnel, wit_bindgen};
 
-    /// Extracts the event name and payload from an event json value.
+    use crate::event_store::EventData;
+
+    /// Extracts the event name and data from an event json value.
     /// `{"EventName": {"foo": 1}}` returns `("EventName", {"foo": 1})`.
-    pub fn extract_event_name_payload(value: Value) -> Result<(String, Value), &'static str> {
+    pub fn extract_event_name_data(value: Value) -> Result<(String, EventData), &'static str> {
         let Value::Object(map) = value else {
             return Err("event is not an object");
         };
 
         let mut iter = map.into_iter();
-        let Some((event, payload)) = iter.next() else {
+        let Some((event, data)) = iter.next() else {
             return Err("event is empty");
         };
 
@@ -200,6 +202,10 @@ pub mod __macro_helpers {
             return Err("event contains multiple keys");
         }
 
-        Ok((event, payload))
+        let Value::Object(data) = data else {
+            return Err("event data is not an object");
+        };
+
+        Ok((event, data))
     }
 }

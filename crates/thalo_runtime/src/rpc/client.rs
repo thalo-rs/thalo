@@ -22,8 +22,8 @@ pub trait CommandCenterClientExt {
         name: String,
         id: String,
         cmd: String,
-        payload: &serde_json::Value,
-    ) -> Result<Result<Vec<Message>, serde_json::Value>, Status>;
+        payload: &Value,
+    ) -> Result<Result<Vec<Message>, Value>, Status>;
 
     async fn execute<A, C>(
         &mut self,
@@ -74,8 +74,8 @@ where
         name: String,
         id: String,
         cmd: String,
-        payload: &serde_json::Value,
-    ) -> Result<Result<Vec<Message>, serde_json::Value>, Status> {
+        payload: &Value,
+    ) -> Result<Result<Vec<Message>, Value>, Status> {
         let payload = serde_json::to_string(&payload).map_err(|err| {
             Status::invalid_argument(format!("failed to serialize payload: {err}"))
         })?;
