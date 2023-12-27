@@ -3,7 +3,7 @@ package thalo;
 
 service CommandCenter {
   rpc Execute(ExecuteCommand) returns (ExecuteResponse);
-  rpc Publish(PublishModule) returns (PublishResponse);
+  // rpc Publish(PublishModule) returns (PublishResponse);
 }
 
 message ExecuteCommand {
@@ -11,55 +11,56 @@ message ExecuteCommand {
   string id = 2;
   string command = 3;
   string payload = 4;
+  uint32 max_attempts = 5;
 }
 
 message ExecuteResponse {
   bool success = 1;
   string message = 2;
-  repeated Message events = 3;
+  repeated string events = 3;
 }
 
-message PublishModule {
-  string name = 1;
-  bytes module = 2;
-}
+// message PublishModule {
+//   string name = 1;
+//   bytes module = 2;
+// }
 
-message PublishResponse {
-  bool success = 1;
-  string message = 2;
-}
+// message PublishResponse {
+//   bool success = 1;
+//   string message = 2;
+// }
 
-service Projection {
-  rpc SubscribeToEvents(SubscriptionRequest) returns (stream Message);
-  rpc AcknowledgeEvent(Acknowledgement) returns (AckResponse);
-}
+// service Projection {
+//   rpc SubscribeToEvents(SubscriptionRequest) returns (stream Message);
+//   rpc AcknowledgeEvent(Acknowledgement) returns (AckResponse);
+// }
 
-message SubscriptionRequest {
-  string name = 1;
-  repeated EventInterest events = 2;
-}
+// message SubscriptionRequest {
+//   string name = 1;
+//   repeated EventInterest events = 2;
+// }
 
-message EventInterest {
-  string category = 1;
-  string event = 2;
-}
+// message EventInterest {
+//   string category = 1;
+//   string event = 2;
+// }
 
-message Message {
-  string stream_name = 1;
-  uint64 stream_sequence = 2;
-  uint64 global_sequence = 3;
-  string id = 4;
-  string event_type = 5;
-  string data = 6;
-  uint64 timestamp = 7;
-}
+// message Message {
+//   string stream_name = 1;
+//   uint64 stream_sequence = 2;
+//   uint64 global_sequence = 3;
+//   string id = 4;
+//   string event_type = 5;
+//   string data = 6;
+//   uint64 timestamp = 7;
+// }
 
-message Acknowledgement {
-  string name = 1;
-  uint64 global_id = 2;
-}
+// message Acknowledgement {
+//   string name = 1;
+//   uint64 global_id = 2;
+// }
 
-message AckResponse {
-  bool success = 1;
-  string message = 2;
-}
+// message AckResponse {
+//   bool success = 1;
+//   string message = 2;
+// }

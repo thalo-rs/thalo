@@ -18,6 +18,7 @@ thalo = { workspace = true }
 thalo_eventstore = { workspace = true }
 thalo_scylla = { workspace = true }
 eventstore = "2.3.0"
+message_db = "0.1.0"
 scylla = "0.10.1"
 # thalo_message_store = { workspace = true }
 

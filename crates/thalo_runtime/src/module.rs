@@ -27,9 +27,7 @@ pub struct Module {
     aggregate: Arc<Aggregate>,
     engine: Engine,
     store: Arc<Mutex<Store<CommandCtx>>>,
-    component: Component,
     instance_pre: InstancePre<CommandCtx>,
-    pub count: usize,
 }
 
 #[derive(Clone)]
@@ -99,9 +97,7 @@ impl Module {
             aggregate: Arc::new(aggregate),
             engine,
             store: Arc::new(Mutex::new(store)),
-            component,
             instance_pre,
-            count: 0,
         })
     }
 
@@ -125,7 +121,6 @@ impl Module {
 
         self.aggregate = Arc::new(aggregate);
         self.store = Arc::new(Mutex::new(store));
-        self.count = self.count + 1;
 
         Ok(())
     }

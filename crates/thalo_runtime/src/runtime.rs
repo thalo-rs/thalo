@@ -4,10 +4,11 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Error, Result};
+use dashmap::mapref::one::Ref;
 use dashmap::DashMap;
 use futures::stream::FuturesUnordered;
-use futures::Future;
 use moka::future::Cache;
+use moka::Entry;
 use serde_json::Value;
 use thalo::event_store::EventStore;
 use thalo::stream_name::StreamName;
@@ -64,7 +65,7 @@ where
         &self.event_store
     }
 
-    #[instrument(skip(self, payload))]
+    #[instrument(skip(self))]
     pub async fn execute(
         &self,
         name: String,
@@ -76,43 +77,7 @@ where
         let Ok(stream_name) = StreamName::from_parts(name, Some(&id)) else {
             return Err(anyhow!("invalid name or id"));
         };
-
-        let stream_res = {
-            let module_data = {
-                let Some(module_entry) = self.modules.get(stream_name.category()) else {
-                    return Err(anyhow!(
-                        "aggregate '{}' does not exist or is not running",
-                        stream_name.category()
-                    ));
-                };
-
-                module_entry.value().clone()
-            };
-            let was_paused =
-                ModuleData::wait_if_paused(module_data.paused, module_data.notify).await;
-            let module = if was_paused {
-                let Some(module_entry) = self.modules.get(stream_name.category()) else {
-                    return Err(anyhow!(
-                        "aggregate '{}' does not exist or is not running",
-                        stream_name.category()
-                    ));
-                };
-
-                module_entry.module.clone()
-            } else {
-                module_data.module
-            };
-
-            self.streams
-                .entry_by_ref(&stream_name)
-                .or_try_insert_with(spawn_stream(&self.event_store, &stream_name, &module))
-                .await
-                .map_err(ArcError::Arc)
-        };
-        let stream = self
-            .handle_trap(stream_res, stream_name.category())
-            .await
-            .map_err(|err| anyhow!("{err}"))?;
+        let stream = self.get_or_create_stream(&stream_name).await?;
 
         let (reply, recv) = oneshot::channel();
         stream
@@ -142,19 +107,41 @@ where
         Ok(())
     }
 
+    async fn get_or_create_stream(
+        &self,
+        stream_name: &StreamName<'static>,
+    ) -> Result<Entry<StreamName<'static>, StreamHandle<E>>> {
+        let module_data = self.get_module(stream_name.category())?.clone();
+        let was_paused = module_data.wait_if_paused().await;
+        let module = if was_paused {
+            // Module was paused, we should get a new copy of the module
+            self.get_module(stream_name.category())?.module.clone()
+        } else {
+            module_data.module
+        };
+
+        let res = self
+            .streams
+            .entry_by_ref(&stream_name)
+            .or_try_insert_with(spawn_stream(&self.event_store, &stream_name, &module))
+            .await
+            .map_err(ArcError::Arc);
+        let stream = self
+            .handle_trap(res, stream_name.category())
+            .await
+            .map_err(|err| anyhow!("{err}"))?;
+
+        Ok(stream)
+    }
+
     async fn handle_trap<T>(&self, res: Result<T, ArcError>, name: &str) -> Result<T, Error> {
         if let Err(err) = &res {
             if let Some(trap) = err.as_ref().root_cause().downcast_ref::<Trap>().copied() {
                 error!("module {name} trapped: {trap}");
-                // tokio::spawn({
-                let runtime = self.clone();
                 let name = name.to_string();
-                // async move {
-                if let Err(err) = runtime.restart_module(name).await {
+                if let Err(err) = self.restart_module(name).await {
                     error!("failed to restart module: {err}");
                 }
-                // }
-                // });
 
                 return Err(anyhow!("{trap}"));
             }
@@ -186,28 +173,15 @@ where
                     Result::<_, Error>::Ok(())
                 }
             });
-
-            // module_data
-            //     .value_mut()
-            //     .execute_paused(move |module| {
-            //         let name = name.to_string();
-            //         async move {
-            //             // Invalidate streams for this module
-            //             self.streams
-            //                 .invalidate_entries_if(move |k, _| k.category()
-            // == name)?;
-            // self.streams.run_pending_tasks().await;
-
-            //             module.reinitialize().await?;
-            //             println!("reinitialized... {}", module.count);
-
-            //             Result::<_, anyhow::Error>::Ok(())
-            //         }
-            //     })
-            //     .await?;
         }
 
         Ok(())
+    }
+
+    fn get_module(&self, name: &str) -> Result<Ref<String, ModuleData>> {
+        self.modules
+            .get(name)
+            .ok_or_else(|| anyhow!("aggregate '{name}' does not exist or is not running"))
     }
 }
 
@@ -234,22 +208,6 @@ impl AsRef<Error> for ArcError {
     }
 }
 
-trait AsTrap {
-    fn as_trap(&self) -> Option<Trap>;
-}
-
-impl AsTrap for Error {
-    fn as_trap(&self) -> Option<Trap> {
-        self.root_cause().downcast_ref().copied()
-    }
-}
-
-impl AsTrap for Arc<Error> {
-    fn as_trap(&self) -> Option<Trap> {
-        self.root_cause().downcast_ref().copied()
-    }
-}
-
 #[derive(Clone, Debug)]
 pub struct Config {
     command_timeout: Duration,
@@ -268,6 +226,9 @@ impl Config {
         }
     }
 
+    /// Specifies the timeout for commands if no response is received.
+    ///
+    /// Defaults to 5 seconds.
     pub fn command_timeout(mut self, timeout: Duration) -> Self {
         self.command_timeout = timeout;
         self
@@ -275,7 +236,7 @@ impl Config {
 
     /// Specifies the directory containing the aggregate wasm modules.
     ///
-    /// Defaults to ./modules
+    /// Defaults to `./modules`.
     pub fn modules_path(mut self, path: impl Into<PathBuf>) -> Self {
         self.modules_path = path.into();
         self
@@ -288,7 +249,7 @@ impl Config {
     /// events will be replayed from the event store to rebuild the aggregate
     /// state.
     ///
-    /// Defaults to 10,000
+    /// Defaults to `10,000`.
     pub fn streams_cache_size(mut self, size: u64) -> Self {
         self.streams_cache_size = size;
         self
@@ -315,26 +276,11 @@ impl ModuleData {
         PauseGuard::new(self.paused.clone(), self.notify.clone())
     }
 
-    // async fn execute_paused<'a, T, F, Fu>(&'a mut self, mut f: F) -> T
-    // where
-    //     F: FnMut(&'a mut Module) -> Fu + 'a,
-    //     Fu: Future<Output = T>,
-    // {
-    //     self.paused.store(true, Ordering::Relaxed);
-
-    //     let res = f(&mut self.module).await;
-
-    //     self.paused.store(false, Ordering::Relaxed);
-    //     self.notify.notify_waiters();
-
-    //     res
-    // }
-
-    async fn wait_if_paused(paused: Arc<AtomicBool>, notify: Arc<Notify>) -> bool {
+    async fn wait_if_paused(&self) -> bool {
         let mut was_paused = false;
         loop {
-            let notified = notify.notified();
-            if !paused.load(Ordering::Acquire) {
+            let notified = self.notify.notified();
+            if !self.paused.load(Ordering::Acquire) {
                 break;
             }
             was_paused = true;

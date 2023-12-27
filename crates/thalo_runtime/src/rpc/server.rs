@@ -1,7 +1,9 @@
+use std::num::TryFromIntError;
 use std::pin::Pin;
 
 use futures::StreamExt as _;
-use thalo::event_store::message::Message;
+use serde::Serialize;
+// use thalo::event_store::message::Message;
 use thalo::event_store::EventStore;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
@@ -10,14 +12,16 @@ use tonic::{Request, Response, Status};
 
 use super::proto;
 pub use super::proto::command_center_server::*;
-pub use super::proto::projection_server::*;
+// pub use super::proto::projection_server::*;
 use crate::Runtime;
 
 #[tonic::async_trait]
 impl<E> proto::command_center_server::CommandCenter for Runtime<E>
 where
-    E: EventStore + Send + Sync + 'static,
-    E::Event: Send,
+    E: EventStore + Clone + Send + 'static,
+    E::Event: Serialize + Send,
+    E::EventStream: Send + Unpin,
+    E::Error: Send + Sync,
 {
     async fn execute(
         &self,
@@ -28,16 +32,20 @@ where
             id,
             command,
             payload,
+            max_attempts,
         } = request.into_inner();
         let payload = serde_json::from_str(&payload)
             .map_err(|err| Status::invalid_argument(format!("invalid payload: {err}")))?;
+        let max_attempts = max_attempts
+            .try_into()
+            .map_err(|err: TryFromIntError| Status::invalid_argument(err.to_string()))?;
 
-        let resp = match self.execute(name, id, command, payload).await {
+        let resp = match Runtime::execute(self, name, id, command, payload, max_attempts).await {
             Ok(Ok(events)) => proto::ExecuteResponse {
                 success: true,
                 events: events
                     .into_iter()
-                    .map(proto::Message::try_from)
+                    .map(|event| serde_json::to_string(&event))
                     .collect::<Result<_, _>>()
                     .map_err(|err| Status::internal(err.to_string()))?,
                 message: "ok".to_string(),
@@ -54,25 +62,25 @@ where
         Ok(Response::new(resp))
     }
 
-    async fn publish(
-        &self,
-        request: Request<proto::PublishModule>,
-    ) -> Result<Response<proto::PublishResponse>, Status> {
-        let proto::PublishModule { name, module } = request.into_inner();
+    // async fn publish(
+    //     &self,
+    //     request: Request<proto::PublishModule>,
+    // ) -> Result<Response<proto::PublishResponse>, Status> {
+    //     let proto::PublishModule { name, module } = request.into_inner();
 
-        let resp = match self.save_module(name, module).await {
-            Ok(()) => proto::PublishResponse {
-                success: true,
-                message: "ok".to_string(),
-            },
-            Err(err) => proto::PublishResponse {
-                success: false,
-                message: err.to_string(),
-            },
-        };
+    //     let resp = match self.save_module(name, module).await {
+    //         Ok(()) => proto::PublishResponse {
+    //             success: true,
+    //             message: "ok".to_string(),
+    //         },
+    //         Err(err) => proto::PublishResponse {
+    //             success: false,
+    //             message: err.to_string(),
+    //         },
+    //     };
 
-        Ok(Response::new(resp))
-    }
+    //     Ok(Response::new(resp))
+    // }
 }
 
 // #[tonic::async_trait]

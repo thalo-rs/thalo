@@ -2,49 +2,56 @@ use std::convert::Into;
 use std::mem;
 
 use async_trait::async_trait;
-use proto::Acknowledgement;
+// use proto::Acknowledgement;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use thalo::event_store::message::Message;
+use serde_json::Value;
+// use thalo::event_store::message::Message;
 use thalo::{Aggregate, Handle};
 use tonic::codegen::*;
 use tonic::{Request, Status};
 
+// pub use super::proto::projection_client::*;
+use super::proto;
 pub use super::proto::command_center_client::*;
-pub use super::proto::projection_client::*;
-use super::{proto, EventInterest, SubscriptionRequest};
+//EventInterest, SubscriptionRequest};
 // use crate::projection::Projection;
 
 #[async_trait]
 pub trait CommandCenterClientExt {
-    async fn execute_anonymous_command(
+    async fn execute_anonymous_command<E>(
         &mut self,
-        name: String,
-        id: String,
-        cmd: String,
+        name: impl Into<String> + Send,
+        id: impl Into<String> + Send,
+        cmd: impl Into<String> + Send,
         payload: &Value,
-    ) -> Result<Result<Vec<Message>, Value>, Status>;
+    ) -> Result<Result<Vec<E>, Value>, Status>
+    where
+        E: DeserializeOwned;
 
-    async fn execute<A, C>(
+    async fn execute<A, E, C>(
         &mut self,
-        name: String,
-        id: String,
+        name: impl Into<String> + Send,
+        id: impl Into<String> + Send,
         cmd: C,
-    ) -> Result<Result<Vec<Message<A::Event>>, <A as Handle<C>>::Error>, Status>
+    ) -> Result<Result<Vec<E>, <A as Handle<C>>::Error>, Status>
     where
         A: Aggregate,
         A::Command: Serialize,
         A: Handle<C>,
         <A as Handle<C>>::Error: DeserializeOwned,
+        E: DeserializeOwned,
         C: Into<A::Command> + Send,
     {
         let cmd: A::Command = cmd.into();
         let cmd_value = serde_json::to_value(cmd).map_err(|err| {
             Status::invalid_argument(format!("failed to serialize command: {err}"))
         })?;
-        let (cmd, payload) = thalo::__macro_helpers::extract_event_name_payload(cmd_value)
+        let (cmd, payload) = thalo::__macro_helpers::extract_event_name_data(cmd_value)
             .map_err(|err| Status::invalid_argument(err.to_string()))?;
-        match Self::execute_anonymous_command(self, name, id, cmd, &payload).await? {
+        match Self::execute_anonymous_command::<E>(self, name, id, cmd, &Value::Object(payload))
+            .await?
+        {
             Ok(messages) => Ok(Ok(unsafe { mem::transmute(messages) })),
             Err(err) => {
                 let err = serde_json::from_value(err).map_err(|err| {
@@ -57,7 +64,8 @@ pub trait CommandCenterClientExt {
         }
     }
 
-    async fn publish(&mut self, name: String, module: Vec<u8>) -> Result<(), Status>;
+    // async fn publish(&mut self, name: String, module: Vec<u8>) -> Result<(),
+    // Status>;
 }
 
 #[async_trait]
@@ -69,29 +77,33 @@ where
     T::ResponseBody: Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as Body>::Error: Into<StdError> + Send,
 {
-    async fn execute_anonymous_command(
+    async fn execute_anonymous_command<E>(
         &mut self,
-        name: String,
-        id: String,
-        cmd: String,
+        name: impl Into<String> + Send,
+        id: impl Into<String> + Send,
+        cmd: impl Into<String> + Send,
         payload: &Value,
-    ) -> Result<Result<Vec<Message>, Value>, Status> {
+    ) -> Result<Result<Vec<E>, Value>, Status>
+    where
+        E: DeserializeOwned,
+    {
         let payload = serde_json::to_string(&payload).map_err(|err| {
             Status::invalid_argument(format!("failed to serialize payload: {err}"))
         })?;
 
         let req = Request::new(proto::ExecuteCommand {
-            name,
-            id,
-            command: cmd,
+            name: name.into(),
+            id: id.into(),
+            command: cmd.into(),
             payload,
+            max_attempts: 3,
         });
         let resp = CommandCenterClient::execute(self, req).await?.into_inner();
         if resp.success {
             let events = resp
                 .events
                 .into_iter()
-                .map(Message::try_from)
+                .map(|event| serde_json::from_str(&event))
                 .collect::<Result<_, _>>()
                 .map_err(|err| Status::internal(err.to_string()))?;
             Ok(Ok(events))
@@ -102,15 +114,15 @@ where
         }
     }
 
-    async fn publish(&mut self, name: String, module: Vec<u8>) -> Result<(), Status> {
-        let req = Request::new(proto::PublishModule { name, module });
-        let resp = CommandCenterClient::publish(self, req).await?.into_inner();
-        if resp.success {
-            Ok(())
-        } else {
-            Err(Status::internal(resp.message))
-        }
-    }
+    // async fn publish(&mut self, name: String, module: Vec<u8>) -> Result<(),
+    // Status> {     let req = Request::new(proto::PublishModule { name, module
+    // });     let resp = CommandCenterClient::publish(self,
+    // req).await?.into_inner();     if resp.success {
+    //         Ok(())
+    //     } else {
+    //         Err(Status::internal(resp.message))
+    //     }
+    // }
 }
 
 // #[async_trait]

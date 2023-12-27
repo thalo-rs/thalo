@@ -1,0 +1,17 @@
+[package]
+name = "thalo_message_db"
+version = "0.8.0"
+edition = "2021"
+
+[dependencies]
+thalo = { workspace = true }
+
+async-trait = { workspace = true }
+chrono = { workspace = true }
+futures = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sqlx = "0.7"
+message_db = "0.1.0"
+thiserror = { workspace = true }
+uuid = { workspace = true }

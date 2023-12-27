@@ -23,8 +23,9 @@ use uuid::Uuid;
 
 const CREATE_KEYSPACE_QUERY: &str = include_str!("../cql/create_keyspace.sql");
 const CREATE_EVENT_STORE_QUERY: &str = include_str!("../cql/create_event_store.sql");
-const CREATE_EVENT_SEQUENCE_COUNTER_QUERY: &str =
-    include_str!("../cql/create_event_sequence_counter.sql");
+const APPEND_TO_STREAM_QUERY: &str = include_str!("../cql/append_to_stream.sql");
+const ITER_STREAM_QUERY: &str = include_str!("../cql/iter_stream.sql");
+const MAX_SEQUENCE_QUERY: &str = include_str!("../cql/max_sequence.sql");
 
 #[derive(Clone, Debug)]
 pub struct ScyllaEventStore {
@@ -38,13 +39,10 @@ impl ScyllaEventStore {
     pub async fn new(session: Arc<Session>) -> Result<Self, QueryError> {
         session.query(CREATE_KEYSPACE_QUERY, ()).await?;
         session.query(CREATE_EVENT_STORE_QUERY, ()).await?;
-        session
-            .query(CREATE_EVENT_SEQUENCE_COUNTER_QUERY, ())
-            .await?;
 
-        let append_to_stream_stmt = prepare_append_to_stream_stmt(&session).await?;
-        let iter_stream_stmt = prepare_iter_stream_stmt(&session).await?;
-        let max_sequence_stmt = prepare_max_sequence_stmt(&session).await?;
+        let append_to_stream_stmt = session.prepare(APPEND_TO_STREAM_QUERY).await?;
+        let iter_stream_stmt = session.prepare(ITER_STREAM_QUERY).await?;
+        let max_sequence_stmt = session.prepare(MAX_SEQUENCE_QUERY).await?;
 
         Ok(ScyllaEventStore {
             session: Arc::clone(&session),
@@ -258,54 +256,4 @@ impl Stream for EventStream {
         let pinned = std::pin::pin!(mapped);
         pinned.poll_next(cx)
     }
-}
-
-async fn prepare_append_to_stream_stmt(session: &Session) -> Result<PreparedStatement, QueryError> {
-    session
-        .prepare(
-            r#"
-                INSERT INTO thalo.event_store (
-                    stream_name,
-                    sequence,
-                    id,
-                    event_type,
-                    data,
-                    timestamp
-                ) VALUES (?, ?, ?, ?, ?, ?)
-                IF NOT EXISTS
-            "#,
-        )
-        .await
-}
-
-async fn prepare_iter_stream_stmt(session: &Session) -> Result<PreparedStatement, QueryError> {
-    session
-        .prepare(
-            r#"
-                SELECT
-                    stream_name,
-                    sequence,
-                    id,
-                    event_type,
-                    data,
-                    timestamp
-                FROM thalo.event_store
-                WHERE stream_name = ?
-                  AND sequence >= ?
-                ORDER BY sequence ASC
-            "#,
-        )
-        .await
-}
-
-async fn prepare_max_sequence_stmt(session: &Session) -> Result<PreparedStatement, QueryError> {
-    session
-        .prepare(
-            r#"
-                SELECT max(sequence)
-                FROM thalo.event_store
-                WHERE stream_name = ?
-            "#,
-        )
-        .await
 }

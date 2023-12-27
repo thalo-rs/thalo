@@ -27,9 +27,9 @@ impl Handle<CounterCommand> for Counter {
     fn handle(&self, cmd: CounterCommand) -> Result<Vec<CounterEvent>, Self::Error> {
         match cmd {
             CounterCommand::Increment { amount } => {
-                if self.count + amount == 10 {
-                    panic!("oopsie");
-                }
+                // if self.count + amount == 10 {
+                //     panic!("oopsie");
+                // }
                 events![Incremented { amount }]
             }
         }

@@ -6,7 +6,7 @@ members = [
   "crates/thalo_cli",
   # "crates/thalo_message_store",
   "crates/thalo_derive",
-  "crates/thalo_eventstore",
+  "crates/thalo_eventstore", "crates/thalo_message_db",
   "crates/thalo_runtime",
   "crates/thalo_scylla",
 
