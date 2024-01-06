@@ -3,14 +3,16 @@
 //! Checkout the `README.md` for guidance.
 
 mod build;
-// mod execute;
+mod execute;
 // mod publish;
+
+use std::time::Instant;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
 use self::build::Build;
-// use self::execute::Execute;
+use self::execute::Execute;
 // use self::publish::Publish;
 
 /// Thalo cli
@@ -24,7 +26,7 @@ struct Cli {
 enum Command {
     #[clap(alias = "b")]
     Build(Build),
-    // Execute(Execute),
+    Execute(Execute),
     // Publish(Publish),
 }
 
@@ -34,10 +36,15 @@ pub async fn run() -> Result<()> {
     match cli.command {
         Command::Build(cmd) => {
             cmd.build().await?;
-        } /* Command::Execute(cmd) => {
-           *     cmd.execute().await?;
-           * }
-           * Command::Publish(cmd) => {
+        }
+        Command::Execute(cmd) => {
+            let start = Instant::now();
+            for _ in 0..1_000 {
+                cmd.clone().execute().await?;
+            }
+
+            println!("{}ms", start.elapsed().as_millis());
+        } /* Command::Publish(cmd) => {
            *     cmd.publish().await?;
            * } */
     }

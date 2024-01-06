@@ -1,3 +1,3 @@
 SELECT max(sequence)
-FROM thalo.event_store
+FROM thalo.events
 WHERE stream_name = ?

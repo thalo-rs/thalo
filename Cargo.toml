@@ -5,10 +5,10 @@ members = [
   "crates/thalo",
   "crates/thalo_cli",
   # "crates/thalo_message_store",
-  "crates/thalo_derive",
+  "crates/thalo_derive", "crates/thalo_event_indexer",
   "crates/thalo_eventstore", "crates/thalo_message_db",
   "crates/thalo_runtime",
-  "crates/thalo_scylla",
+  "crates/thalo_scylla", "crates/thalo_scylla_projection",
 
   # Examples
   "examples/bank_account",
@@ -22,6 +22,7 @@ thalo = { path = "crates/thalo", version = "0.8.0" }
 thalo_derive = { path = "crates/thalo_derive", version = "0.8.0" }
 thalo_eventstore = { path = "crates/thalo_eventstore", version = "0.8.0" }
 thalo_scylla = { path = "crates/thalo_scylla", version = "0.8.0" }
+thalo_event_indexer = { path = "crates/thalo_event_indexer", version = "0.8.0" }
 # thalo_message_store = { path = "crates/thalo_message_store", version = "0.8.0" }
 thalo_runtime = { path = "crates/thalo_runtime", version = "0.8.0" }
 

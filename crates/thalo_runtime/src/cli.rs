@@ -25,7 +25,7 @@ struct Cli {
     #[clap(long, env, default_value = "10000")]
     streams_cache_size: u64,
     /// Address to listen on
-    #[clap(long, env, default_value = "127.0.0.1:4433")]
+    #[clap(long, env, default_value = "0.0.0.0:4433")]
     addr: SocketAddr,
     /// Scylla DB hostname
     #[clap(long, env, default_value = "127.0.0.1:9042")]
@@ -83,7 +83,9 @@ pub async fn start() -> Result<()> {
         // ))
         .build()
         .await?;
-    let event_store = ScyllaEventStore::new(Arc::new(session)).await?;
+    let session = Arc::new(session);
+    // let event_store = ScyllaEventStore::new(session).await?;
+    let event_store = thalo_event_indexer::ScyllaEventStore::new(session).await?;
 
     // return Ok(());
 
@@ -113,18 +115,18 @@ pub async fn start() -> Result<()> {
     //     let runtime = runtime.clone();
     //     // tokio::spawn(async move {
     //     // sleep(Duration::from_millis(i)).await;
-    //     let msgs = runtime
-    //         .execute(
-    //             "counter".to_string(),
-    //             "123".to_string(),
-    //             "Increment".to_string(),
-    //             json!({ "amount": 1 }),
-    //             3,
-    //         )
-    //         .await;
-    //     if let Err(err) = msgs {
-    //         println!("{err}");
-    //     }
+    let msgs = runtime
+        .execute(
+            "counter".to_string(),
+            "123".to_string(),
+            "Increment".to_string(),
+            json!({ "amount": 1 }),
+            3,
+        )
+        .await;
+    if let Err(err) = msgs {
+        println!("{err}");
+    }
     //     // dbg!(msgs);
     //     // });
     // }

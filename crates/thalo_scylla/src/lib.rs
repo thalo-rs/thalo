@@ -37,9 +37,10 @@ pub struct ScyllaEventStore {
 
 impl ScyllaEventStore {
     pub async fn new(session: Arc<Session>) -> Result<Self, QueryError> {
-        session.query(CREATE_KEYSPACE_QUERY, ()).await?;
-        session.query(CREATE_EVENT_STORE_QUERY, ()).await?;
+        // session.query(CREATE_KEYSPACE_QUERY, ()).await?;
+        // session.query(CREATE_EVENT_STORE_QUERY, ()).await?;
 
+        // println!("prepare statements");
         let append_to_stream_stmt = session.prepare(APPEND_TO_STREAM_QUERY).await?;
         let iter_stream_stmt = session.prepare(ITER_STREAM_QUERY).await?;
         let max_sequence_stmt = session.prepare(MAX_SEQUENCE_QUERY).await?;
@@ -161,10 +162,6 @@ impl EventStore for ScyllaEventStore {
             });
         }
 
-        print!("press any key to continue...");
-        let _ = std::io::stdout().flush();
-        let _ = std::io::stdin().read_line(&mut String::default());
-
         let now = Utc::now();
         let mut batch = Batch::default();
         batch.set_consistency(Consistency::Quorum);
@@ -194,27 +191,29 @@ impl EventStore for ScyllaEventStore {
             batch_values.push((
                 stream_name,
                 event.sequence as i64,
+                event.sequence as i64,
                 &event.id,
                 &event.event_type,
                 data,
                 now,
+                event.sequence as i64 / 1000,
             ));
         }
 
-        let applied = self
-            .session
-            .batch(&batch, batch_values)
-            .await
-            .map_err(Error::Query)?
-            .first_row()
-            .map_err(Error::FirstRow)?
-            .columns
-            .first()
-            .and_then(|column| column.as_ref().and_then(|column| column.as_boolean()))
-            .ok_or(Error::MissingAppliedColumn)?;
-        if !applied {
-            return Err(AppendStreamError::WriteConflict);
-        }
+        // let applied = self
+        //     .session
+        //     .batch(&batch, batch_values)
+        //     .await
+        //     .map_err(Error::Query)?
+        //     .first_row()
+        //     .map_err(Error::FirstRow)?
+        //     .columns
+        //     .first()
+        //     .and_then(|column| column.as_ref().and_then(|column|
+        // column.as_boolean()))     .ok_or(Error::MissingAppliedColumn)?;
+        // if !applied {
+        //     return Err(AppendStreamError::WriteConflict);
+        // }
 
         Ok(events)
     }

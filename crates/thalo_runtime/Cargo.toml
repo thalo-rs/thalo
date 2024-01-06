@@ -17,9 +17,10 @@ path = "./src/main.rs"
 thalo = { workspace = true }
 thalo_eventstore = { workspace = true }
 thalo_scylla = { workspace = true }
+thalo_event_indexer = { workspace = true, features = ["client"] }
 eventstore = "2.3.0"
 message_db = "0.1.0"
-scylla = "0.10.1"
+scylla = "0.11.1"
 # thalo_message_store = { workspace = true }
 
 anyhow = { workspace = true }

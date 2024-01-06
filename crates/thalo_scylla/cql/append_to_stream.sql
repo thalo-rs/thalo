@@ -1,9 +1,11 @@
-INSERT INTO thalo.event_store (
+INSERT INTO thalo.events (
     stream_name,
     sequence,
+    global_sequence,
     id,
     event_type,
     data,
-    timestamp
-) VALUES (?, ?, ?, ?, ?, ?)
+    timestamp,
+    bucket
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 IF NOT EXISTS

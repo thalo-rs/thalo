@@ -1,5 +1,5 @@
 [package]
-name = "thalo_scylla"
+name = "thalo_event_indexer"
 version = "0.8.0"
 edition = "2021"
 
@@ -7,10 +7,20 @@ edition = "2021"
 thalo = { workspace = true }
 
 async-trait = { workspace = true }
+anyhow = { workspace = true }
 chrono = { workspace = true }
 futures = { workspace = true }
+prost = "0.12"
 serde = { workspace = true }
 serde_json = { workspace = true }
 scylla = { version = "0.11.1", features = ["chrono", "time"] }
 thiserror = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync"] }
+tonic = { workspace = true }
 uuid = { workspace = true }
+
+[build-dependencies]
+tonic-build = "0.10"
+
+[features]
+client = []

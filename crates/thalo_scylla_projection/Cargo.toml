@@ -1,16 +1,18 @@
 [package]
-name = "thalo_scylla"
-version = "0.8.0"
+name = "thalo_scylla_projection"
+version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 thalo = { workspace = true }
 
 async-trait = { workspace = true }
+anyhow = { workspace = true }
 chrono = { workspace = true }
 futures = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 scylla = { version = "0.11.1", features = ["chrono", "time"] }
+scylla-cdc = { path = "/home/ari/dev/scylladb/scylla-cdc-rust/scylla-cdc" }
 thiserror = { workspace = true }
 uuid = { workspace = true }

@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Args;
-use thalo::stream_name::{Category, ID};
+use serde_json::Value;
 use thalo_runtime::rpc::client::*;
 
 /// Execute a command for a given module
@@ -21,24 +21,23 @@ pub struct Execute {
 
 impl Execute {
     pub async fn execute(self) -> Result<()> {
-        let name = Category::new(self.name)?;
-        let id = ID::new(self.id)?;
         let payload = serde_json::from_str(&self.payload)?;
         let mut client = CommandCenterClient::connect(self.url).await?;
-        let res = CommandCenterClientExt::execute_anonymous_command(
+        let res = CommandCenterClientExt::execute_anonymous_command::<Value>(
             &mut client,
-            name,
-            id,
+            self.name,
+            self.id,
             self.command,
             &payload,
         )
         .await;
         match res {
             Ok(Ok(events)) => {
-                println!("Executed with {} events:", events.len());
-                for event in &events {
-                    println!("    {}  {}", event.msg_type, event.data);
-                }
+                // println!("Executed with {} events:", events.len());
+                // for event in &events {
+                //     println!("{}",
+                // serde_json::to_string_pretty(event).unwrap());
+                // }
             }
             Ok(Err(err)) => {
                 let err = serde_json::to_string_pretty(&err)?;
