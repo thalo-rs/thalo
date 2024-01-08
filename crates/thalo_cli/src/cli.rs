@@ -38,12 +38,12 @@ pub async fn run() -> Result<()> {
             cmd.build().await?;
         }
         Command::Execute(cmd) => {
-            let start = Instant::now();
-            for _ in 0..1_000 {
-                cmd.clone().execute().await?;
-            }
+            // let start = Instant::now();
+            // for _ in 0..1_000 {
+            cmd.execute().await?;
+            // }
 
-            println!("{}ms", start.elapsed().as_millis());
+            // println!("{}ms", start.elapsed().as_millis());
         } /* Command::Publish(cmd) => {
            *     cmd.publish().await?;
            * } */

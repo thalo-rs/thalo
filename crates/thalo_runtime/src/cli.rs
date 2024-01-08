@@ -5,12 +5,10 @@ use std::time::Duration;
 
 use anyhow::Result;
 use clap::Parser;
-use message_db::database::{GetStreamMessagesOpts, MessageStore};
+// use message_db::database::{GetStreamMessagesOpts, MessageStore};
 use scylla::{Session, SessionBuilder};
-use serde_json::{json, Value};
 use thalo_runtime::{rpc, Config, Runtime};
-use thalo_scylla::ScyllaEventStore;
-use tokio::time::sleep;
+// use thalo_scylla::ScyllaEventStore;
 use tonic::transport::Server;
 use tracing_subscriber::EnvFilter;
 
@@ -30,6 +28,9 @@ struct Cli {
     /// Scylla DB hostname
     #[clap(long, env, default_value = "127.0.0.1:9042")]
     scylla_hostname: String,
+    /// Scylla DB hostname
+    #[clap(long, env, default_value = "http://127.0.0.1:50051")]
+    scylla_event_indexer_addr: String,
     /// Log levels
     #[clap(
         long,
@@ -85,7 +86,9 @@ pub async fn start() -> Result<()> {
         .await?;
     let session = Arc::new(session);
     // let event_store = ScyllaEventStore::new(session).await?;
-    let event_store = thalo_event_indexer::ScyllaEventStore::new(session).await?;
+    let event_store =
+        thalo_scylla_event_indexer::ScyllaEventStore::new(session, cli.scylla_event_indexer_addr)
+            .await?;
 
     // return Ok(());
 
@@ -115,18 +118,18 @@ pub async fn start() -> Result<()> {
     //     let runtime = runtime.clone();
     //     // tokio::spawn(async move {
     //     // sleep(Duration::from_millis(i)).await;
-    let msgs = runtime
-        .execute(
-            "counter".to_string(),
-            "123".to_string(),
-            "Increment".to_string(),
-            json!({ "amount": 1 }),
-            3,
-        )
-        .await;
-    if let Err(err) = msgs {
-        println!("{err}");
-    }
+    // let msgs = runtime
+    //     .execute(
+    //         "counter".to_string(),
+    //         "123".to_string(),
+    //         "Increment".to_string(),
+    //         json!({ "amount": 1 }),
+    //         3,
+    //     )
+    //     .await;
+    // if let Err(err) = msgs {
+    //     println!("{err}");
+    // }
     //     // dbg!(msgs);
     //     // });
     // }

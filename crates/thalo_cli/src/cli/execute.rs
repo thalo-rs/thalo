@@ -33,11 +33,10 @@ impl Execute {
         .await;
         match res {
             Ok(Ok(events)) => {
-                // println!("Executed with {} events:", events.len());
-                // for event in &events {
-                //     println!("{}",
-                // serde_json::to_string_pretty(event).unwrap());
-                // }
+                println!("Executed with {} events:", events.len());
+                for event in &events {
+                    println!("{}", serde_json::to_string_pretty(event).unwrap());
+                }
             }
             Ok(Err(err)) => {
                 let err = serde_json::to_string_pretty(&err)?;

@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -107,7 +108,10 @@ pub struct ScyllaEventStore {
 }
 
 impl ScyllaEventStore {
-    pub async fn new(session: Arc<Session>) -> anyhow::Result<Self> {
+    pub async fn new(
+        session: Arc<Session>,
+        #[cfg(feature = "client")] addr: impl Into<String>,
+    ) -> anyhow::Result<Self> {
         let append_query = session
             .prepare(
                 "
@@ -119,8 +123,9 @@ impl ScyllaEventStore {
                         event_type,
                         data,
                         timestamp,
-                        bucket
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        bucket,
+                        bucket_size
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     IF NOT EXISTS
                 ",
             )
@@ -145,7 +150,7 @@ impl ScyllaEventStore {
             iter_stream_stmt,
             latest_stream_sequence_cache: Arc::new(Mutex::new(HashMap::new())),
             #[cfg(feature = "client")]
-            client: EventIndexerClient::connect("http://[::1]:50051").await?,
+            client: EventIndexerClient::connect(addr.into()).await?,
         })
     }
 
@@ -244,10 +249,10 @@ impl EventIndexerEventStore for ScyllaEventStore {
                 event.data,
                 event.timestamp,
                 bucket,
+                BUCKET_SIZE,
             ));
         }
 
-        let start = Instant::now();
         let applied = self
             .session
             .batch(&batch, values)
@@ -262,7 +267,6 @@ impl EventIndexerEventStore for ScyllaEventStore {
         if !applied {
             return Err(AppendStreamError::WriteConflict);
         }
-        println!("{}ms", start.elapsed().as_millis());
 
         self.latest_stream_sequence_cache.lock().await.insert(
             stream_name,
