@@ -1,5 +1,4 @@
 use std::convert::Into;
-use std::mem;
 
 use async_trait::async_trait;
 // use proto::Acknowledgement;
@@ -52,7 +51,7 @@ pub trait CommandCenterClientExt {
         match Self::execute_anonymous_command::<E>(self, name, id, cmd, &Value::Object(payload))
             .await?
         {
-            Ok(messages) => Ok(Ok(unsafe { mem::transmute(messages) })),
+            Ok(events) => Ok(Ok(events)),
             Err(err) => {
                 let err = serde_json::from_value(err).map_err(|err| {
                     Status::internal(format!(
@@ -105,7 +104,7 @@ where
                 .into_iter()
                 .map(|event| serde_json::from_str(&event))
                 .collect::<Result<_, _>>()
-                .map_err(|err| Status::internal(err.to_string()))?;
+                .map_err(|err| Status::internal(format!("failed to deserialize event: {err}")))?;
             Ok(Ok(events))
         } else {
             let err = serde_json::from_str(&resp.message)
