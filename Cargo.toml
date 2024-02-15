@@ -11,7 +11,7 @@ members = [
   # "crates/thalo_message_db",
   "crates/thalo_runtime",
   # "crates/thalo_scylla",
-  # "crates/thalo_scylla_projection",
+  "crates/thalo_scylla_projection",
 
   # Examples
   "examples/bank_account",

@@ -4,15 +4,15 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-thalo = { workspace = true }
-
 async-trait = { workspace = true }
 anyhow = { workspace = true }
 chrono = { workspace = true }
+clap = { workspace = true }
 futures = { workspace = true }
-serde = { workspace = true }
+indicatif = { version = "0.17.8", features = ["tokio"] }
+serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 scylla = { version = "0.11.1", features = ["chrono", "time"] }
-scylla-cdc = { path = "/home/ari/dev/scylladb/scylla-cdc-rust/scylla-cdc" }
-thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
 uuid = { workspace = true }

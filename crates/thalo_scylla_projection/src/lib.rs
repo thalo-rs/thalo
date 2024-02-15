@@ -1,181 +1,406 @@
+pub mod checkpoint;
+mod event_processor;
+pub mod events_stream;
+
+use std::cmp::Reverse;
+use std::collections::{BinaryHeap, HashMap};
 use std::sync::Arc;
 use std::time::Duration;
+use std::{cmp, fmt};
 
-use anyhow::bail;
-use async_trait::async_trait;
-use chrono::{DateTime, NaiveDate, Utc};
-use scylla::{FromRow, Session};
-use scylla_cdc::checkpoints::CDCCheckpointSaver;
-use scylla_cdc::consumer::{Consumer, ConsumerFactory};
-use scylla_cdc::log_reader::CDCLogReaderBuilder;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use uuid::Uuid;
+use anyhow::Context;
+use clap::Parser;
+use futures::{Future, StreamExt};
+use indicatif::{HumanCount, MultiProgress, ProgressBar, ProgressStyle};
+use scylla::{Session, SessionBuilder};
+use tokio::sync::{mpsc, Mutex, Semaphore};
+use tokio::task::JoinHandle;
+use tracing::{error, trace};
 
-#[async_trait]
-pub trait EventHandler: Send {
-    async fn handle_event(&self, event: RecordedEvent) -> anyhow::Result<()>;
+use crate::checkpoint::Checkpoint;
+pub use crate::event_processor::*;
+use crate::events_stream::EventsStream;
+
+const DEFAULT_HOSTNAME: &str = "127.0.0.1";
+const DEFAULT_EVENTS_TABLE: &str = "thalo.event_store";
+const DEFAULT_EVENTS_BY_GLOBAL_SEQUENCE_TABLE: &str = "thalo.events_by_global_sequence";
+const DEFAULT_CHECKPOINTS_TABLE: &str = "projection.checkpoints";
+const DEFAULT_SLEEP_INTERVAL: f64 = 2.0;
+
+#[derive(Parser)]
+pub struct EventProcessorConfig {
+    /// Event processor identifier
+    #[clap(long, env = "EVENT_PROCESSOR_ID")]
+    pub id: String,
+
+    /// Address of a node in source cluster
+    #[clap(short = 'H', long, env, default_value_t = DEFAULT_HOSTNAME.to_string())]
+    pub hostname: String,
+
+    /// Table name of the event store
+    #[clap(long, env, default_value_t = DEFAULT_EVENTS_TABLE.to_string())]
+    pub events_table: String,
+
+    /// Name of the events by global sequence table
+    #[clap(long, env, default_value_t = DEFAULT_EVENTS_BY_GLOBAL_SEQUENCE_TABLE.to_string())]
+    pub events_by_global_sequence_table: String,
+
+    /// Table name of the checkpoint
+    #[clap(long, env, default_value_t = DEFAULT_CHECKPOINTS_TABLE.to_string())]
+    pub checkpoints_table: String,
+
+    /// Sleep interval in seconds between polling for new events
+    #[clap(long, env, default_value_t = DEFAULT_SLEEP_INTERVAL)]
+    pub sleep_interval: f64,
+
+    #[clap(skip)]
+    pub progress_bar: Option<ProgressBar>,
 }
 
-#[async_trait]
-pub trait EventHandlerFactory: Sync + Send {
-    async fn new_event_handler(&self) -> Box<dyn EventHandler>;
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RecordedEvent {
-    pub stream_name: String,
-    pub sequence: u64,
-    pub id: Uuid,
-    pub event_type: String,
-    pub data: Value,
-    pub timestamp: DateTime<Utc>,
-}
-
-#[derive(FromRow)]
-struct RawRecordedEvent {
-    stream_name: String,
-    sequence: i64,
-    id: Uuid,
-    event_type: String,
-    data: Vec<u8>,
-    timestamp: DateTime<Utc>,
-    #[allow(unused)]
-    date: NaiveDate,
-}
-
-impl TryFrom<RawRecordedEvent> for RecordedEvent {
-    type Error = serde_json::Error;
-
-    fn try_from(ev: RawRecordedEvent) -> Result<Self, Self::Error> {
-        debug_assert_eq!(ev.timestamp.date_naive(), ev.date);
-
-        Ok(RecordedEvent {
-            stream_name: ev.stream_name,
-            sequence: ev.sequence as u64,
-            id: ev.id,
-            event_type: ev.event_type,
-            data: serde_json::from_slice(&ev.data)?,
-            timestamp: ev.timestamp,
-        })
-    }
-}
-
-pub struct EventHandlerBuilder {
-    checkpoint_saver: Option<Arc<dyn CDCCheckpointSaver>>,
-    event_handler_factory: Option<Arc<dyn EventHandlerFactory>>,
-    keyspace: Option<String>,
-    safety_interval: Duration,
-    save_interval: Duration,
-    session: Option<Arc<Session>>,
-    sleep_interval: Duration,
-    table_name: Option<String>,
-}
-
-impl EventHandlerBuilder {
-    pub fn new() -> Self {
-        EventHandlerBuilder {
-            checkpoint_saver: None,
-            event_handler_factory: None,
-            keyspace: None,
-            safety_interval: Duration::from_secs(30),
-            save_interval: Duration::from_secs(10),
-            session: None,
-            sleep_interval: Duration::from_secs(10),
-            table_name: None,
+impl EventProcessorConfig {
+    pub fn new(id: impl Into<String>) -> Self {
+        EventProcessorConfig {
+            id: id.into(),
+            hostname: DEFAULT_HOSTNAME.to_string(),
+            events_table: DEFAULT_EVENTS_TABLE.to_string(),
+            events_by_global_sequence_table: DEFAULT_EVENTS_BY_GLOBAL_SEQUENCE_TABLE.to_string(),
+            checkpoints_table: DEFAULT_CHECKPOINTS_TABLE.to_string(),
+            sleep_interval: DEFAULT_SLEEP_INTERVAL,
+            progress_bar: None,
         }
     }
 
-    pub fn checkpoint_saver(mut self, cp_saver: Arc<dyn CDCCheckpointSaver>) -> Self {
-        self.checkpoint_saver = Some(cp_saver);
+    pub async fn start<P, F, Fu>(self, event_processor: F) -> anyhow::Result<()>
+    where
+        F: FnOnce(Arc<Session>, &Self) -> Fu,
+        Fu: Future<Output = anyhow::Result<P>>,
+        P: EventProcessor + Clone + Send + 'static,
+        <P as EventProcessor>::Event: Send,
+        <P as EventProcessor>::Error: fmt::Debug,
+    {
+        macro_rules! keyspace_table_name {
+            ($k:expr) => {
+                $k.split_once('.')
+                    .with_context(|| format!("missing keyspace in {}", stringify!($k)))?
+            };
+        }
+
+        let session = Arc::new(
+            SessionBuilder::new()
+                .known_node(&self.hostname)
+                .build()
+                .await
+                .context("failed to connect to scylla")?,
+        );
+
+        let event_processor = event_processor(Arc::clone(&session), &self).await?;
+
+        let events_stream = {
+            let (keyspace, table_name) = keyspace_table_name!(self.events_by_global_sequence_table);
+            EventsStream::new(Arc::clone(&session), keyspace, table_name).await?
+        };
+
+        let checkpoint = {
+            let (keyspace, table_name) = keyspace_table_name!(self.checkpoints_table);
+            Checkpoint::new(Arc::clone(&session), keyspace, table_name, self.id).await?
+        };
+
+        // Initialize progress bar values
+        let last_global_sequence = checkpoint.get_last_global_sequence().await?;
+        let mut next_global_sequence = last_global_sequence.map(|n| n + 1);
+        let (checkpoint_tx, _) = checkpoint.spawn_checkpoint_saver(self.progress_bar.clone());
+        if let Some(pb) = &self.progress_bar {
+            pb.set_position(last_global_sequence.unwrap_or(0));
+            pb.set_prefix(HumanCount(last_global_sequence.unwrap_or(0)).to_string());
+        }
+
+        // Continuously update the max global sequence every 10 seconds
+        if let Some(pb) = self.progress_bar.clone() {
+            let (keyspace, table_name) = keyspace_table_name!(self.events_by_global_sequence_table);
+            Self::spawn_progress_bar_max_events_updater(
+                Arc::clone(&session),
+                keyspace,
+                table_name,
+                pb,
+            )
+            .await?;
+        }
+
+        // Update checkpoint
+        let (status_tx, mut status_rx) = mpsc::unbounded_channel();
+        tokio::spawn(async move {
+            let mut pending: BinaryHeap<Reverse<u64>> = BinaryHeap::new();
+            let mut completed: BinaryHeap<Reverse<u64>> = BinaryHeap::new();
+            let mut max_pending = 0;
+            let mut max_completed = 0;
+
+            while let Some(status) = status_rx.recv().await {
+                match status {
+                    EventStatus::Pending(global_sequence) => {
+                        pending.push(Reverse(global_sequence));
+                        max_pending = pending.len().max(max_pending);
+                    }
+                    EventStatus::Completed(global_sequence) => {
+                        completed.push(Reverse(global_sequence));
+                        max_completed = completed.len().max(max_completed);
+                    }
+                }
+
+                if let Some(global_sequence) = lowest_completed(&mut pending, &mut completed) {
+                    if let Some(pb) = &self.progress_bar {
+                        pb.set_position(global_sequence);
+                        if pb.length().unwrap_or(0) < global_sequence {
+                            pb.set_length(global_sequence);
+                        }
+                    }
+                    checkpoint_tx.send(global_sequence).unwrap();
+                }
+            }
+        });
+
+        // Iterate events and process them
+        let mut locks: HashMap<String, Arc<Mutex<()>>> = HashMap::new();
+        let semaphore = Arc::new(Semaphore::new(32));
+        loop {
+            let mut iter = events_stream
+                .fetch_events(
+                    next_global_sequence.map(|n| n / 1_000).unwrap_or(0),
+                    next_global_sequence,
+                )
+                .await?;
+            let mut processed_events_count = 0;
+            while let Some(next_row_res) = iter.next().await {
+                let ev = next_row_res?;
+                let global_sequence = ev.global_sequence;
+                let permit = semaphore.clone().acquire_owned().await?;
+                let lock = locks.entry(ev.stream_name.clone()).or_default().clone();
+                let guard = lock.lock_owned().await;
+                status_tx.send(EventStatus::Pending(global_sequence))?;
+                tokio::spawn({
+                    let event_processor = event_processor.clone();
+                    let status_tx = status_tx.clone();
+                    async move {
+                        event_processor.handle_event(ev).await.unwrap();
+                        status_tx
+                            .send(EventStatus::Completed(global_sequence))
+                            .unwrap();
+                        trace!(%global_sequence, "handled event");
+                        std::mem::drop(guard);
+                        std::mem::drop(permit);
+                    }
+                });
+                next_global_sequence = Some(global_sequence + 1);
+                processed_events_count += 1;
+            }
+            if processed_events_count == 0 {
+                tokio::time::sleep(Duration::from_millis(
+                    (self.sleep_interval / 1_000.0) as u64,
+                ))
+                .await;
+            }
+        }
+    }
+
+    pub fn hostname(mut self, hostname: impl Into<String>) -> Self {
+        self.hostname = hostname.into();
         self
     }
 
-    pub fn event_handler_factory(
+    pub fn events_table(mut self, events_table: impl Into<String>) -> Self {
+        self.events_table = events_table.into();
+        self
+    }
+
+    pub fn events_by_global_sequence_table(
         mut self,
-        event_handler_factory: Arc<dyn EventHandlerFactory>,
+        events_by_global_sequence_table: impl Into<String>,
     ) -> Self {
-        self.event_handler_factory = Some(event_handler_factory);
+        self.events_by_global_sequence_table = events_by_global_sequence_table.into();
         self
     }
 
-    pub fn keyspace(mut self, keyspace: impl Into<String>) -> Self {
-        self.keyspace = Some(keyspace.into());
+    pub fn checkpoints_table(mut self, checkpoints_table: impl Into<String>) -> Self {
+        self.checkpoints_table = checkpoints_table.into();
         self
     }
 
-    pub fn safety_interval(mut self, safety_interval: Duration) -> Self {
-        self.safety_interval = safety_interval;
-        self
-    }
-
-    pub fn save_interval(mut self, save_interval: Duration) -> Self {
-        self.save_interval = save_interval;
-        self
-    }
-
-    pub fn session(mut self, session: Arc<Session>) -> Self {
-        self.session = Some(session);
-        self
-    }
-
-    pub fn sleep_interval(mut self, sleep_interval: Duration) -> Self {
+    pub fn sleep_interval(mut self, sleep_interval: f64) -> Self {
         self.sleep_interval = sleep_interval;
         self
     }
 
-    pub fn table_name(mut self, table_name: impl Into<String>) -> Self {
-        self.table_name = Some(table_name.into());
+    pub fn progress_bar(mut self, pb: impl Into<Option<ProgressBar>>) -> Self {
+        self.progress_bar = pb.into();
         self
     }
 
-    pub async fn build(self) -> anyhow::Result<EventHandlerRuntime> {
-        let mut cdc = CDCLogReaderBuilder::new()
-            .consumer_factory(Arc::new(EventHandlerCDCConsumerFactory {}))
-            .safety_interval(Duration::ZERO)
-            .sleep_interval(self.sleep_interval)
-            .start_timestamp(Utc::now() - self.safety_interval)
-            .window_size(self.sleep_interval.max(self.safety_interval));
+    pub fn default_progress_bar(self) -> Self {
+        self.progress_bar(default_progress_bar())
+    }
 
-        if let Some(checkpoint_saver) = self.checkpoint_saver {
-            cdc = cdc
-                .checkpoint_saver(checkpoint_saver)
-                .should_load_progress(true)
-                .should_save_progress(false);
-        }
+    async fn spawn_progress_bar_max_events_updater(
+        session: Arc<Session>,
+        keyspace: &str,
+        table_name: &str,
+        progress_bar: ProgressBar,
+    ) -> anyhow::Result<JoinHandle<()>> {
+        let max_global_sequence_stmt = session
+            .prepare(format!(
+                "SELECT MAX(global_sequence) FROM {keyspace}.{table_name}"
+            ))
+            .await?;
 
-        if let Some(keyspace) = &self.keyspace {
-            cdc = cdc.keyspace(keyspace);
-        }
+        let handle = tokio::spawn({
+            async move {
+                loop {
+                    let res = session
+                        .execute(&max_global_sequence_stmt, ())
+                        .await
+                        .context("failed to query max global sequence")
+                        .and_then(|res| {
+                            res.first_row_typed::<(Option<i64>,)>()
+                                .context("failed to get first row typed")
+                        });
+                    match res {
+                        Ok((max_global_sequence,)) => {
+                            progress_bar
+                                .set_length(max_global_sequence.map(|max| max as u64).unwrap_or(0));
+                        }
+                        Err(err) => {
+                            error!("{err}");
+                        }
+                    }
 
-        if let Some(session) = self.session {
-            cdc = cdc.session(session);
-        }
+                    tokio::time::sleep(Duration::from_secs(10)).await;
+                }
+            }
+        });
 
-        if let Some(table_name) = &self.table_name {
-            cdc = cdc.table_name(table_name);
-        }
-
-        let (cdc, handle) = cdc.build().await?;
-
-        todo!()
+        Ok(handle)
     }
 }
 
-pub struct EventHandlerRuntime {}
+pub fn default_progress_bar() -> ProgressBar {
+    let m = MultiProgress::new();
+    let sty = ProgressStyle::with_template(
+        "[{elapsed_precise}] {percent:>3}% {bar:40.cyan/blue} {prefix:>10}/{human_pos}/{human_len:10} {msg}",
+    )
+    .unwrap()
+    .progress_chars("##-");
 
-struct EventHandlerCDCConsumerFactory {}
+    let pb = m.add(ProgressBar::new(0));
+    pb.enable_steady_tick(Duration::from_millis(200));
+    pb.set_style(sty.clone());
+    pb.set_message("waiting for events...");
 
-#[async_trait]
-impl ConsumerFactory for EventHandlerCDCConsumerFactory {
-    async fn new_consumer(&self) -> Box<dyn Consumer> {
-        todo!()
+    pb
+}
+
+enum EventStatus {
+    Pending(u64),
+    Completed(u64),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ProcessingEventStatus {
+    global_sequence: u64,
+    done: bool,
+}
+
+impl PartialOrd for ProcessingEventStatus {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        self.global_sequence
+            .partial_cmp(&other.global_sequence)
+            .map(|ord| ord.reverse())
     }
 }
 
-pub async fn start_event_handler(
-    handler: impl EventHandler,
-    opts: EventHandlerOpts,
-) -> anyhow::Result<()> {
-    // Handle old events
+impl Ord for ProcessingEventStatus {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        self.global_sequence.cmp(&other.global_sequence).reverse()
+    }
+}
+
+fn lowest_completed(
+    pending: &mut BinaryHeap<Reverse<u64>>,
+    completed: &mut BinaryHeap<Reverse<u64>>,
+) -> Option<u64> {
+    let Reverse(pending_top) = pending.peek().copied()?;
+    let mut last_completed_top = None;
+    while let Some(Reverse(completed_top)) = completed.peek().copied() {
+        if completed_top == pending_top {
+            pending.pop();
+            completed.pop();
+            return Some(lowest_completed(pending, completed).unwrap_or(completed_top));
+        }
+        if completed_top > pending_top {
+            break;
+        }
+
+        last_completed_top = completed.pop().map(|Reverse(n)| n);
+    }
+
+    last_completed_top
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_match_found() {
+        let mut pending = BinaryHeap::new();
+        let mut completed = BinaryHeap::new();
+        pending.push(Reverse(1));
+        pending.push(Reverse(3));
+        completed.push(Reverse(2));
+        completed.push(Reverse(1));
+
+        let checkpoint = lowest_completed(&mut pending, &mut completed);
+        assert_eq!(checkpoint, Some(2));
+        assert_eq!(pending.peek(), Some(&Reverse(3)));
+        assert_eq!(completed.peek(), None);
+    }
+
+    #[test]
+    fn test_no_match() {
+        let mut pending = BinaryHeap::new();
+        let mut completed = BinaryHeap::new();
+        pending.push(Reverse(3));
+        pending.push(Reverse(4));
+        completed.push(Reverse(1));
+        completed.push(Reverse(2));
+
+        let checkpoint = lowest_completed(&mut pending, &mut completed);
+        assert_eq!(checkpoint, Some(2));
+        assert_eq!(pending.peek(), Some(&Reverse(3)));
+        assert!(completed.is_empty());
+    }
+
+    #[test]
+    fn test_multiple_matches() {
+        let mut pending = BinaryHeap::new();
+        let mut completed = BinaryHeap::new();
+        pending.push(Reverse(1));
+        pending.push(Reverse(2));
+        pending.push(Reverse(3));
+        completed.push(Reverse(3));
+        completed.push(Reverse(1));
+
+        let checkpoint = lowest_completed(&mut pending, &mut completed);
+        assert_eq!(checkpoint, Some(1));
+        assert_eq!(pending.peek(), Some(&Reverse(2)));
+        assert_eq!(completed.peek(), Some(&Reverse(3)));
+    }
+
+    #[test]
+    fn test_empty_collections() {
+        let mut pending = BinaryHeap::new();
+        let mut completed = BinaryHeap::new();
+
+        let checkpoint = lowest_completed(&mut pending, &mut completed);
+        assert_eq!(checkpoint, None);
+        assert!(pending.is_empty());
+        assert!(completed.is_empty());
+    }
 }
