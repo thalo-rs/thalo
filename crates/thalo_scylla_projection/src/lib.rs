@@ -29,10 +29,6 @@ const DEFAULT_SLEEP_INTERVAL: f64 = 2.0;
 
 #[derive(Parser)]
 pub struct EventProcessorConfig {
-    /// Event processor identifier
-    #[clap(long, env = "EVENT_PROCESSOR_ID")]
-    pub id: String,
-
     /// Address of a node in source cluster
     #[clap(short = 'H', long, env, default_value_t = DEFAULT_HOSTNAME.to_string())]
     pub hostname: String,
@@ -58,9 +54,8 @@ pub struct EventProcessorConfig {
 }
 
 impl EventProcessorConfig {
-    pub fn new(id: impl Into<String>) -> Self {
+    pub fn new() -> Self {
         EventProcessorConfig {
-            id: id.into(),
             hostname: DEFAULT_HOSTNAME.to_string(),
             events_table: DEFAULT_EVENTS_TABLE.to_string(),
             events_by_global_sequence_table: DEFAULT_EVENTS_BY_GLOBAL_SEQUENCE_TABLE.to_string(),
@@ -70,7 +65,11 @@ impl EventProcessorConfig {
         }
     }
 
-    pub async fn start<P, F, Fu>(self, event_processor: F) -> anyhow::Result<()>
+    pub async fn start<P, F, Fu>(
+        self,
+        id: impl Into<String>,
+        event_processor: F,
+    ) -> anyhow::Result<()>
     where
         F: FnOnce(Arc<Session>, &Self) -> Fu,
         Fu: Future<Output = anyhow::Result<P>>,
@@ -102,7 +101,7 @@ impl EventProcessorConfig {
 
         let checkpoint = {
             let (keyspace, table_name) = keyspace_table_name!(self.checkpoints_table);
-            Checkpoint::new(Arc::clone(&session), keyspace, table_name, self.id).await?
+            Checkpoint::new(Arc::clone(&session), keyspace, table_name, id).await?
         };
 
         // Initialize progress bar values
