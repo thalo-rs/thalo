@@ -26,6 +26,7 @@ const DEFAULT_EVENTS_TABLE: &str = "thalo.event_store";
 const DEFAULT_EVENTS_BY_GLOBAL_SEQUENCE_TABLE: &str = "thalo.events_by_global_sequence";
 const DEFAULT_CHECKPOINTS_TABLE: &str = "projection.checkpoints";
 const DEFAULT_SLEEP_INTERVAL: f64 = 2.0;
+const DEFAULT_CHECKPOINT_INTERVAL: f64 = 5.0;
 
 #[derive(Parser)]
 pub struct EventProcessorConfig {
@@ -49,6 +50,9 @@ pub struct EventProcessorConfig {
     #[clap(long, env, default_value_t = DEFAULT_SLEEP_INTERVAL)]
     pub sleep_interval: f64,
 
+    /// Sleep interval in seconds between polling for new events
+    #[clap(long, env, default_value_t = DEFAULT_CHECKPOINT_INTERVAL)]
+    pub checkpoint_interval: f64,
     #[clap(skip)]
     pub progress_bar: Option<ProgressBar>,
 }
@@ -61,6 +65,7 @@ impl EventProcessorConfig {
             events_by_global_sequence_table: DEFAULT_EVENTS_BY_GLOBAL_SEQUENCE_TABLE.to_string(),
             checkpoints_table: DEFAULT_CHECKPOINTS_TABLE.to_string(),
             sleep_interval: DEFAULT_SLEEP_INTERVAL,
+            checkpoint_interval: DEFAULT_CHECKPOINT_INTERVAL,
             progress_bar: None,
         }
     }
@@ -107,7 +112,10 @@ impl EventProcessorConfig {
         // Initialize progress bar values
         let last_global_sequence = checkpoint.get_last_global_sequence().await?;
         let mut next_global_sequence = last_global_sequence.map(|n| n + 1);
-        let (checkpoint_tx, _) = checkpoint.spawn_checkpoint_saver(self.progress_bar.clone());
+        let (checkpoint_tx, _) = checkpoint.spawn_checkpoint_saver(
+            Duration::from_millis((self.checkpoint_interval / 1_000.0) as u64),
+            self.progress_bar.clone(),
+        );
         if let Some(pb) = &self.progress_bar {
             pb.set_position(last_global_sequence.unwrap_or(0));
             pb.set_prefix(HumanCount(last_global_sequence.unwrap_or(0)).to_string());

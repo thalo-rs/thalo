@@ -62,7 +62,11 @@ impl Checkpoint {
         Ok(())
     }
 
-    pub fn spawn_checkpoint_saver(&self, pb: Option<ProgressBar>) -> (Sender<u64>, JoinHandle<()>) {
+    pub fn spawn_checkpoint_saver(
+        &self,
+        interval: Duration,
+        pb: Option<ProgressBar>,
+    ) -> (Sender<u64>, JoinHandle<()>) {
         let this = self.clone();
         let (tx, mut rx) = watch::channel(0);
         let handle = tokio::spawn(async move {
@@ -81,7 +85,7 @@ impl Checkpoint {
                     pb.set_prefix(HumanCount(global_sequence).to_string());
                 }
 
-                next_update_time = Instant::now() + Duration::from_secs(5);
+                next_update_time = Instant::now() + interval;
             }
             info!("checkpoint saver stopping");
         });
