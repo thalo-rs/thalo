@@ -11,9 +11,9 @@ use std::{cmp, fmt};
 use anyhow::Context;
 use clap::Parser;
 use futures::{Future, StreamExt};
-use indicatif::{HumanCount, MultiProgress, ProgressBar, ProgressStyle};
+use indicatif::{HumanCount, MultiProgress, ProgressBar, ProgressDrawTarget, ProgressStyle};
 use scylla::{Session, SessionBuilder};
-use tokio::sync::{mpsc, Mutex, Semaphore};
+use tokio::sync::{mpsc, oneshot, watch, Mutex, Semaphore};
 use tokio::task::JoinHandle;
 use tracing::{error, trace};
 
@@ -27,6 +27,8 @@ const DEFAULT_EVENTS_BY_GLOBAL_SEQUENCE_TABLE: &str = "thalo.events_by_global_se
 const DEFAULT_CHECKPOINTS_TABLE: &str = "projection.checkpoints";
 const DEFAULT_SLEEP_INTERVAL: f64 = 2.0;
 const DEFAULT_CHECKPOINT_INTERVAL: f64 = 5.0;
+const LIVE_PROGRESS_BAR_TEMPLATE: &str =
+    "[{elapsed_precise}] 🚩 {prefix}  🔄 {human_pos}  ❯ {wide_msg}";
 
 #[derive(Parser)]
 pub struct EventProcessorConfig {
@@ -53,6 +55,7 @@ pub struct EventProcessorConfig {
     /// Sleep interval in seconds between polling for new events
     #[clap(long, env, default_value_t = DEFAULT_CHECKPOINT_INTERVAL)]
     pub checkpoint_interval: f64,
+
     #[clap(skip)]
     pub progress_bar: Option<ProgressBar>,
 }
@@ -122,16 +125,25 @@ impl EventProcessorConfig {
         }
 
         // Continuously update the max global sequence every 10 seconds
-        if let Some(pb) = self.progress_bar.clone() {
+        let max_events_updater = if let Some(pb) = &self.progress_bar {
+            let (tx, mut rx) = watch::channel(());
+
             let (keyspace, table_name) = keyspace_table_name!(self.events_by_global_sequence_table);
-            Self::spawn_progress_bar_max_events_updater(
+            let handle = Self::spawn_progress_bar_max_events_updater(
                 Arc::clone(&session),
                 keyspace,
                 table_name,
-                pb,
+                pb.clone(),
+                tx,
             )
             .await?;
-        }
+            let _ = rx.changed().await;
+            pb.set_draw_target(ProgressDrawTarget::stderr());
+
+            Some(handle)
+        } else {
+            None
+        };
 
         // Update checkpoint
         let (status_tx, mut status_rx) = mpsc::unbounded_channel();
@@ -140,6 +152,7 @@ impl EventProcessorConfig {
             let mut completed: BinaryHeap<Reverse<u64>> = BinaryHeap::new();
             let mut max_pending = 0;
             let mut max_completed = 0;
+            let mut is_live = false;
 
             while let Some(status) = status_rx.recv().await {
                 match status {
@@ -156,8 +169,22 @@ impl EventProcessorConfig {
                 if let Some(global_sequence) = lowest_completed(&mut pending, &mut completed) {
                     if let Some(pb) = &self.progress_bar {
                         pb.set_position(global_sequence);
-                        if pb.length().unwrap_or(0) < global_sequence {
+                        if pb
+                            .length()
+                            .map(|len| len < global_sequence)
+                            .unwrap_or(false)
+                        {
                             pb.set_length(global_sequence);
+                        }
+                        if pb.length().map(|len| len <= pb.position()).unwrap_or(false) && !is_live
+                        {
+                            is_live = true;
+                            if let Some(handle) = &max_events_updater {
+                                handle.abort();
+                            }
+                            let sty =
+                                ProgressStyle::with_template(LIVE_PROGRESS_BAR_TEMPLATE).unwrap();
+                            pb.set_style(sty);
                         }
                     }
                     checkpoint_tx.send(global_sequence).unwrap();
@@ -236,6 +263,11 @@ impl EventProcessorConfig {
         self
     }
 
+    pub fn checkpoint_interval(mut self, checkpoint_interval: f64) -> Self {
+        self.checkpoint_interval = checkpoint_interval;
+        self
+    }
+
     pub fn progress_bar(mut self, pb: impl Into<Option<ProgressBar>>) -> Self {
         self.progress_bar = pb.into();
         self
@@ -250,6 +282,7 @@ impl EventProcessorConfig {
         keyspace: &str,
         table_name: &str,
         progress_bar: ProgressBar,
+        tx: watch::Sender<()>,
     ) -> anyhow::Result<JoinHandle<()>> {
         let max_global_sequence_stmt = session
             .prepare(format!(
@@ -270,13 +303,23 @@ impl EventProcessorConfig {
                         });
                     match res {
                         Ok((max_global_sequence,)) => {
-                            progress_bar
-                                .set_length(max_global_sequence.map(|max| max as u64).unwrap_or(0));
+                            let max_global_sequence =
+                                max_global_sequence.map(|max| max as u64).unwrap_or(0);
+                            progress_bar.set_length(max_global_sequence);
+                            if max_global_sequence <= progress_bar.position() {
+                                let sty = ProgressStyle::with_template(LIVE_PROGRESS_BAR_TEMPLATE)
+                                    .unwrap();
+                                progress_bar.set_style(sty);
+                                progress_bar.tick();
+                                return;
+                            }
                         }
                         Err(err) => {
                             error!("{err}");
                         }
                     }
+
+                    let _ = tx.send(());
 
                     tokio::time::sleep(Duration::from_secs(10)).await;
                 }
@@ -290,15 +333,16 @@ impl EventProcessorConfig {
 pub fn default_progress_bar() -> ProgressBar {
     let m = MultiProgress::new();
     let sty = ProgressStyle::with_template(
-        "[{elapsed_precise}] {percent:>3}% {bar:40.cyan/blue} {prefix:>10}/{human_pos}/{human_len:10} {msg}",
-    )
-    .unwrap()
-    .progress_chars("##-");
+            "[{elapsed_precise}] {percent:>3}% {bar:20./dim}  🚩 {prefix}  🔄 {human_pos}  📈 {human_len}  ❯ {wide_msg}",
+        )
+        .unwrap()
+        .progress_chars("█─");
 
     let pb = m.add(ProgressBar::new(0));
-    pb.enable_steady_tick(Duration::from_millis(200));
     pb.set_style(sty.clone());
     pb.set_message("waiting for events...");
+    pb.set_draw_target(ProgressDrawTarget::hidden());
+    pb.enable_steady_tick(Duration::from_millis(200));
 
     pb
 }
