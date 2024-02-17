@@ -74,9 +74,10 @@ where
         payload: Value,
         max_attempts: u8,
     ) -> Result<Result<Vec<E::Event>, Value>> {
-        let Ok(stream_name) = StreamName::from_parts(name, Some(&id)) else {
-            return Err(anyhow!("invalid name or id"));
-        };
+        // let Ok(stream_name) = StreamName::from_parts(name, Some(&id)) else {
+        //     return Err(anyhow!("invalid name or id"));
+        // };
+        let stream_name = StreamName::from_parts(name, Some(&id));
         let stream = self.get_or_create_stream(&stream_name).await?;
 
         let (reply, recv) = oneshot::channel();

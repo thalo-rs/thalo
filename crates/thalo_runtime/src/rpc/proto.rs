@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use std::time::{Duration, UNIX_EPOCH};
 
 use chrono::{TimeZone, Utc};
-use thalo::stream_name::{EmptyStreamName, StreamName};
+use thalo::stream_name::StreamName;
 use thiserror::Error;
 
 tonic::include_proto!("thalo");
