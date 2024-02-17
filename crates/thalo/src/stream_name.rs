@@ -83,21 +83,21 @@ impl<'a> StreamName<'a> {
     /// `category-id`
     pub const ID_SEPARATOR: char = '-';
 
-    pub fn new(stream_name: impl Into<Cow<'a, str>>) -> Result<Self, EmptyStreamName> {
+    pub fn new(stream_name: impl Into<Cow<'a, str>>) -> Self {
         let stream_name = stream_name.into();
 
         // TODO: Valstream_nameate
-        Ok(StreamName(stream_name))
+        StreamName(stream_name)
     }
 
-    pub fn from_parts(category: String, id: Option<&str>) -> Result<Self, EmptyStreamName> {
+    pub fn from_parts(category: String, id: Option<&str>) -> Self {
         let mut s = category;
         if let Some(id) = id {
             s.push(Self::ID_SEPARATOR);
             s.push_str(id);
         }
 
-        Ok(StreamName(Cow::Owned(s)))
+        StreamName(Cow::Owned(s))
     }
 
     pub fn category(&self) -> &str {
@@ -116,9 +116,17 @@ impl<'a> StreamName<'a> {
     }
 }
 
-#[derive(Clone, Copy, Debug, Error)]
-#[error("empty stream name")]
-pub struct EmptyStreamName;
+impl From<String> for StreamName<'static> {
+    fn from(s: String) -> Self {
+        StreamName::new(s)
+    }
+}
+
+impl<'a> From<&'a str> for StreamName<'a> {
+    fn from(s: &'a str) -> Self {
+        StreamName::new(s)
+    }
+}
 
 impl_eq! { StreamName<'a>, &'b str }
 impl_eq! { StreamName<'a>, String }

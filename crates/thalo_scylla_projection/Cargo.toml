@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+thalo = { workspace = true }
+
 async-trait = { workspace = true }
 anyhow = { workspace = true }
 chrono = { workspace = true }

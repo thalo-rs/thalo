@@ -8,19 +8,30 @@ use scylla::FromRow;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
+use thalo::stream_name::StreamName;
 use uuid::Uuid;
 
 #[async_trait]
 pub trait EventProcessor {
     type Event;
+    type State;
     type Error;
 
-    async fn handle_event(&self, ev: RecordedEvent<Self::Event>) -> Result<(), Self::Error>;
+    async fn preprocess_event(
+        &self,
+        ev: &RecordedEvent<Self::Event>,
+    ) -> Result<Self::State, Self::Error>;
+
+    async fn handle_event(
+        &self,
+        state: Self::State,
+        ev: RecordedEvent<Self::Event>,
+    ) -> Result<(), Self::Error>;
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecordedEvent<E> {
-    pub stream_name: String,
+    pub stream_name: StreamName<'static>,
     pub sequence: u64,
     pub global_sequence: u64,
     pub id: Uuid,
@@ -28,7 +39,7 @@ pub struct RecordedEvent<E> {
     pub data: Map<String, Value>,
     pub timestamp: DateTime<Utc>,
     pub bucket: u64,
-    phantom: PhantomData<E>,
+    pub phantom: PhantomData<E>,
 }
 
 impl<E> RecordedEvent<E> {
@@ -56,6 +67,7 @@ impl<E> FromRow for RecordedEvent<E> {
             DateTime<Utc>,
             i64,
         ) = FromRow::from_row(row)?;
+        let stream_name = StreamName::new(stream_name);
         let sequence = sequence
             .try_into()
             .map_err(|_err| FromRowError::BadCqlVal {

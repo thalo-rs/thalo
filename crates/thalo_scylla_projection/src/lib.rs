@@ -6,14 +6,14 @@ use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap};
 use std::sync::Arc;
 use std::time::Duration;
-use std::{cmp, fmt};
+use std::{cmp, fmt, mem};
 
 use anyhow::Context;
 use clap::Parser;
 use futures::{Future, StreamExt};
 use indicatif::{HumanCount, MultiProgress, ProgressBar, ProgressDrawTarget, ProgressStyle};
 use scylla::{Session, SessionBuilder};
-use tokio::sync::{mpsc, oneshot, watch, Mutex, Semaphore};
+use tokio::sync::{mpsc, watch, Mutex, Semaphore};
 use tokio::task::JoinHandle;
 use tracing::{error, trace};
 
@@ -27,6 +27,7 @@ const DEFAULT_EVENTS_BY_GLOBAL_SEQUENCE_TABLE: &str = "thalo.events_by_global_se
 const DEFAULT_CHECKPOINTS_TABLE: &str = "projection.checkpoints";
 const DEFAULT_SLEEP_INTERVAL: f64 = 2.0;
 const DEFAULT_CHECKPOINT_INTERVAL: f64 = 5.0;
+const DEFAULT_CONCURRENT_LIMIT: usize = 32;
 const LIVE_PROGRESS_BAR_TEMPLATE: &str =
     "[{elapsed_precise}] 🚩 {prefix}  🔄 {human_pos}  ❯ {wide_msg}";
 
@@ -56,6 +57,12 @@ pub struct EventProcessorConfig {
     #[clap(long, env, default_value_t = DEFAULT_CHECKPOINT_INTERVAL)]
     pub checkpoint_interval: f64,
 
+    /// Max concurrent events to process at a time.
+    /// Events in the same stream are not processed concurrently, only across
+    /// streams. Set this to 1 to disable concurrent processing.
+    #[clap(skip = DEFAULT_CONCURRENT_LIMIT)]
+    pub concurrent_limit: usize,
+
     #[clap(skip)]
     pub progress_bar: Option<ProgressBar>,
 }
@@ -69,6 +76,7 @@ impl EventProcessorConfig {
             checkpoints_table: DEFAULT_CHECKPOINTS_TABLE.to_string(),
             sleep_interval: DEFAULT_SLEEP_INTERVAL,
             checkpoint_interval: DEFAULT_CHECKPOINT_INTERVAL,
+            concurrent_limit: DEFAULT_CONCURRENT_LIMIT,
             progress_bar: None,
         }
     }
@@ -83,6 +91,7 @@ impl EventProcessorConfig {
         Fu: Future<Output = anyhow::Result<P>>,
         P: EventProcessor + Clone + Send + 'static,
         <P as EventProcessor>::Event: Send,
+        <P as EventProcessor>::State: Send,
         <P as EventProcessor>::Error: fmt::Debug,
     {
         macro_rules! keyspace_table_name {
@@ -147,54 +156,58 @@ impl EventProcessorConfig {
 
         // Update checkpoint
         let (status_tx, mut status_rx) = mpsc::unbounded_channel();
-        tokio::spawn(async move {
-            let mut pending: BinaryHeap<Reverse<u64>> = BinaryHeap::new();
-            let mut completed: BinaryHeap<Reverse<u64>> = BinaryHeap::new();
-            let mut max_pending = 0;
-            let mut max_completed = 0;
-            let mut is_live = false;
+        tokio::spawn({
+            let progress_bar = self.progress_bar.clone();
+            async move {
+                let mut pending: BinaryHeap<Reverse<u64>> = BinaryHeap::new();
+                let mut completed: BinaryHeap<Reverse<u64>> = BinaryHeap::new();
+                let mut max_pending = 0;
+                let mut max_completed = 0;
+                let mut is_live = false;
 
-            while let Some(status) = status_rx.recv().await {
-                match status {
-                    EventStatus::Pending(global_sequence) => {
-                        pending.push(Reverse(global_sequence));
-                        max_pending = pending.len().max(max_pending);
-                    }
-                    EventStatus::Completed(global_sequence) => {
-                        completed.push(Reverse(global_sequence));
-                        max_completed = completed.len().max(max_completed);
-                    }
-                }
-
-                if let Some(global_sequence) = lowest_completed(&mut pending, &mut completed) {
-                    if let Some(pb) = &self.progress_bar {
-                        pb.set_position(global_sequence);
-                        if pb
-                            .length()
-                            .map(|len| len < global_sequence)
-                            .unwrap_or(false)
-                        {
-                            pb.set_length(global_sequence);
+                while let Some(status) = status_rx.recv().await {
+                    match status {
+                        EventStatus::Pending(global_sequence) => {
+                            pending.push(Reverse(global_sequence));
+                            max_pending = pending.len().max(max_pending);
                         }
-                        if pb.length().map(|len| len <= pb.position()).unwrap_or(false) && !is_live
-                        {
-                            is_live = true;
-                            if let Some(handle) = &max_events_updater {
-                                handle.abort();
+                        EventStatus::Completed(global_sequence) => {
+                            completed.push(Reverse(global_sequence));
+                            max_completed = completed.len().max(max_completed);
+                        }
+                    }
+
+                    if let Some(global_sequence) = lowest_completed(&mut pending, &mut completed) {
+                        if let Some(pb) = &progress_bar {
+                            pb.set_position(global_sequence);
+                            if pb
+                                .length()
+                                .map(|len| len < global_sequence)
+                                .unwrap_or(false)
+                            {
+                                pb.set_length(global_sequence);
                             }
-                            let sty =
-                                ProgressStyle::with_template(LIVE_PROGRESS_BAR_TEMPLATE).unwrap();
-                            pb.set_style(sty);
+                            if pb.length().map(|len| len <= pb.position()).unwrap_or(false)
+                                && !is_live
+                            {
+                                is_live = true;
+                                if let Some(handle) = &max_events_updater {
+                                    handle.abort();
+                                }
+                                let sty = ProgressStyle::with_template(LIVE_PROGRESS_BAR_TEMPLATE)
+                                    .unwrap();
+                                pb.set_style(sty);
+                            }
                         }
+                        checkpoint_tx.send(global_sequence).unwrap();
                     }
-                    checkpoint_tx.send(global_sequence).unwrap();
                 }
             }
         });
 
         // Iterate events and process them
         let mut locks: HashMap<String, Arc<Mutex<()>>> = HashMap::new();
-        let semaphore = Arc::new(Semaphore::new(32));
+        let semaphore = Arc::new(Semaphore::new(self.concurrent_limit));
         loop {
             let mut iter = events_stream
                 .fetch_events(
@@ -207,20 +220,30 @@ impl EventProcessorConfig {
                 let ev = next_row_res?;
                 let global_sequence = ev.global_sequence;
                 let permit = semaphore.clone().acquire_owned().await?;
-                let lock = locks.entry(ev.stream_name.clone()).or_default().clone();
+                let lock = locks
+                    .entry(ev.stream_name.clone().into_string())
+                    .or_default()
+                    .clone();
                 let guard = lock.lock_owned().await;
                 status_tx.send(EventStatus::Pending(global_sequence))?;
+                let state = event_processor.preprocess_event(&ev).await.unwrap();
                 tokio::spawn({
                     let event_processor = event_processor.clone();
                     let status_tx = status_tx.clone();
+                    let progress_bar = self.progress_bar.clone();
                     async move {
-                        event_processor.handle_event(ev).await.unwrap();
+                        if let Err(err) = event_processor.handle_event(state, ev).await {
+                            if let Some(pb) = &progress_bar {
+                                pb.abandon_with_message(format!("❗ {err:?} ❗"));
+                            }
+                            std::process::exit(1);
+                        }
                         status_tx
                             .send(EventStatus::Completed(global_sequence))
                             .unwrap();
                         trace!(%global_sequence, "handled event");
-                        std::mem::drop(guard);
-                        std::mem::drop(permit);
+                        mem::drop(guard);
+                        mem::drop(permit);
                     }
                 });
                 next_global_sequence = Some(global_sequence + 1);
@@ -265,6 +288,11 @@ impl EventProcessorConfig {
 
     pub fn checkpoint_interval(mut self, checkpoint_interval: f64) -> Self {
         self.checkpoint_interval = checkpoint_interval;
+        self
+    }
+
+    pub fn concurrent_limit(mut self, limit: usize) -> Self {
+        self.concurrent_limit = limit;
         self
     }
 

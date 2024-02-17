@@ -2720,6 +2720,7 @@ dependencies = [
  "scylla",
  "serde",
  "serde_json",
+ "thalo",
  "tokio",
  "tracing",
  "uuid",
