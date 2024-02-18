@@ -31,7 +31,7 @@ const DEFAULT_CONCURRENT_LIMIT: usize = 32;
 const LIVE_PROGRESS_BAR_TEMPLATE: &str =
     "[{elapsed_precise}] 🚩 {prefix}  🔄 {human_pos}  ❯ {wide_msg}";
 
-#[derive(Parser)]
+#[derive(Clone, Parser)]
 pub struct EventProcessorConfig {
     /// Address of a node in source cluster
     #[clap(short = 'H', long, env, default_value_t = DEFAULT_HOSTNAME.to_string())]
@@ -91,7 +91,6 @@ impl EventProcessorConfig {
         Fu: Future<Output = anyhow::Result<P>>,
         P: EventProcessor + Clone + Send + 'static,
         <P as EventProcessor>::Event: Send,
-        <P as EventProcessor>::State: Send,
         <P as EventProcessor>::Error: fmt::Debug,
     {
         macro_rules! keyspace_table_name {
@@ -206,7 +205,7 @@ impl EventProcessorConfig {
         });
 
         // Iterate events and process them
-        let mut locks: HashMap<String, Arc<Mutex<()>>> = HashMap::new();
+        let mut locks: HashMap<LockKey, Arc<Mutex<()>>> = HashMap::new();
         let semaphore = Arc::new(Semaphore::new(self.concurrent_limit));
         loop {
             let mut iter = events_stream
@@ -220,19 +219,16 @@ impl EventProcessorConfig {
                 let ev = next_row_res?;
                 let global_sequence = ev.global_sequence;
                 let permit = semaphore.clone().acquire_owned().await?;
-                let lock = locks
-                    .entry(ev.stream_name.clone().into_string())
-                    .or_default()
-                    .clone();
+                let lock_key = event_processor.lock_key(&ev);
+                let lock = locks.entry(lock_key).or_default().clone();
                 let guard = lock.lock_owned().await;
                 status_tx.send(EventStatus::Pending(global_sequence))?;
-                let state = event_processor.preprocess_event(&ev).await.unwrap();
                 tokio::spawn({
                     let event_processor = event_processor.clone();
                     let status_tx = status_tx.clone();
                     let progress_bar = self.progress_bar.clone();
                     async move {
-                        if let Err(err) = event_processor.handle_event(state, ev).await {
+                        if let Err(err) = event_processor.handle_event(ev).await {
                             if let Some(pb) = &progress_bar {
                                 pb.abandon_with_message(format!("❗ {err:?} ❗"));
                             }

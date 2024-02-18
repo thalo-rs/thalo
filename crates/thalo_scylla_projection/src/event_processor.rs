@@ -14,19 +14,25 @@ use uuid::Uuid;
 #[async_trait]
 pub trait EventProcessor {
     type Event;
-    type State;
     type Error;
 
-    async fn preprocess_event(
-        &self,
-        ev: &RecordedEvent<Self::Event>,
-    ) -> Result<Self::State, Self::Error>;
+    async fn handle_event(&self, ev: RecordedEvent<Self::Event>) -> Result<(), Self::Error>;
 
-    async fn handle_event(
-        &self,
-        state: Self::State,
-        ev: RecordedEvent<Self::Event>,
-    ) -> Result<(), Self::Error>;
+    fn lock_key(&self, ev: &RecordedEvent<Self::Event>) -> LockKey {
+        LockKey::StreamName(ev.stream_name.to_string())
+    }
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum LockKey {
+    /// Lock by the stream name.
+    StreamName(String),
+    /// Lock by an arbitrary key. Useful if you want to process events within
+    /// the same stream concurrently, locking by an arbitrary key.
+    Arbitrary(String),
+    /// Prevent locking, allowing events to be processed completely concurrently
+    /// even within the same stream.
+    None,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -52,6 +58,20 @@ impl<E> RecordedEvent<E> {
         });
 
         serde_json::from_value(event_json)
+    }
+
+    pub fn mapped<E2>(self) -> RecordedEvent<E2> {
+        RecordedEvent {
+            stream_name: self.stream_name,
+            sequence: self.sequence,
+            global_sequence: self.global_sequence,
+            id: self.id,
+            event_type: self.event_type,
+            data: self.data,
+            timestamp: self.timestamp,
+            bucket: self.bucket,
+            phantom: PhantomData,
+        }
     }
 }
 
