@@ -30,6 +30,9 @@ pub enum LockKey {
     /// Lock by an arbitrary key. Useful if you want to process events within
     /// the same stream concurrently, locking by an arbitrary key.
     Arbitrary(String),
+    /// No concurrency at all, events are processed one by one in order of
+    /// global sequence.
+    Sequential,
     /// Prevent locking, allowing events to be processed completely concurrently
     /// even within the same stream.
     None,
