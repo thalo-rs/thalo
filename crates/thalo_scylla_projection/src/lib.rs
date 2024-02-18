@@ -230,7 +230,9 @@ impl EventProcessorConfig {
                     async move {
                         if let Err(err) = event_processor.handle_event(ev).await {
                             if let Some(pb) = &progress_bar {
-                                pb.abandon_with_message(format!("❗ {err:?} ❗"));
+                                pb.abandon_with_message(format!(
+                                    "❗ ERROR PROCESSING EVENT {global_sequence} ❗ {err:?} "
+                                ));
                             }
                             std::process::exit(1);
                         }
