@@ -21,6 +21,10 @@
 [discord-badge]: https://img.shields.io/discord/913402468895965264?color=%23414EED&label=Discord&logo=Discord&logoColor=%23FFFFFF
 [discord-url]: https://discord.gg/4Cq8NnPYPA
 
+> [!IMPORTANT]  
+> **Thalo is currently unmaintained.**<br />
+> New projects are advised to use [SierraDB](https://github.com/sierra-db/sierradb) and [kameo_es](https://github.com/sierra-db/kameo_es), which together are the successor to Thalo.
+
 Thalo is an event sourcing runtime that leverages the power of WebAssembly (wasm) through [wasmtime], combined with [sled] as an embedded event store.
 It is designed to handle commands using compiled aggregate wasm components and to persist the resulting events, efficiently managing the rebuilding of aggregate states from previous events.
 
