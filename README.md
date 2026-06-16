@@ -23,7 +23,7 @@
 
 > [!IMPORTANT]  
 > **Thalo is currently unmaintained.**<br />
-> New projects are advised to use [SierraDB](https://github.com/sierra-db/sierradb) and [kameo_es](https://github.com/sierra-db/kameo_es), which together are the successor to Thalo.
+> New projects are advised to use [Umari](https://github.com/tqwewe/umari), or [SierraDB](https://github.com/sierra-db/sierradb) with [kameo_es](https://github.com/sierra-db/kameo_es).
 
 Thalo is an event sourcing runtime that leverages the power of WebAssembly (wasm) through [wasmtime], combined with [sled] as an embedded event store.
 It is designed to handle commands using compiled aggregate wasm components and to persist the resulting events, efficiently managing the rebuilding of aggregate states from previous events.
